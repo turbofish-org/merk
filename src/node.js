@@ -1,5 +1,4 @@
 let struct = require('varstruct')
-let match = require('varstruct-match')
 let VarInt = require('varint')
 let { sha256 } = require('./common.js')
 
