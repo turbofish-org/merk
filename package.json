@@ -1,7 +1,7 @@
 {
   "name": "merk",
   "version": "1.0.0",
-  "description": "Merkle AVL+ tree with a LevelUp interface",
+  "description": "Merkle AVL tree with a LevelUp interface",
   "main": "index.js",
   "dependencies": {
     "blake2": "^1.4.0",
