@@ -237,6 +237,17 @@ module.exports = function (db) {
       let successor = await this.setChild(left, newChild)
       return successor
     }
+
+    async edge (left) {
+      let cursor = this
+      while (true) {
+        let child = await cursor.child(left)
+        if (child == null) return cursor
+        cursor = child
+      }
+    }
+    min () { return this.edge(true) }
+    max () { return this.edge(false) }
   }
 
   return Node
