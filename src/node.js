@@ -30,7 +30,7 @@ const defaults = {
 }
 
 const nullNode = Object.assign(
-  { height: () => 1 },
+  { height: () => 1, async save () {} },
   defaults)
 
 function nodeIdKey (id) {
@@ -114,7 +114,7 @@ module.exports = function (db) {
       return putNode(this)
     }
 
-    async setChild (left, child) {
+    async setChild (left, child, rebalance = true) {
       if (child != null) {
         child.parentId = this.id
       } else {
@@ -123,10 +123,9 @@ module.exports = function (db) {
 
       this[left ? 'leftId' : 'rightId'] = child.id
       this[left ? 'leftHeight' : 'rightHeight'] = child.height()
-      let balance = this.rightHeight - this.leftHeight
-      if (Math.abs(balance) > 1) {
-        // TODO: rebalance
-        console.log('should balance')
+
+      if (rebalance && Math.abs(this.balance()) > 1) {
+        return this.rebalance()
       }
 
       let leftChild = left ? child : await this.left()
@@ -134,7 +133,36 @@ module.exports = function (db) {
       this.calculateHashSync(leftChild, rightChild)
 
       await this.save()
+      await child.save()
       return this
+    }
+
+    balance () {
+      return this.rightHeight - this.leftHeight
+    }
+
+    async rebalance () {
+      let left = this.balance() < 0
+      let child = await this.child(left)
+
+      // check if we should do a double rotation
+      let childLeftHeavy = child.balance() < 0
+      let childRightHeavy = child.balance() > 0
+      let double = left ? childRightHeavy : childLeftHeavy
+      if (double) {
+        let successor = await child.rotate(!left)
+        await this.setChild(left, successor, false)
+      }
+      return this.rotate(left)
+    }
+
+    async rotate (left) {
+      let child = await this.child(left)
+      let grandChild = await child.child(!left)
+      await this.setChild(left, grandChild, false)
+      child.parentId = 0
+      await child.setChild(!left, this, false)
+      return child
     }
 
     height () {
@@ -192,7 +220,6 @@ module.exports = function (db) {
       if (child == null) {
         // no child here, set node as child
         let successor = await this.setChild(left, node)
-        await node.save()
         return successor
       }
 
@@ -234,7 +261,6 @@ module.exports = function (db) {
 
       let newChild = await child.delete(key)
       let successor = await this.setChild(left, newChild)
-      await newChild.save()
       return successor
     }
 
