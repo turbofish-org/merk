@@ -22,7 +22,6 @@ const defaults = {
   id: 0,
   hash: nullHash,
   kvHash: nullHash,
-  balance: 0,
   leftHeight: 0,
   rightHeight: 0,
   leftId: 0,
@@ -235,6 +234,7 @@ module.exports = function (db) {
 
       let newChild = await child.delete(key)
       let successor = await this.setChild(left, newChild)
+      await newChild.save()
       return successor
     }
 
@@ -248,6 +248,26 @@ module.exports = function (db) {
     }
     min () { return this.edge(true) }
     max () { return this.edge(false) }
+
+    async step (left) {
+      let child = await this.child(left)
+      if (child) return child.edge(!left)
+
+      // backtrack
+      let cursor = await this.parent()
+      while (cursor) {
+        let skip = left ?
+          cursor.key > this.key :
+          cursor.key < this.key
+        if (!skip) return cursor
+        cursor = await cursor.parent()
+      }
+
+      // reached end
+      return null
+    }
+    prev () { return this.step(true) }
+    next () { return this.step(false) }
   }
 
   return Node
