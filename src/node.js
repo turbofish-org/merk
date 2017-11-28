@@ -205,12 +205,7 @@ module.exports = function (db) {
       return child.search(key)
     }
 
-    put (key, value) {
-      let node = new Node({ key, value })
-      return this.putNode(node)
-    }
-
-    async putNode (node) {
+    async put (node) {
       if (node.key === this.key) {
         throw Error(`Duplicate key "${node.key}"`)
       }
@@ -224,7 +219,7 @@ module.exports = function (db) {
       }
 
       // recursively put node under child, then update self
-      let newChild = await child.putNode(node)
+      let newChild = await child.put(node)
       let successor = await this.setChild(left, newChild)
       return successor
     }
@@ -245,7 +240,7 @@ module.exports = function (db) {
         let otherNode = await this.child(!left)
         if (otherNode != null) {
           // if there is another child then put it under successor
-          await successor.putNode(otherNode)
+          await successor.put(otherNode)
         }
         successor.parentId = this.parentId
         await delNode(this)

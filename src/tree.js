@@ -24,15 +24,16 @@ module.exports = class Tree {
   }
 
   async put (key, value) {
-    // no root, create new node and set it as root
+    let node = new this.Node({ key, value })
+
+    // no root, set node as root
     if (this.rootNode == null) {
-      let node = new this.Node({ key, value })
       await node.save()
       await this.setRoot(node)
       return
     }
 
-    let successor = await this.rootNode.put(key, value)
+    let successor = await this.rootNode.put(node)
     await this.setRoot(successor)
   }
 
