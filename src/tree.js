@@ -1,40 +1,46 @@
-let { createHash } = require('crypto')
-let struct = require('varstruct')
-let VarInt = require('varint')
+let Node = require('./node.js')
 
-// sha512-256
-function hash (data) {
-  return createHash('sha512')
-    .update(data)
-    .digest()
-    .slice(0, 32)
-}
-
-let field = (name, type) => ({ name, type })
-
-let InnerNode = struct([
-  field('hash', struct.Buffer(32)),
-  field('balance', struct.Int8),
-  field('left', VarInt),
-  field('right', VarInt)
-])
-
-let LeafNode = struct([
-  field('hash', struct.Buffer(32)),
-  field('key', struct.VarString(VarInt)),
-  field('value', struct.VarString(VarInt))
-])
-
-module.exports =
-class MerkleAVLTree {
+module.exports = class Tree {
   constructor (db) {
     if (db == null) {
       throw Error('Must specify a LevelUp interface')
     }
     this.db = db
+    this.Node = Node(db)
+    this.rootNode = null
   }
 
-  async rootHash () {
-    return (await this.rootNode()).hash
+  rootHash () {
+    if (this.rootNode == null) return null
+    return this.rootNode.hash
+  }
+
+  async setRoot (id) {
+    await this.db.put(':root', id)
+  }
+
+  async put (key, value) {
+    // no root, create new node and set it as root
+    if (this.rootNode == null) {
+      this.rootNode = new this.Node({ key, value })
+      await this.rootNode.save()
+      await this.setRoot(this.rootNode.id)
+      return
+    }
+
+    let successor = await this.rootNode.put(key, value)
+    if (successor.id !== this.rootNode.id) {
+      await this.setRoot(successor.id)
+    }
+  }
+
+  get (key) {
+    if (this.rootNode == null) return null
+
+    let node = this.rootNode.search(key)
+    if (node.key !== key) {
+      throw Error(`Key "${key}" not found`)
+    }
+    return node.value
   }
 }
