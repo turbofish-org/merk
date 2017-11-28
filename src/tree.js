@@ -15,32 +15,42 @@ module.exports = class Tree {
     return this.rootNode.hash
   }
 
-  async setRoot (id) {
-    await this.db.put(':root', id)
+  async setRoot (node) {
+    if (this.rootNode != null && this.rootNode.id === node.id) {
+      return
+    }
+    await this.db.put(':root', node.id)
+    this.rootNode = node
   }
 
   async put (key, value) {
     // no root, create new node and set it as root
     if (this.rootNode == null) {
-      this.rootNode = new this.Node({ key, value })
-      await this.rootNode.save()
-      await this.setRoot(this.rootNode.id)
+      let node = new this.Node({ key, value })
+      await node.save()
+      await this.setRoot(node)
       return
     }
 
     let successor = await this.rootNode.put(key, value)
-    if (successor.id !== this.rootNode.id) {
-      await this.setRoot(successor.id)
-    }
+    await this.setRoot(successor)
   }
 
-  get (key) {
+  async get (key) {
     if (this.rootNode == null) return null
-
-    let node = this.rootNode.search(key)
+    let node = await this.rootNode.search(key)
     if (node.key !== key) {
       throw Error(`Key "${key}" not found`)
     }
     return node.value
+  }
+
+  async del (key) {
+    if (this.rootNode == null) {
+      throw Error('Tree is empty')
+    }
+
+    let successor = await this.rootNode.delete(key)
+    await this.setRoot(successor)
   }
 }

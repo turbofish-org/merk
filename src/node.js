@@ -19,6 +19,7 @@ let codec = struct([
 ])
 
 const defaults = {
+  id: 0,
   hash: nullHash,
   kvHash: nullHash,
   balance: 0,
@@ -28,6 +29,10 @@ const defaults = {
   rightId: 0,
   parentId: 0
 }
+
+const nullNode = Object.assign(
+  { height: () => 1 },
+  defaults)
 
 function nodeIdKey (id) {
   return `n${id}`
@@ -43,6 +48,7 @@ module.exports = function (db) {
     if (id === 0) return null
     let nodeBytes = await db.get(nodeIdKey(id))
     let decoded = codec.decode(nodeBytes)
+    decoded.id = id
     return new Node(decoded)
   }
 
@@ -50,7 +56,7 @@ module.exports = function (db) {
     let nodeBytes = codec.encode(node)
     await db.put(nodeIdKey(node.id), nodeBytes)
     if (node.id === idCounter - 1) {
-      await db.put(':idCounter', node.id)
+      await db.put(':idCounter', idCounter)
     }
   }
 
@@ -69,7 +75,7 @@ module.exports = function (db) {
 
       Object.assign(this, defaults, props)
 
-      if (this.id == null) {
+      if (this.id === 0) {
         this.id = nextID()
       }
       if (this.kvHash.equals(nullHash)) {
@@ -110,7 +116,12 @@ module.exports = function (db) {
     }
 
     async setChild (left, child) {
-      child.parentId = this.id
+      if (child != null) {
+        child.parentId = this.id
+      } else {
+        child = nullNode
+      }
+
       this[left ? 'leftId' : 'rightId'] = child.id
       this[left ? 'leftHeight' : 'rightHeight'] = child.height()
       let balance = this.rightHeight - this.leftHeight
@@ -208,9 +219,9 @@ module.exports = function (db) {
         let otherNode = await this.child(!left)
         if (otherNode != null) {
           // if there is another child then put it under successor
-          let successorChild = await successor.put(otherNode)
-          await successor.setChild(!left, successorChild)
+          await successor.putNode(otherNode)
         }
+        successor.parentId = this.parentId
         await delNode(this)
         return successor
       }
@@ -223,8 +234,8 @@ module.exports = function (db) {
       }
 
       let newChild = await child.delete(key)
-      let newParentChild = await this.setChild(left, newChild)
-      return newParentChild
+      let successor = await this.setChild(left, newChild)
+      return successor
     }
   }
 
