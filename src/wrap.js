@@ -1,52 +1,115 @@
+let { parse, stringify } = require('./json.js')
+let { isObject, baseObject, access, clone } = require('./common.js')
+
 // wraps an object with a proxy, so we can keep track of mutations
-function wrap (obj, mutations, path = []) {
-  function recordMutation (op, key, args) {
-    let mutation = Object.assign({
+function wrap (obj, onMutate, path = []) {
+  function recordMutation (op, childPath, value) {
+    let fullPath = path.concat(childPath)
+    let oldValue
+    let existed = false
+    try {
+      [ oldValue, existed ] = access(obj, childPath)
+    } catch (err) {}
+    let mutation = {
       op,
-      path: key ? path.concat(key) : path,
-      oldValue: key ? clone(obj[key]) : clone(obj)
-    }, args)
-    mutations.push(mutation)
+      path: fullPath,
+      oldValue: clone(oldValue),
+      newValue: value,
+      existed
+    }
+    onMutate(mutation)
     // TODO: replace mutations for overriden paths
   }
 
   // TODO: wrap array methods to record array-specific mutations,
   // otherwise ops like splices and shifts will create N mutations
 
+  function put (obj, key, value, path = []) {
+    if (!isObject(value)) {
+      // if we are overriding an existing object,
+      // record deletion
+      if (isObject(obj[key])) {
+        // recursively delete object props
+        del(obj, key)
+      }
+
+      // record parent object update
+      let parent = baseObject(obj)
+      parent[key] = value
+      recordMutation('put', path, parent)
+      return
+    }
+
+    // if we are overriding an existing non-object,
+    // record update of parent base object
+    if (key in obj && !isObject(obj[key])) {
+      let base = baseObject(obj)
+      delete base[key]
+      recordMutation('put', path, base)
+    }
+
+    let base = baseObject(value)
+    recordMutation('put', path.concat(key), base)
+
+    for (let childKey in value) {
+      let child = value[childKey]
+
+      // if any of our non-object children override an
+      // existing object, then record deletion
+      if (!isObject(child)) {
+        if (!isObject(obj[key])) continue
+        if (!isObject(obj[key][childKey])) continue
+        del(obj[key], childKey, path.concat(key))
+        continue
+      }
+
+      // recursively record puts for objects
+      put(value, childKey, child, path.concat(key))
+    }
+  }
+
+  function del (obj, key, path = []) {
+    let value = obj[key]
+
+    if (!isObject(obj[key])) {
+      // record parent object update
+      let parent = baseObject(obj)
+      delete parent[key]
+      recordMutation('put', path, parent)
+      return
+    }
+
+    recordMutation('del', path.concat(key))
+
+    // recursively record deletions for objects
+    for (let childKey in value) {
+      let child = value[childKey]
+      if (!isObject(child)) continue
+      del(value, childKey, path.concat(key))
+    }
+  }
+
   return new Proxy(obj, {
     // recursively wrap child objects when accessed
     get (obj, key) {
       let value = obj[key]
+      if (!isObject(value)) return value
 
       // if value is object, recursively wrap
-      if (typeof value === 'object') {
-        let childPath = path.concat(key)
-        return wrap(value, mutations, childPath)
-      }
-
-      return value
+      let childPath = path.concat(key)
+      return wrap(value, onMutate, childPath)
     },
 
     // record mutations
     set (obj, key, value) {
-      let wasDefined = key in obj
-      if (typeof value === 'object') {
-        recordMutation('put', key, {
-          newValue: value,
-          wasDefined
-        })
-      } else {
-        let newValue = clone(obj)
-        newValue[key] = value
-        recordMutation('put', null, { newValue })
-      }
+      put(obj, key, value)
       obj[key] = value
       return true
     },
 
     // record deletions as mutations too
     deleteProperty (obj, key) {
-      recordMutation('del', key)
+      del(obj, key)
       delete obj[key]
       return true
     },
@@ -56,12 +119,6 @@ function wrap (obj, mutations, path = []) {
       return Object.getOwnPropertyNames(obj)
     }
   })
-}
-
-function clone (value) {
-  if (typeof value !== 'object') return value
-  // TODO: better deep clone
-  return JSON.parse(JSON.stringify(value))
 }
 
 module.exports = wrap

@@ -28,9 +28,10 @@ const defaults = {
   parentId: 0
 }
 
-const nullNode = Object.assign(
-  { height: () => 1, async save () {} },
-  defaults)
+const nullNode = Object.assign({
+  height: () => 1,
+  async save () {}
+}, defaults)
 
 function nodeIdKey (id) {
   return `n${id}`
