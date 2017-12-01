@@ -207,7 +207,11 @@ module.exports = function (db) {
 
     async put (node) {
       if (node.key === this.key) {
-        throw Error(`Duplicate key "${node.key}"`)
+        // same key, just update the value of this node
+        this.value = node.value
+        this.calculateKVHash()
+        await this.save()
+        return this
       }
 
       let left = node.key < this.key
