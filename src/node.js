@@ -37,8 +37,7 @@ function nodeIdKey (id) {
   return `n${id}`
 }
 
-module.exports = function (db) {
-  let idCounter = 1
+module.exports = function (db, idCounter = 1) {
   function nextID () {
     return idCounter++
   }
@@ -294,6 +293,12 @@ module.exports = function (db) {
     prev () { return this.step(true) }
     next () { return this.step(false) }
   }
+
+  Object.assign(Node, {
+    get: getNode,
+    put: putNode,
+    del: delNode
+  })
 
   return Node
 }

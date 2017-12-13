@@ -99,6 +99,7 @@ function reset (root) {
       continue
     }
 
+    // assign old value to parent object
     let [ parent ] = access(unwrapped, path.slice(0, -1))
     let lastKey = path[path.length - 1]
     if (value === symbols.delete) {

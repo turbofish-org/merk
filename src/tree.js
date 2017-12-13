@@ -1,12 +1,13 @@
+let old = require('old')
 let Node = require('./node.js')
 
-module.exports = class Tree {
-  constructor (db) {
+class Tree {
+  constructor (db, idCounter) {
     if (db == null) {
       throw Error('Must specify a LevelUp interface')
     }
     this.db = db
-    this.Node = Node(db)
+    this.Node = Node(db, idCounter)
     this.rootNode = null
   }
 
@@ -55,3 +56,20 @@ module.exports = class Tree {
     await this.setRoot(successor)
   }
 }
+
+Tree.load = async function loadTree (db) {
+  let idCounter = await getInt(db, ':idCounter')
+  let tree = new Tree(db, idCounter)
+
+  let rootId = await getInt(db, ':root')
+  tree.rootNode = await tree.Node.get(rootId)
+
+  return tree
+}
+
+async function getInt (db, key) {
+  let bytes = await db.get(key)
+  return parseInt(bytes.toString())
+}
+
+module.exports = old(Tree)
