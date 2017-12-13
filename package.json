@@ -5,6 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "json-stable-stringify": "^1.0.1",
+    "level-transactions": "^2.1.4",
     "old": "^0.2.0",
     "varint": "^5.0.0",
     "varstruct": "^6.1.1"

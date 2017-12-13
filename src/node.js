@@ -1,5 +1,6 @@
 let struct = require('varstruct')
 let VarInt = require('varint')
+let Transaction = require('level-transactions')
 let { sha256 } = require('./common.js')
 
 const nullHash = Buffer(32).fill(0)
@@ -37,33 +38,66 @@ function nodeIdKey (id) {
   return `n${id}`
 }
 
-module.exports = function (db, idCounter = 1) {
-  function nextID () {
-    return idCounter++
+// promsifies level-transactions methods
+function createTx (db) {
+  let tx = Transaction(db)
+
+  function promisify (method) {
+    return (...args) => {
+      return new Promise((resolve, reject) => {
+        tx[method](...args, (err, value) => {
+          if (err) return reject(err)
+          resolve(value)
+        })
+      })
+    }
   }
 
-  async function getNode (id) {
+  return {
+    get: promisify('get'),
+    put: promisify('put'),
+    del: promisify('del'),
+    commit: promisify('commit')
+  }
+}
+
+function createReadOnlyTx (db) {
+  return {
+    async get (key) {
+      let nodeBytes = await db.get(key)
+      return Buffer.from(nodeBytes.toString(), 'base64')
+    },
+    put () { throw Error('Tried to "put" on read-only tx') },
+    del () { throw Error('Tried to "del" on read-only tx') }
+  }
+}
+
+module.exports = function (db, idCounter = 1) {
+  function nextID (tx) {
+    let id = idCounter++
+    tx.put(':idCounter', idCounter)
+    return id
+  }
+
+  async function getNode (tx, id) {
     if (id === 0) return null
-    let nodeBytes = await db.get(nodeIdKey(id))
-    let decoded = codec.decode(nodeBytes)
+    let nodeBytes = await tx.get(nodeIdKey(id))
+    let decoded = codec.decode(Buffer.from(nodeBytes, 'base64'))
     decoded.id = id
     return new Node(decoded)
   }
 
-  async function putNode (node) {
-    let nodeBytes = codec.encode(node)
-    await db.put(nodeIdKey(node.id), nodeBytes)
-    if (node.id === idCounter - 1) {
-      await db.put(':idCounter', idCounter)
-    }
+  function putNode (tx, node) {
+    let nodeBytes = codec.encode(node).toString('base64')
+    tx.put(nodeIdKey(node.id), nodeBytes)
   }
 
-  async function delNode (node) {
-    await db.del(nodeIdKey(node.id))
+  function delNode (tx, node) {
+    tx.del(nodeIdKey(node.id))
   }
 
   class Node {
-    constructor (props) {
+    constructor (props, tx) {
       if (props.key == null) {
         throw new Error('Key is required')
       }
@@ -74,7 +108,7 @@ module.exports = function (db, idCounter = 1) {
       Object.assign(this, defaults, props)
 
       if (this.id === 0) {
-        this.id = nextID()
+        this.id = nextID(tx)
       }
       if (this.kvHash.equals(nullHash)) {
         this.calculateKVHash()
@@ -92,28 +126,35 @@ module.exports = function (db, idCounter = 1) {
       return !this.isInnerNode()
     }
 
-    left () {
-      return getNode(this.leftId)
+    left (tx) {
+      return getNode(tx, this.leftId)
     }
 
-    right () {
-      return getNode(this.rightId)
+    right (tx) {
+      return getNode(tx, this.rightId)
     }
 
-    child (left) {
-      if (left) return this.left()
-      return this.right()
+    child (tx, left) {
+      if (left) return this.left(tx)
+      return this.right(tx)
     }
 
-    parent () {
-      return getNode(this.parentId)
+    parent (tx) {
+      return getNode(tx, this.parentId)
     }
 
-    save () {
-      return putNode(this)
+    async save (tx) {
+      if (!tx) {
+        var createdTx = true
+        tx = createTx(db)
+      }
+
+      putNode(tx, this)
+
+      if (createdTx) await tx.commit()
     }
 
-    async setChild (left, child, rebalance = true) {
+    async setChild (tx, left, child, rebalance = true) {
       if (child != null) {
         child.parentId = this.id
       } else {
@@ -124,15 +165,15 @@ module.exports = function (db, idCounter = 1) {
       this[left ? 'leftHeight' : 'rightHeight'] = child.height()
 
       if (rebalance && Math.abs(this.balance()) > 1) {
-        return this.rebalance()
+        return this.rebalance(tx)
       }
 
-      let leftChild = left ? child : await this.left()
-      let rightChild = !left ? child : await this.right()
+      let leftChild = left ? child : await this.left(tx)
+      let rightChild = !left ? child : await this.right(tx)
       this.calculateHashSync(leftChild, rightChild)
 
-      await this.save()
-      await child.save()
+      await this.save(tx)
+      await child.save(tx)
       return this
     }
 
@@ -140,27 +181,27 @@ module.exports = function (db, idCounter = 1) {
       return this.rightHeight - this.leftHeight
     }
 
-    async rebalance () {
+    async rebalance (tx) {
       let left = this.balance() < 0
-      let child = await this.child(left)
+      let child = await this.child(tx, left)
 
       // check if we should do a double rotation
       let childLeftHeavy = child.balance() < 0
       let childRightHeavy = child.balance() > 0
       let double = left ? childRightHeavy : childLeftHeavy
       if (double) {
-        let successor = await child.rotate(!left)
-        await this.setChild(left, successor, false)
+        let successor = await child.rotate(tx, !left)
+        await this.setChild(tx, left, successor, false)
       }
-      return this.rotate(left)
+      return this.rotate(tx, left)
     }
 
-    async rotate (left) {
-      let child = await this.child(left)
-      let grandChild = await child.child(!left)
-      await this.setChild(left, grandChild, false)
+    async rotate (tx, left) {
+      let child = await this.child(tx, left)
+      let grandChild = await child.child(tx, !left)
+      await this.setChild(tx, left, grandChild, false)
       child.parentId = 0
-      await child.setChild(!left, this, false)
+      await child.setChild(tx, !left, this, false)
       return child
     }
 
@@ -168,9 +209,9 @@ module.exports = function (db, idCounter = 1) {
       return Math.max(this.leftHeight, this.rightHeight) + 1
     }
 
-    async calculateHash () {
-      let leftChild = await this.left()
-      let rightChild = await this.right()
+    async calculateHash (tx) {
+      let leftChild = await this.left(tx)
+      let rightChild = await this.right(tx)
       return calculateHashSync(leftChild, rightChild)
     }
 
@@ -191,81 +232,112 @@ module.exports = function (db, idCounter = 1) {
       return this.kvHash = sha256(input)
     }
 
-    async search (key) {
+    async search (key, tx) {
       // found key match
       if (key === this.key) return this
+
+      if (!tx) tx = createReadOnlyTx(db)
 
       // recurse through left child if key is < this.key,
       // otherwise recurse through right
       let left = key < this.key
-      let child = await this.child(left)
+      let child = await this.child(tx, left)
       // if we don't have a child for this side, return self
       if (child == null) return this
-      return child.search(key)
+      return child.search(key, tx)
     }
 
-    async put (node) {
+    async put (node, tx) {
+      if (!tx) {
+        var createdTx = true
+        tx = createTx(db)
+      }
+
+      async function done (res, err) {
+        if (createdTx) {
+          if (err) tx.rollback()
+          else await tx.commit()
+        }
+        if (err) throw err
+        return res
+      }
+
       if (node.key === this.key) {
         // same key, just update the value of this node
         this.value = node.value
         this.calculateKVHash()
-        await this.save()
-        return this
+        await this.save(tx)
+        return done(this)
       }
 
       let left = node.key < this.key
-      let child = await this.child(left)
+      let child = await this.child(tx, left)
       if (child == null) {
         // no child here, set node as child
-        let successor = await this.setChild(left, node)
-        return successor
+        let successor = await this.setChild(tx, left, node)
+        return done(successor)
       }
 
       // recursively put node under child, then update self
-      let newChild = await child.put(node)
-      let successor = await this.setChild(left, newChild)
-      return successor
+      let newChild = await child.put(node, tx)
+      let successor = await this.setChild(tx, left, newChild)
+      return done(successor)
     }
 
-    async delete (key) {
+    async delete (key, tx) {
+      if (!tx) {
+        var createdTx = true
+        tx = createTx(db)
+      }
+
+      async function done (res, err) {
+        if (createdTx) {
+          if (err) tx.rollback()
+          else await tx.commit()
+        }
+        if (err) throw err
+        return res
+      }
+
       if (key === this.key) {
         // delete this node
 
         if (this.isLeafNode()) {
           // no children
-          await delNode(this)
-          return null
+          delNode(tx, this)
+          return done(null)
         }
 
         // promote successor child to this position
         let left = this.leftHeight > this.rightHeight
-        let successor = await this.child(left)
-        let otherNode = await this.child(!left)
+        let successor = await this.child(tx, left)
+        let otherNode = await this.child(tx, !left)
         if (otherNode != null) {
           // if there is another child then put it under successor
-          await successor.put(otherNode)
+          await successor.put(tx, otherNode)
         }
         successor.parentId = this.parentId
-        await delNode(this)
-        return successor
+        delNode(tx, this)
+        return done(successor)
       }
 
       let left = key < this.key
-      let child = await this.child(left)
+      let child = await this.child(tx, left)
       if (child == null) {
         // no child here, key not found
-        throw Error(`Key "${key}" not found`)
+        return done(null, Error(`Key "${key}" not found`))
       }
 
-      let newChild = await child.delete(key)
-      let successor = await this.setChild(left, newChild)
-      return successor
+      let newChild = await child.delete(key, tx)
+      let successor = await this.setChild(tx, left, newChild)
+      return done(successor)
     }
 
-    async edge (left) {
+    async edge (left, tx) {
+      if (!tx) tx = createReadOnlyTx(db)
       let cursor = this
       while (true) {
-        let child = await cursor.child(left)
+        let child = await cursor.child(tx, left)
         if (child == null) return cursor
         cursor = child
       }
@@ -274,17 +346,18 @@ module.exports = function (db, idCounter = 1) {
     max () { return this.edge(false) }
 
     async step (left) {
-      let child = await this.child(left)
-      if (child) return child.edge(!left)
+      let tx = createReadOnlyTx(db)
+      let child = await this.child(tx, left)
+      if (child) return child.edge(!left, tx)
 
       // backtrack
-      let cursor = await this.parent()
+      let cursor = await this.parent(tx)
       while (cursor) {
         let skip = left ?
           cursor.key > this.key :
           cursor.key < this.key
         if (!skip) return cursor
-        cursor = await cursor.parent()
+        cursor = await cursor.parent(tx)
       }
 
       // reached end
@@ -302,3 +375,5 @@ module.exports = function (db, idCounter = 1) {
 
   return Node
 }
+
+module.exports.createTx = createTx

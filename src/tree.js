@@ -16,26 +16,39 @@ class Tree {
     return this.rootNode.hash
   }
 
-  async setRoot (node) {
+  async setRoot (node, tx) {
     if (this.rootNode != null && this.rootNode.id === node.id) {
       return
     }
+
+    if (!tx) {
+      tx = Node.createTx(this.db)
+      var createdTx = true
+    }
+
     await this.db.put(':root', node.id)
     this.rootNode = node
+
+    if (createdTx) {
+      await tx.commit()
+    }
   }
 
   async put (key, value) {
-    let node = new this.Node({ key, value })
+    let tx = Node.createTx(this.db)
+    let node = new this.Node({ key, value }, tx)
 
     // no root, set node as root
     if (this.rootNode == null) {
-      await node.save()
-      await this.setRoot(node)
+      await node.save(tx)
+      await this.setRoot(node, tx)
+      await tx.commit()
       return
     }
 
-    let successor = await this.rootNode.put(node)
-    await this.setRoot(successor)
+    let successor = await this.rootNode.put(node, tx)
+    await this.setRoot(successor, tx)
+    await tx.commit()
   }
 
   async get (key) {
@@ -52,8 +65,10 @@ class Tree {
       throw Error('Tree is empty')
     }
 
-    let successor = await this.rootNode.delete(key)
+    let tx = Node.createTx(this.db)
+    let successor = await this.rootNode.delete(key, tx)
     await this.setRoot(successor)
+    await tx.commit()
   }
 }
 
