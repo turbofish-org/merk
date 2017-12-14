@@ -14,10 +14,11 @@
     "ava": "^0.24.0",
     "leveldown": "^2.1.0",
     "levelup": "^2.0.1",
-    "nyc": "^11.3.0"
+    "nyc": "^11.3.0",
+    "standard": "^10.0.3"
   },
   "scripts": {
-    "test": "nyc --reporter=html ava && nyc report"
+    "test": "standard src index.js && nyc --reporter=html ava && nyc report"
   },
   "ava": {
     "files": [
