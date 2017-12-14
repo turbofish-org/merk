@@ -17,7 +17,7 @@
     "nyc": "^11.3.0"
   },
   "scripts": {
-    "test": "nyc ava"
+    "test": "nyc --reporter=html ava && nyc report"
   },
   "ava": {
     "files": [
