@@ -1,0 +1,18 @@
+language: node_js
+os:
+  - linux
+  - osx
+env:
+  - NODE=8
+  - NODE=9
+install:
+  - rm -rf ~/.nvm
+  - git clone https://github.com/creationix/nvm.git ~/.nvm
+  - source ~/.nvm/nvm.sh
+  - nvm install $NODE
+  - nvm --version
+  - node --version
+  - npm --version
+  - npm install
+notifications:
+  email: false
