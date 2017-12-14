@@ -11,11 +11,19 @@
     "varstruct": "^6.1.1"
   },
   "devDependencies": {
+    "ava": "^0.24.0",
     "leveldown": "^2.1.0",
-    "levelup": "^2.0.1"
+    "levelup": "^2.0.1",
+    "nyc": "^11.3.0"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "nyc ava"
+  },
+  "ava": {
+    "files": [
+      "test/*",
+      "!test/common.js"
+    ]
   },
   "author": "Matt Bell <mappum@gmail.com>",
   "license": "MIT"
