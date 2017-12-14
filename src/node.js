@@ -368,9 +368,7 @@ module.exports = function (db, idCounter = 1) {
   }
 
   Object.assign(Node, {
-    get: getNode,
-    put: putNode,
-    del: delNode
+    get: (id) => getNode(createReadOnlyTx(db), id)
   })
 
   return Node
