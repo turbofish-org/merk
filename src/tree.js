@@ -1,4 +1,5 @@
 let old = require('old')
+let Transaction = require('level-transactions')
 let Node = require('./node.js')
 
 class Tree {
@@ -39,7 +40,7 @@ class Tree {
     }
 
     if (!tx) {
-      tx = Node.createTx(this.db)
+      tx = createTx(this.db)
       var createdTx = true
     }
 
@@ -74,7 +75,7 @@ class Tree {
 
     let release = await this.acquireLock()
 
-    let tx = Node.createTx(this.db)
+    let tx = createTx(this.db)
     let node = new this.Node({ key, value }, tx)
 
     // no root, set node as root
@@ -112,7 +113,7 @@ class Tree {
 
     let release = await this.acquireLock()
 
-    let tx = Node.createTx(this.db)
+    let tx = createTx(this.db)
     let successor = await this.rootNode.delete(key, tx)
     await this.setRoot(successor, tx)
     await tx.commit()
@@ -132,3 +133,26 @@ async function getInt (db, key) {
 }
 
 module.exports = old(Tree)
+
+// promsifies level-transactions methods
+function createTx (db) {
+  let tx = Transaction(db)
+
+  function promisify (method) {
+    return (...args) => {
+      return new Promise((resolve, reject) => {
+        tx[method](...args, (err, value) => {
+          if (err) return reject(err)
+          resolve(value)
+        })
+      })
+    }
+  }
+
+  return {
+    get: promisify('get'),
+    put: promisify('put'),
+    del: promisify('del'),
+    commit: promisify('commit')
+  }
+}
