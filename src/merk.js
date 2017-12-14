@@ -119,9 +119,17 @@ async function commit (root) {
   let db = root[symbols.db]()
 
   let promises = []
-  for (let key in mutations.after) {
-    let prefixedKey = `.${key}`
-    if (key === symbols.root) prefixedKey = '.'
+
+  let mutationKeys = Object.keys(mutations.after)
+  if (mutations.after[symbols.root]) {
+    // root symbol is a special case since Symbols
+    // aren't included in Object.keys
+    mutationKeys.push(symbols.root)
+  }
+
+  for (let key of mutationKeys) {
+    let prefixedKey = '.'
+    if (key !== symbols.root) prefixedKey += key
 
     let value = mutations.after[key]
     if (value === symbols.delete) {
