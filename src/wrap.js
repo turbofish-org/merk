@@ -1,5 +1,4 @@
-let { parse, stringify } = require('./json.js')
-let { isObject, baseObject, access, clone } = require('./common.js')
+let { isObject, baseObject, access } = require('./common.js')
 
 // wraps an object with a proxy, so we can keep track of mutations
 function wrap (obj, onMutate, path = []) {

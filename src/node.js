@@ -2,7 +2,7 @@ let struct = require('varstruct')
 let VarInt = require('varint')
 let { sha256 } = require('./common.js')
 
-const nullHash = Buffer(32).fill(0)
+const nullHash = Buffer.alloc(32)
 
 let VarString = struct.VarString(VarInt)
 let codec = struct([
@@ -184,7 +184,8 @@ module.exports = function (db, idCounter = 1) {
         rightChild ? rightChild.hash : nullHash,
         this.kvHash
       ])
-      return this.hash = sha256(input)
+      this.hash = sha256(input)
+      return this.hash
     }
 
     calculateKVHash () {
@@ -192,7 +193,8 @@ module.exports = function (db, idCounter = 1) {
         VarString.encode(this.key),
         VarString.encode(this.value)
       ])
-      return this.kvHash = sha256(input)
+      this.kvHash = sha256(input)
+      return this.kvHash
     }
 
     async search (key, tx) {
@@ -260,7 +262,7 @@ module.exports = function (db, idCounter = 1) {
       let child = await this.child(tx, left)
       if (child == null) {
         // no child here, key not found
-        return null, Error(`Key "${key}" not found`)
+        throw Error(`Key "${key}" not found`)
       }
 
       let newChild = await child.delete(key, tx)
@@ -288,9 +290,9 @@ module.exports = function (db, idCounter = 1) {
       // backtrack
       let cursor = await this.parent(tx)
       while (cursor) {
-        let skip = left ?
-          cursor.key > this.key :
-          cursor.key < this.key
+        let skip = left
+          ? cursor.key > this.key
+          : cursor.key < this.key
         if (!skip) return cursor
         cursor = await cursor.parent(tx)
       }

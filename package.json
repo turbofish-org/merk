@@ -18,7 +18,7 @@
     "standard": "^10.0.3"
   },
   "scripts": {
-    "test": "standard src index.js && nyc --reporter=html ava && nyc report"
+    "test": "standard src/* index.js && nyc --reporter=html ava && nyc report"
   },
   "ava": {
     "files": [

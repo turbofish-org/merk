@@ -1,5 +1,5 @@
 let wrap = require('./wrap.js')
-let { stringify, parse } = require('./json.js')
+let { stringify } = require('./json.js')
 let {
   access,
   symbols,

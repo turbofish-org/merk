@@ -118,7 +118,7 @@ test('delete multi-level non-preexisting key', (t) => {
   let db = mockDb()
   let obj = merk(db)
 
-  obj.foo = { x: { y: 5 }  }
+  obj.foo = { x: { y: 5 } }
   delete obj.foo
 
   t.deepEqual(obj, {})

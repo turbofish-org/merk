@@ -21,7 +21,7 @@ class Tree {
 
     let rootId = await getInt(this.db, ':root')
     if (rootId != null) {
-      tree.rootNode = await tree.Node.get(rootId)
+      this.rootNode = await this.Node.get(rootId)
     }
 
     this.initialized = true
