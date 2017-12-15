@@ -17,6 +17,7 @@ function isObject (value) {
 
 // clones an object, without any properties of type 'object'
 function baseObject (obj) {
+  if (!isObject(obj)) return obj
   let base = {}
   for (let key in obj) {
     let value = obj[key]
@@ -45,7 +46,13 @@ function access (obj, path) {
 // shallow clone
 function clone (value) {
   if (!isObject(value)) return value
-  return Object.assign({}, value)
+  if (Array.isArray(value)) return value.slice()
+  let cloned = {}
+  // doesn't include symbols
+  for (let key in value) {
+    cloned[key] = value[key]
+  }
+  return cloned
 }
 
 module.exports = {
