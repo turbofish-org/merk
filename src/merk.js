@@ -1,6 +1,11 @@
 let wrap = require('./wrap.js')
 let { stringify, parse } = require('./json.js')
-let { access, symbols } = require('./common.js')
+let {
+  access,
+  symbols,
+  baseObject,
+  isObject
+} = require('./common.js')
 
 class Mutations {
   constructor () {
@@ -13,7 +18,7 @@ class Mutations {
   }
 
   keyIsNew (key) {
-    this.before[key] === symbols.delete
+    return this.before[key] === symbols.delete
   }
 
   hasAncestor (path) {
@@ -33,17 +38,40 @@ class Mutations {
     let key = pathToKey(path)
 
     // if first change for this key, record previous state
-    if (!(key in this.before) && !this.hasAncestor(path)) {
+    if (!(key in this.before)) {
       let value = oldValue
       if (!existed) value = symbols.delete
-      this.before[key] = value
+
+      // don't record if parent was previously non-existent
+      if (this.ancestor(path) !== symbols.delete) {
+        this.before[key] = baseObject(value)
+      }
     }
 
     // store updated value for key
     if (op === 'put') {
       this.after[key] = newValue
     } else if (op === 'del') {
-      if (this.keyIsNew(key) || this.ancestor(path) === symbols.delete) {
+      let parentWasDeleted = this.ancestor(path) === symbols.delete
+      if (this.keyIsNew(key) || parentWasDeleted) {
+        let value = this.after[key]
+
+        if (isObject(value)) {
+          // recursively update object properties
+          for (let childKey in value) {
+            if (typeof value[childKey] !== 'object') continue
+            let childPath = path.concat(childKey)
+            this.mutate({
+              op: 'del',
+              path: childPath,
+              oldValue: value[childKey],
+              newValue: symbols.delete,
+              existed: true
+            })
+          }
+        }
+
+        delete this.before[key]
         delete this.after[key]
       } else {
         this.after[key] = symbols.delete
@@ -53,6 +81,10 @@ class Mutations {
 }
 
 function Merk (db) {
+  if (!db || db.toString() !== 'LevelUP') {
+    throw Error('Must provide a LevelUP instance')
+  }
+
   let mutations = new Mutations()
 
   let root = {
@@ -83,7 +115,7 @@ function assertRoot (root) {
 }
 
 // revert to last commit
-function reset (root) {
+function rollback (root) {
   assertRoot(root)
   let mutations = root[symbols.mutations]()
   let unwrapped = root[symbols.root]()
@@ -155,6 +187,7 @@ function getter (symbol) {
 
 module.exports = Object.assign(Merk, {
   mutations: getter(symbols.mutations),
-  reset,
-  commit
+  rollback,
+  commit,
+  Mutations
 })
