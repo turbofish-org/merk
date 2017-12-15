@@ -13,7 +13,7 @@ function wrap (obj, onMutate, path = []) {
     let mutation = {
       op,
       path: fullPath,
-      oldValue: clone(oldValue),
+      oldValue: baseObject(oldValue),
       newValue: value,
       existed
     }

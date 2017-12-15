@@ -113,7 +113,7 @@ test('replace object with non-object', (t) => {
     }, {
       op: 'put',
       path: [],
-      oldValue: { foo: { x: 5 } },
+      oldValue: {},
       newValue: { foo: 'bar' },
       existed: true
     }
@@ -228,7 +228,7 @@ test('override object by setting on parent', (t) => {
     {
       op: 'put',
       path: [ 'foo' ],
-      oldValue: { x: { y: 5 } },
+      oldValue: {},
       newValue: { x: 5 },
       existed: true
     }, {
@@ -283,7 +283,7 @@ test('delete multiple-level object', (t) => {
     {
       op: 'del',
       path: [ 'foo' ],
-      oldValue: { x: { y: 5 } },
+      oldValue: {},
       newValue: undefined,
       existed: true
     }, {
