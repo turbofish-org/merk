@@ -1,7 +1,7 @@
 {
   "name": "merk",
   "version": "1.0.0",
-  "description": "Merkle AVL tree with a LevelUp interface",
+  "description": "A Merkle tree with the simplest interface ever",
   "main": "index.js",
   "dependencies": {
     "json-stable-stringify": "^1.0.1",
