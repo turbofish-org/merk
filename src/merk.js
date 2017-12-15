@@ -21,10 +21,6 @@ class Mutations {
     return this.before[key] === symbols.delete
   }
 
-  hasAncestor (path) {
-    return this.ancestor(path) != null
-  }
-
   ancestor (path) {
     for (let i = 1; i < path.length; i++) {
       let ancestorKey = pathToKey(path.slice(0, -i))
@@ -54,23 +50,6 @@ class Mutations {
     } else if (op === 'del') {
       let parentWasDeleted = this.ancestor(path) === symbols.delete
       if (this.keyIsNew(key) || parentWasDeleted) {
-        let value = this.after[key]
-
-        if (isObject(value)) {
-          // recursively update object properties
-          for (let childKey in value) {
-            if (typeof value[childKey] !== 'object') continue
-            let childPath = path.concat(childKey)
-            this.mutate({
-              op: 'del',
-              path: childPath,
-              oldValue: value[childKey],
-              newValue: symbols.delete,
-              existed: true
-            })
-          }
-        }
-
         delete this.before[key]
         delete this.after[key]
       } else {
@@ -125,23 +104,32 @@ function rollback (root) {
     let value = mutations.before[key]
     let path = keyToPath(key)
 
-    // special case for setting properties on root object
-    if (key === symbols.root) {
-      Object.assign(unwrapped, value)
-      continue
-    }
-
     // assign old value to parent object
     let [ parent ] = access(unwrapped, path.slice(0, -1))
     let lastKey = path[path.length - 1]
     if (value === symbols.delete) {
       delete parent[lastKey]
     } else {
-      parent[lastKey] = value
+      updateBase(parent[lastKey], value)
     }
   }
 
+  // special case for setting properties on root object
+  if (mutations.before[symbols.root]) {
+    let value = mutations.before[symbols.root]
+    updateBase(unwrapped, value)
+  }
+
   mutations.reset()
+}
+
+function updateBase (base, updated) {
+  Object.assign(base, updated)
+  for (let key in base) {
+    if (!(key in updated) && !isObject(base[key])) {
+      delete base[key]
+    }
+  }
 }
 
 // flush to db
@@ -189,5 +177,6 @@ module.exports = Object.assign(Merk, {
   mutations: getter(symbols.mutations),
   rollback,
   commit,
-  Mutations
+  Mutations,
+  keyToPath
 })

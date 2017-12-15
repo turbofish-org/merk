@@ -79,14 +79,14 @@ function wrap (obj, onMutate, path = []) {
       return
     }
 
-    recordMutation('del', path.concat(key))
-
     // recursively record deletions for objects
     for (let childKey in value) {
       let child = value[childKey]
       if (!isObject(child)) continue
       del(value, childKey, path.concat(key))
     }
+
+    recordMutation('del', path.concat(key))
   }
 
   return new Proxy(obj, {

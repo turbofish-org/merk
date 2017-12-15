@@ -282,14 +282,14 @@ test('delete multiple-level object', (t) => {
   t.deepEqual(mutations, [
     {
       op: 'del',
-      path: [ 'foo' ],
-      oldValue: {},
+      path: [ 'foo', 'x' ],
+      oldValue: { y: 5 },
       newValue: undefined,
       existed: true
     }, {
       op: 'del',
-      path: [ 'foo', 'x' ],
-      oldValue: { y: 5 },
+      path: [ 'foo' ],
+      oldValue: {},
       newValue: undefined,
       existed: true
     }
