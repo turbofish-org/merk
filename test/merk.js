@@ -177,6 +177,15 @@ test('mutate after commit', async (t) => {
     foo: { x: 6 },
     [symbols.root]: { bar: 'BAZ' }
   })
+
+  await merk.commit(obj)
+
+  t.deepEqual(db.puts, [
+    { key: '.foo', value: '{"x":5}' },
+    { key: '.', value: '{"bar":"baz"}' },
+    { key: '.foo', value: '{"x":6}' },
+    { key: '.', value: '{"bar":"BAZ"}' }
+  ])
 })
 
 test('delete after commit', async (t) => {
@@ -244,6 +253,9 @@ test('commit without root mutation', async (t) => {
   delete obj.foo
 
   await merk.commit(obj)
+
+  t.deepEqual(db.puts, [ { key: '.foo', value: '{"x":5}' } ])
+  t.deepEqual(db.dels, [ { key: '.foo' } ])
 
   let mutations = merk.mutations(obj)
   t.deepEqual(mutations.before, {})
