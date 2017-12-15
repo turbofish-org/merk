@@ -3,8 +3,8 @@ let Transaction = require('level-transactions')
 let Node = require('./node.js')
 
 class Tree {
-  constructor (db, idCounter) {
-    if (db == null) {
+  constructor (db) {
+    if (!db || db.toString() !== 'LevelUP') {
       throw Error('Must specify a LevelUp interface')
     }
     this.db = db
@@ -15,7 +15,7 @@ class Tree {
     this.initialize = this.maybeLoad()
   }
 
-  async maybeLoad (doneLoading) {
+  async maybeLoad () {
     let idCounter = await getInt(this.db, ':idCounter')
     this.Node = Node(this.db, idCounter)
 
@@ -136,23 +136,22 @@ module.exports = old(Tree)
 
 // promsifies level-transactions methods
 function createTx (db) {
-  let tx = Transaction(db)
-
-  function promisify (method) {
-    return (...args) => {
-      return new Promise((resolve, reject) => {
-        tx[method](...args, (err, value) => {
-          if (err) return reject(err)
-          resolve(value)
-        })
-      })
-    }
-  }
-
+  let tx = new Transaction(db)
   return {
-    get: promisify('get'),
-    put: promisify('put'),
-    del: promisify('del'),
-    commit: promisify('commit')
+    get: promisify(tx, 'get'),
+    put: promisify(tx, 'put'),
+    del: promisify(tx, 'del'),
+    commit: promisify(tx, 'commit')
+  }
+}
+
+function promisify (obj, method) {
+  return (...args) => {
+    return new Promise((resolve, reject) => {
+      obj[method](...args, (err, value) => {
+        if (err) return reject(err)
+        resolve(value)
+      })
+    })
   }
 }

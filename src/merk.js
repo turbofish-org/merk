@@ -1,91 +1,28 @@
 let wrap = require('./wrap.js')
-let { stringify } = require('./json.js')
-let {
-  access,
-  symbols,
-  baseObject,
-  isObject
-} = require('./common.js')
+let Tree = require('./tree.js')
+let MutationStore = require('./mutationStore.js')
+let { symbols } = require('./common.js')
 
-class Mutations {
-  constructor () {
-    this.reset()
-  }
-
-  reset () {
-    this.before = {}
-    this.after = {}
-  }
-
-  keyIsNew (key) {
-    return this.before[key] === symbols.delete
-  }
-
-  ancestor (path) {
-    for (let i = 1; i < path.length; i++) {
-      let ancestorKey = pathToKey(path.slice(0, -i))
-      if (ancestorKey in this.before) {
-        return this.before[ancestorKey]
-      }
-    }
-  }
-
-  mutate ({ op, path, oldValue, newValue, existed }) {
-    let key = pathToKey(path)
-
-    // if first change for this key, record previous state
-    if (!(key in this.before)) {
-      let value = oldValue
-      if (!existed) value = symbols.delete
-
-      // don't record if parent was previously non-existent
-      if (this.ancestor(path) !== symbols.delete) {
-        this.before[key] = baseObject(value)
-      }
-    }
-
-    // store updated value for key
-    if (op === 'put') {
-      this.after[key] = newValue
-    } else if (op === 'del') {
-      let parentWasDeleted = this.ancestor(path) === symbols.delete
-      if (this.keyIsNew(key) || parentWasDeleted) {
-        delete this.before[key]
-        delete this.after[key]
-      } else {
-        this.after[key] = symbols.delete
-      }
-    }
-  }
-}
-
-function Merk (db) {
+async function createMerk (db) {
   if (!db || db.toString() !== 'LevelUP') {
     throw Error('Must provide a LevelUP instance')
   }
 
-  let mutations = new Mutations()
+  let mutations = MutationStore()
+
+  // TODO: decouple state wrapper from tree
+  // (could be used with any LevelUp)
+  let tree = new Tree(db)
+  // TODO: load all keys
 
   let root = {
     [symbols.mutations]: () => mutations,
     [symbols.root]: () => root,
-    [symbols.db]: () => db
+    [symbols.db]: () => tree
   }
 
   let onMutate = (mutation) => mutations.mutate(mutation)
   return wrap(root, onMutate)
-}
-
-function pathToKey (path) {
-  if (path.length === 0) return symbols.root
-  // TODO: support path components w/ "." character ('["foo.bar"]')
-  return path.join('.')
-}
-
-function keyToPath (key) {
-  if (key === symbols.root) return []
-  // TODO: support path components w/ "." character ('["foo.bar"]')
-  return key.split('.')
 }
 
 function assertRoot (root) {
@@ -97,73 +34,23 @@ function assertRoot (root) {
 function rollback (root) {
   assertRoot(root)
   let mutations = root[symbols.mutations]()
-  let unwrapped = root[symbols.root]()
-
-  // reapply previous values
-  for (let key in mutations.before) {
-    let value = mutations.before[key]
-    let path = keyToPath(key)
-
-    // assign old value to parent object
-    let [ parent ] = access(unwrapped, path.slice(0, -1))
-    let lastKey = path[path.length - 1]
-    if (value === symbols.delete) {
-      delete parent[lastKey]
-    } else {
-      updateBase(parent[lastKey], value)
-    }
-  }
-
-  // special case for setting properties on root object
-  if (mutations.before[symbols.root]) {
-    let value = mutations.before[symbols.root]
-    updateBase(unwrapped, value)
-  }
-
-  mutations.reset()
-}
-
-function updateBase (base, updated) {
-  Object.assign(base, updated)
-  for (let key in base) {
-    if (!(key in updated) && !isObject(base[key])) {
-      delete base[key]
-    }
-  }
+  let unwrappedRoot = root[symbols.root]()
+  mutations.rollback(unwrappedRoot)
 }
 
 // flush to db
-async function commit (root) {
+function commit (root) {
   assertRoot(root)
   let mutations = root[symbols.mutations]()
   let db = root[symbols.db]()
+  return mutations.commit(db)
+}
 
-  let promises = []
-
-  let mutationKeys = Object.keys(mutations.after)
-  if (mutations.after[symbols.root]) {
-    // root symbol is a special case since Symbols
-    // aren't included in Object.keys
-    mutationKeys.push(symbols.root)
-  }
-
-  for (let key of mutationKeys) {
-    let prefixedKey = '.'
-    if (key !== symbols.root) prefixedKey += key
-
-    let value = mutations.after[key]
-    if (value === symbols.delete) {
-      promises.push(db.del(prefixedKey))
-    } else {
-      let json = stringify(value)
-      promises.push(db.put(prefixedKey, json))
-    }
-  }
-
-  // wait for all updates to complete
-  await Promise.all(promises)
-
-  mutations.reset()
+// returns merkle root
+function hash (root) {
+  assertRoot(root)
+  let tree = root[symbols.db]()
+  return tree.rootHash()
 }
 
 function getter (symbol) {
@@ -173,10 +60,9 @@ function getter (symbol) {
   }
 }
 
-module.exports = Object.assign(Merk, {
+module.exports = Object.assign(createMerk, {
   mutations: getter(symbols.mutations),
   rollback,
   commit,
-  Mutations,
-  keyToPath
+  hash
 })

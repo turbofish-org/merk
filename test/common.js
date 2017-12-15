@@ -5,14 +5,17 @@ function mockDb (db) {
   let puts = []
   let dels = []
 
-  async function get (key) {
+  // support callbacks for level-transactions
+  async function get (key, opts, cb) {
     gets.push({ key })
     let value = store[key]
     if (!value) {
       let err = new Error('Not found')
       err.notFound = true
+      if (cb) return cb(err)
       throw err
     }
+    if (cb) return cb(null, value)
     return value
   }
   async function put (key, value) {
@@ -31,10 +34,17 @@ function mockDb (db) {
     toString: () => 'LevelUP'
   }
 
-  mockDb.batch = async function (batch) {
-    for (let { type, key, value } of batch) {
-      await mockDb[type](key, value)
+  // support callbacks for level-transactions
+  mockDb.batch = async function (batch, cb) {
+    try {
+      for (let { type, key, value } of batch) {
+        await mockDb[type](key, value)
+      }
+    } catch (err) {
+      if (cb) return cb(err)
+      throw err
     }
+    if (cb) cb()
   }
 
   return mockDb
