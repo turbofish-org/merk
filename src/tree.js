@@ -1,6 +1,6 @@
 let old = require('old')
 let Transaction = require('level-transactions')
-let Node = require('./node.js')
+let _Node = require('./node.js')
 
 class Tree {
   constructor (db) {
@@ -11,17 +11,18 @@ class Tree {
     this._rootNode = null
     this.lock = null
 
+    this.Node = _Node(this.db)
+
     this.initialized = false
     this.initialize = this.maybeLoad()
   }
 
   async maybeLoad () {
-    let idCounter = await getInt(this.db, ':idCounter')
-    this.Node = Node(this.db, idCounter)
-
-    let rootId = await getInt(this.db, ':root')
-    if (rootId != null) {
-      this._rootNode = await this.Node.get(rootId)
+    try {
+      let rootKey = (await this.db.get(':root')).toString()
+      this._rootNode = await this.Node.get(rootKey)
+    } catch (err) {
+      if (!err.notFound) throw err
     }
 
     this.initialized = true
@@ -40,16 +41,12 @@ class Tree {
   async setRoot (node, tx) {
     await this.initialize
 
-    if (this._rootNode != null && this._rootNode.id === node.id) {
-      return
-    }
-
     if (!tx) {
       tx = createTx(this.db)
       var createdTx = true
     }
 
-    await this.db.put(':root', node.id)
+    await this.db.put(':root', node.key)
     this._rootNode = node
 
     if (createdTx) {
@@ -81,7 +78,7 @@ class Tree {
     let release = await this.acquireLock()
 
     let tx = createTx(this.db)
-    let node = new this.Node({ key, value }, tx)
+    let node = new this.Node({ key, value, db: this.db })
 
     // no root, set node as root
     if (this._rootNode == null) {
@@ -100,13 +97,7 @@ class Tree {
 
   async get (key) {
     await this.initialize
-
-    if (this._rootNode == null) return null
-    let node = await this._rootNode.search(key)
-    if (node.key !== key) {
-      throw Error(`Key "${key}" not found`)
-    }
-    return node.value
+    return this.Node.get(key)
   }
 
   async del (key) {
@@ -124,16 +115,6 @@ class Tree {
     await tx.commit()
 
     release()
-  }
-}
-
-async function getInt (db, key) {
-  try {
-    let bytes = await db.get(key)
-    return parseInt(bytes.toString())
-  } catch (err) {
-    if (err.notFound) return
-    throw err
   }
 }
 

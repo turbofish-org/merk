@@ -10,22 +10,21 @@ let codec = struct([
   ['kvHash', struct.Buffer(32)],
   ['leftHeight', struct.UInt8],
   ['rightHeight', struct.UInt8],
-  ['key', VarString],
   ['value', VarString],
-  ['leftId', VarInt],
-  ['rightId', VarInt],
-  ['parentId', VarInt]
+  ['leftKey', VarString],
+  ['rightKey', VarString],
+  ['parentKey', VarString]
 ])
 
 const defaults = {
-  id: 0,
   hash: nullHash,
   kvHash: nullHash,
   leftHeight: 0,
   rightHeight: 0,
-  leftId: 0,
-  rightId: 0,
-  parentId: 0
+  leftKey: '',
+  rightKey: '',
+  parentKey: '',
+  key: ''
 }
 
 const nullNode = Object.assign({
@@ -33,47 +32,31 @@ const nullNode = Object.assign({
   async save () {}
 }, defaults)
 
-function nodeIdKey (id) {
-  return `n${id}`
+function nodeKey (key) {
+  return 'n' + key
 }
 
-function createReadOnlyTx (db) {
-  return {
-    async get (key) {
-      let nodeBytes = await db.get(key)
-      return Buffer.from(nodeBytes.toString(), 'base64')
-    },
-    put () { throw Error('Tried to "put" on read-only tx') },
-    del () { throw Error('Tried to "del" on read-only tx') }
-  }
+function putNode (tx, node) {
+  let nodeBytes = codec.encode(node).toString('base64')
+  return tx.put(nodeKey(node.key), nodeBytes)
 }
 
-module.exports = function (db, idCounter = 1) {
-  function nextID (tx) {
-    let id = idCounter++
-    tx.put(':idCounter', idCounter)
-    return id
-  }
+function delNode (tx, node) {
+  return tx.del(nodeKey(node.key))
+}
 
-  async function getNode (tx, id) {
-    if (id === 0) return null
-    let nodeBytes = await tx.get(nodeIdKey(id))
-    let decoded = codec.decode(Buffer.from(nodeBytes, 'base64'))
-    decoded.id = id
+module.exports = function (db) {
+  async function getNode (tx, key) {
+    if (key === '') return null
+    let nodeB64 = (await tx.get(nodeKey(key))).toString()
+    let nodeBytes = Buffer.from(nodeB64, 'base64')
+    let decoded = codec.decode(nodeBytes)
+    decoded.key = key
     return new Node(decoded)
   }
 
-  function putNode (tx, node) {
-    let nodeBytes = codec.encode(node).toString('base64')
-    return tx.put(nodeIdKey(node.id), nodeBytes)
-  }
-
-  function delNode (tx, node) {
-    return tx.del(nodeIdKey(node.id))
-  }
-
   class Node {
-    constructor (props, tx) {
+    constructor (props) {
       if (props.key == null) {
         throw new Error('Key is required')
       }
@@ -83,9 +66,6 @@ module.exports = function (db, idCounter = 1) {
 
       Object.assign(this, defaults, props)
 
-      if (this.id === 0) {
-        this.id = nextID(tx)
-      }
       if (this.kvHash.equals(nullHash)) {
         this.calculateKVHash()
       }
@@ -95,7 +75,7 @@ module.exports = function (db, idCounter = 1) {
     }
 
     isInnerNode () {
-      return this.leftId !== 0 || this.rightId !== 0
+      return this.leftKey || this.rightKey
     }
 
     isLeafNode () {
@@ -103,11 +83,11 @@ module.exports = function (db, idCounter = 1) {
     }
 
     left (tx) {
-      return getNode(tx, this.leftId)
+      return getNode(tx, this.leftKey)
     }
 
     right (tx) {
-      return getNode(tx, this.rightId)
+      return getNode(tx, this.rightKey)
     }
 
     child (tx, left) {
@@ -116,7 +96,7 @@ module.exports = function (db, idCounter = 1) {
     }
 
     parent (tx) {
-      return getNode(tx, this.parentId)
+      return getNode(tx, this.parentKey)
     }
 
     save (tx) {
@@ -125,12 +105,12 @@ module.exports = function (db, idCounter = 1) {
 
     async setChild (tx, left, child, rebalance = true) {
       if (child != null) {
-        child.parentId = this.id
+        child.parentKey = this.key
       } else {
         child = nullNode
       }
 
-      this[left ? 'leftId' : 'rightId'] = child.id
+      this[left ? 'leftKey' : 'rightKey'] = child.key
       this[left ? 'leftHeight' : 'rightHeight'] = child.height()
 
       if (rebalance && Math.abs(this.balance()) > 1) {
@@ -169,7 +149,7 @@ module.exports = function (db, idCounter = 1) {
       let child = await this.child(tx, left)
       let grandChild = await child.child(tx, !left)
       await this.setChild(tx, left, grandChild, false)
-      child.parentId = 0
+      child.parentKey = ''
       await child.setChild(tx, !left, this, false)
       return child
     }
@@ -195,21 +175,6 @@ module.exports = function (db, idCounter = 1) {
       ])
       this.kvHash = sha256(input)
       return this.kvHash
-    }
-
-    async search (key, tx) {
-      // found key match
-      if (key === this.key) return this
-
-      if (!tx) tx = createReadOnlyTx(db)
-
-      // recurse through left child if key is < this.key,
-      // otherwise recurse through right
-      let left = key < this.key
-      let child = await this.child(tx, left)
-      // if we don't have a child for this side, return self
-      if (child == null) return this
-      return child.search(key, tx)
     }
 
     async put (node, tx) {
@@ -253,7 +218,7 @@ module.exports = function (db, idCounter = 1) {
           // if there is another child then put it under successor
           await successor.put(tx, otherNode)
         }
-        successor.parentId = this.parentId
+        successor.parentKey = this.parentKey
         await delNode(tx, this)
         return successor
       }
@@ -270,8 +235,7 @@ module.exports = function (db, idCounter = 1) {
       return successor
     }
 
-    async edge (left, tx) {
-      if (!tx) tx = createReadOnlyTx(db)
+    async edge (left, tx = db) {
       let cursor = this
       while (true) {
         let child = await cursor.child(tx, left)
@@ -282,8 +246,7 @@ module.exports = function (db, idCounter = 1) {
     min () { return this.edge(true) }
     max () { return this.edge(false) }
 
-    async step (left, tx) {
-      if (!tx) tx = createReadOnlyTx(db)
+    async step (left, tx = db) {
       let child = await this.child(tx, left)
       if (child) return child.edge(!left, tx)
 
@@ -304,9 +267,6 @@ module.exports = function (db, idCounter = 1) {
     next () { return this.step(false) }
   }
 
-  Object.assign(Node, {
-    get: (id) => getNode(createReadOnlyTx(db), id)
-  })
-
+  Node.get = (key) => getNode(db, key)
   return Node
 }

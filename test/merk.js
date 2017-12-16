@@ -33,11 +33,10 @@ test('create merk', async (t) => {
 test('create merk with existing data', async (t) => {
   let db = mockDb({
     store: {
-      ':root': 1,
-      ':idCounter': '4',
-      n1: 'FM21QJMlkitThEAO6vg196MgF/HRaukjRyhwN5aDyJtqqJL6mfKrMKs+oxi76hTTZTAmxGSXJ1+GsXJHzlO8cwEBBC5mb28HeyJ4Ijo1fQMCAA==',
-      n2: 'IN4PGZmDAfVOfLK9pEAQm8CHdfPhryGcSD3RfxPqMk/B+aH4xTjNCvJxITWoTsevFD1GIjHZOJ+IzpMhn4ipvwAABi5mb28ueQl7InoiOjEyM30AAAE=',
-      n3: '0h1/8jCmYzJL9GFBO8p1DxSvhEAT10GJCfl0zpFBo0UIfXNjzc8RZK/segX2QVOH7PB2YvlaUr5pyZcTaUB4PQAAAS4NeyJiYXIiOiJiYXoifQAAAQ=='
+      ':root': '.foo',
+      'n.foo': 'FM21QJMlkitThEAO6vg196MgF/HRaukjRyhwN5aDyJtqqJL6mfKrMKs+oxi76hTTZTAmxGSXJ1+GsXJHzlO8cwEBB3sieCI6NX0BLgYuZm9vLnkA',
+      'n.foo.y': 'IN4PGZmDAfVOfLK9pEAQm8CHdfPhryGcSD3RfxPqMk/B+aH4xTjNCvJxITWoTsevFD1GIjHZOJ+IzpMhn4ipvwAACXsieiI6MTIzfQAABC5mb28=',
+      'n.': '0h1/8jCmYzJL9GFBO8p1DxSvhEAT10GJCfl0zpFBo0UIfXNjzc8RZK/segX2QVOH7PB2YvlaUr5pyZcTaUB4PQAADXsiYmFyIjoiYmF6In0AAAQuZm9v'
     }
   })
 
