@@ -65,11 +65,11 @@ module.exports = function (db, idCounter = 1) {
 
   function putNode (tx, node) {
     let nodeBytes = codec.encode(node).toString('base64')
-    tx.put(nodeIdKey(node.id), nodeBytes)
+    return tx.put(nodeIdKey(node.id), nodeBytes)
   }
 
   function delNode (tx, node) {
-    tx.del(nodeIdKey(node.id))
+    return tx.del(nodeIdKey(node.id))
   }
 
   class Node {
@@ -119,8 +119,8 @@ module.exports = function (db, idCounter = 1) {
       return getNode(tx, this.parentId)
     }
 
-    async save (tx) {
-      putNode(tx, this)
+    save (tx) {
+      return putNode(tx, this)
     }
 
     async setChild (tx, left, child, rebalance = true) {
@@ -241,7 +241,7 @@ module.exports = function (db, idCounter = 1) {
 
         if (this.isLeafNode()) {
           // no children
-          delNode(tx, this)
+          await delNode(tx, this)
           return null
         }
 
@@ -254,7 +254,7 @@ module.exports = function (db, idCounter = 1) {
           await successor.put(tx, otherNode)
         }
         successor.parentId = this.parentId
-        delNode(tx, this)
+        await delNode(tx, this)
         return successor
       }
 

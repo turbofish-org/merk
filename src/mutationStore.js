@@ -4,20 +4,10 @@ let {
   access,
   symbols,
   baseObject,
-  isObject
+  isObject,
+  keyToPath,
+  pathToKey
 } = require('./common.js')
-
-function pathToKey (path) {
-  if (path.length === 0) return symbols.root
-  // TODO: support path components w/ "." character ('["foo.bar"]')
-  return path.join('.')
-}
-
-function keyToPath (key) {
-  if (key === symbols.root) return []
-  // TODO: support path components w/ "." character ('["foo.bar"]')
-  return key.split('.')
-}
 
 class MutationStore {
   constructor () {
@@ -135,7 +125,3 @@ function updateBase (base, updated) {
 }
 
 module.exports = old(MutationStore)
-Object.assign(module.exports, {
-  pathToKey,
-  keyToPath
-})

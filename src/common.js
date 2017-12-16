@@ -55,11 +55,25 @@ function clone (value) {
   return cloned
 }
 
+function pathToKey (path) {
+  if (path.length === 0) return symbols.root
+  // TODO: support path components w/ "." character ('["foo.bar"]')
+  return path.join('.')
+}
+
+function keyToPath (key) {
+  if (key === symbols.root) return []
+  // TODO: support path components w/ "." character ('["foo.bar"]')
+  return key.split('.')
+}
+
 module.exports = {
   sha256,
   isObject,
   baseObject,
   access,
   clone,
-  symbols
+  symbols,
+  keyToPath,
+  pathToKey
 }

@@ -10,7 +10,7 @@ function mockDb (db) {
     gets.push({ key })
     let value = store[key]
     if (!value) {
-      let err = new Error('Not found')
+      let err = new Error(`Key ${key} not found`)
       err.notFound = true
       if (cb) return cb(err)
       throw err

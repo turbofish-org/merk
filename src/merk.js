@@ -1,6 +1,7 @@
 let wrap = require('./wrap.js')
 let Tree = require('./tree.js')
 let MutationStore = require('./mutationStore.js')
+let load = require('./load.js')
 let { symbols } = require('./common.js')
 
 async function createMerk (db) {
@@ -8,18 +9,15 @@ async function createMerk (db) {
     throw Error('Must provide a LevelUP instance')
   }
 
-  let mutations = MutationStore()
-
   // TODO: decouple state wrapper from tree
   // (could be used with any LevelUp)
-  let tree = new Tree(db)
-  // TODO: load all keys
+  let tree = Tree(db)
+  let mutations = MutationStore()
 
-  let root = {
-    [symbols.mutations]: () => mutations,
-    [symbols.root]: () => root,
-    [symbols.db]: () => tree
-  }
+  let root = await load(tree)
+  root[symbols.root] = () => root
+  root[symbols.db] = () => tree
+  root[symbols.mutations] = () => mutations
 
   let onMutate = (mutation) => mutations.mutate(mutation)
   return wrap(root, onMutate)
@@ -54,7 +52,7 @@ function hash (root) {
 }
 
 function getter (symbol) {
-  return function (root) {
+  return (root) => {
     assertRoot(root)
     return root[symbol]()
   }

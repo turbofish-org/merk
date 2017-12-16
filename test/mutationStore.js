@@ -527,8 +527,3 @@ test('rollback without root mutation', async (t) => {
   t.deepEqual(ms.before, {})
   t.deepEqual(ms.after, {})
 })
-
-test('keyToPath', async (t) => {
-  t.deepEqual(MutationStore.keyToPath(symbols.root), [])
-  t.deepEqual(MutationStore.keyToPath('foo.bar.baz'), [ 'foo', 'bar', 'baz' ])
-})

@@ -8,7 +8,7 @@ class Tree {
       throw Error('Must specify a LevelUp interface')
     }
     this.db = db
-    this.rootNode = null
+    this._rootNode = null
     this.lock = null
 
     this.initialized = false
@@ -21,21 +21,26 @@ class Tree {
 
     let rootId = await getInt(this.db, ':root')
     if (rootId != null) {
-      this.rootNode = await this.Node.get(rootId)
+      this._rootNode = await this.Node.get(rootId)
     }
 
     this.initialized = true
   }
 
+  async rootNode () {
+    await this.initialize
+    return this._rootNode
+  }
+
   rootHash () {
-    if (this.rootNode == null) return null
-    return this.rootNode.hash
+    if (this._rootNode == null) return null
+    return this._rootNode.hash
   }
 
   async setRoot (node, tx) {
     await this.initialize
 
-    if (this.rootNode != null && this.rootNode.id === node.id) {
+    if (this._rootNode != null && this._rootNode.id === node.id) {
       return
     }
 
@@ -45,7 +50,7 @@ class Tree {
     }
 
     await this.db.put(':root', node.id)
-    this.rootNode = node
+    this._rootNode = node
 
     if (createdTx) {
       await tx.commit()
@@ -79,7 +84,7 @@ class Tree {
     let node = new this.Node({ key, value }, tx)
 
     // no root, set node as root
-    if (this.rootNode == null) {
+    if (this._rootNode == null) {
       await node.save(tx)
       await this.setRoot(node, tx)
       await tx.commit()
@@ -87,7 +92,7 @@ class Tree {
       return
     }
 
-    let successor = await this.rootNode.put(node, tx)
+    let successor = await this._rootNode.put(node, tx)
     await this.setRoot(successor, tx)
     await tx.commit()
     release()
@@ -96,8 +101,8 @@ class Tree {
   async get (key) {
     await this.initialize
 
-    if (this.rootNode == null) return null
-    let node = await this.rootNode.search(key)
+    if (this._rootNode == null) return null
+    let node = await this._rootNode.search(key)
     if (node.key !== key) {
       throw Error(`Key "${key}" not found`)
     }
@@ -107,14 +112,14 @@ class Tree {
   async del (key) {
     await this.initialize
 
-    if (this.rootNode == null) {
+    if (this._rootNode == null) {
       throw Error('Tree is empty')
     }
 
     let release = await this.acquireLock()
 
     let tx = createTx(this.db)
-    let successor = await this.rootNode.delete(key, tx)
+    let successor = await this._rootNode.delete(key, tx)
     await this.setRoot(successor, tx)
     await tx.commit()
 
