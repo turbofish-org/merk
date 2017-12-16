@@ -55,6 +55,24 @@ module.exports = function (db) {
     return new Node(decoded)
   }
 
+  async function updateNode (tx, node) {
+    let existing = await getNode(tx, node.key)
+    existing.value = node.value
+    existing.calculateKVHash()
+
+    let prevCursor = existing
+    let cursor = existing
+    while (cursor) {
+      cursor.calculateHash(await cursor.left(tx), await cursor.right(tx))
+      await cursor.save(tx)
+      prevCursor = cursor
+      cursor = await cursor.parent(tx)
+    }
+
+    // returns root node
+    return prevCursor
+  }
+
   class Node {
     constructor (props) {
       if (props.key == null) {
@@ -179,11 +197,7 @@ module.exports = function (db) {
 
     async put (node, tx) {
       if (node.key === this.key) {
-        // same key, just update the value of this node
-        this.value = node.value
-        this.calculateKVHash()
-        await this.save(tx)
-        return this
+        throw Error(`Duplicate key "${this.key}"`)
       }
 
       let left = node.key < this.key
@@ -267,6 +281,7 @@ module.exports = function (db) {
     next () { return this.step(false) }
   }
 
-  Node.get = (key) => getNode(db, key)
+  Node.get = (key, tx = db) => getNode(db, key)
+  Node.update = (node, tx) => updateNode(tx, node)
   return Node
 }

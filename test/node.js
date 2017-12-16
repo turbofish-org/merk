@@ -176,7 +176,7 @@ test('delete parent node', async (t) => {
 })
 
 test('build 1000-node tree', async (t) => {
-  t.plan(9000)
+  t.plan(9001)
 
   let db = mockDb()
   let Node = _Node(db)
@@ -225,11 +225,21 @@ test('build 1000-node tree', async (t) => {
   let max = await root.max()
   t.is(max.key, '999')
 
-  // update
+  // update via put
+  try {
+    let node = new Node({ key: '888', value: 'lol' })
+    root = await root.put(node, db)
+    t.fail()
+  } catch (err) {
+    t.is(err.message, 'Duplicate key "888"')
+  }
+
+  // update via update func
   let node = new Node({ key: '888', value: 'lol' })
-  root = await root.put(node, db)
+  root = await Node.update(node, db)
+
   node = await Node.get('888')
-  t.is(root.hash.toString('hex'), 'ae7315867a9ade5ea06a33882ab2e2f4ef4aa044653c7d5685eb7152d78f91fd')
+  t.is(root.hash.toString('hex'), 'f9ded9b6a017f623b7d69d18c3da7854d42a0961d65d7791b9cd9499feb4823a')
   t.is(node.value, 'lol')
   await traverse(root)
 })
