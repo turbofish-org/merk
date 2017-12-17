@@ -46,7 +46,12 @@ class Tree {
       var createdTx = true
     }
 
-    await this.db.put(':root', node.key)
+    if (node != null) {
+      await this.db.put(':root', node.key)
+    } else {
+      await this.db.del(':root')
+    }
+
     this._rootNode = node
 
     if (createdTx) {
