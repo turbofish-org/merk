@@ -297,3 +297,15 @@ test('delete multiple-level object', (t) => {
   t.deepEqual(obj, {})
   t.deepEqual(wrapper, {})
 })
+
+test('delete non-existent key', (t) => {
+  let mutations = []
+  let obj = {}
+  let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
+
+  delete wrapper.foo
+
+  t.deepEqual(mutations, [])
+  t.deepEqual(obj, {})
+  t.deepEqual(wrapper, {})
+})

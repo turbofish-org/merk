@@ -108,6 +108,7 @@ function wrap (obj, onMutate, path = []) {
 
     // record deletions as mutations too
     deleteProperty (obj, key) {
+      if (!(key in obj)) return true
       del(obj, key)
       delete obj[key]
       return true
