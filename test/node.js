@@ -145,7 +145,7 @@ test('delete child node', async (t) => {
   t.deepEqual(tx.puts, [
     {
       key: 'nfoo',
-      value: '8qr69OGhBk7tD8Xh19aET/+szd5Go8pfOIXopoW5sJ4AXARG6pIuEF/B6whMiOpHJERKQt5JpXdIJB2tUKLzXQEAA2JhcgAAAA=='
+      value: '8qr69OGhBk7tD8Xh19aET/+szd5Go8pfOIXopoW5sJ4AXARG6pIuEF/B6whMiOpHJERKQt5JpXdIJB2tUKLzXQAAA2JhcgAAAA=='
     }
   ])
 
@@ -170,13 +170,14 @@ test('delete parent node', async (t) => {
   t.deepEqual(tx.gets, [ { key: 'nfo' } ])
   t.deepEqual(tx.dels, [ { key: 'nfoo' } ])
   t.is(tx.puts.length, 0)
+  t.is(node.key, 'fo')
 
   tx = mockDb(tx)
   t.is(await node.parent(tx), null)
 })
 
-test('build 1000-node tree', async (t) => {
-  t.plan(9001)
+test('build 1000-node tree in fixed order', async (t) => {
+  t.plan(9000)
 
   let db = mockDb()
   let Node = _Node(db)
@@ -190,7 +191,7 @@ test('build 1000-node tree', async (t) => {
     root = await root.put(node, db)
   }
 
-  t.is(root.hash.toString('hex'), 'ae7315867a9ade5ea06a33882ab2e2f4ef4aa044653c7d5685eb7152d78f91fd')
+  t.is(root.hash.toString('hex'), '16072faa3fa5d0de0d6476710a857a9e40eab7390f712d8fdf6cda41e3aac400')
 
   async function traverse (node) {
     // AVL invariant
@@ -225,21 +226,52 @@ test('build 1000-node tree', async (t) => {
   let max = await root.max()
   t.is(max.key, '999')
 
-  // update via put
-  try {
-    let node = new Node({ key: '888', value: 'lol' })
-    root = await root.put(node, db)
-    t.fail()
-  } catch (err) {
-    t.is(err.message, 'Duplicate key "888"')
-  }
-
-  // update via update func
+  // update
   let node = new Node({ key: '888', value: 'lol' })
-  root = await Node.update(node, db)
-
+  root = await root.put(node, db)
   node = await Node.get('888')
-  t.is(root.hash.toString('hex'), 'f9ded9b6a017f623b7d69d18c3da7854d42a0961d65d7791b9cd9499feb4823a')
+  t.is(root.hash.toString('hex'), '14f7ef879e9c171ae353cae27ceeaf7d11f67224ba1674f454d1e075b8ec5b1a')
   t.is(node.value, 'lol')
   await traverse(root)
+})
+
+test('delete non-existent key', async (t) => {
+  let db = mockDb()
+  let Node = _Node(db)
+
+  let root = new Node({ key: '0', value: 'value' })
+  await root.save(db)
+
+  try {
+    await root.delete('lol')
+    t.fail()
+  } catch (err) {
+    t.is(err.message, 'Key "lol" not found')
+  }
+})
+
+test('delete (random keys)', async (t) => {
+  t.plan(21)
+
+  let db = mockDb()
+  let Node = _Node(db)
+
+  // build tree
+  let keys = new Array(19).fill(0).map(() => Math.random().toString(36).slice(3))
+
+  let root = new Node({ key: 'root', value: 'value' })
+  await root.save(db)
+  for (let key of keys) {
+    let node = new Node({ key, value: 'value' })
+    root = await root.put(node, db)
+  }
+
+  keys.push('root')
+
+  for (let key of keys) {
+    root = await root.delete(key, db)
+    t.pass()
+  }
+
+  t.is(root, null)
 })

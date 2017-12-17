@@ -89,18 +89,6 @@ class Tree {
       return
     }
 
-    // if node exists, update it
-    try {
-      await this.Node.get(key)
-      let successor = await this.Node.update(node, tx)
-      await this.setRoot(successor, tx)
-      await tx.commit()
-      release()
-      return
-    } catch (err) {
-      if (!err.notFound) throw err
-    }
-
     let successor = await this._rootNode.put(node, tx)
     await this.setRoot(successor, tx)
     await tx.commit()

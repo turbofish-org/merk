@@ -28,7 +28,7 @@ const defaults = {
 }
 
 const nullNode = Object.assign({
-  height: () => 1,
+  height: () => 0,
   async save () {}
 }, defaults)
 
@@ -53,24 +53,6 @@ module.exports = function (db) {
     let decoded = codec.decode(nodeBytes)
     decoded.key = key
     return new Node(decoded)
-  }
-
-  async function updateNode (tx, node) {
-    let existing = await getNode(tx, node.key)
-    existing.value = node.value
-    existing.calculateKVHash()
-
-    let prevCursor = existing
-    let cursor = existing
-    while (cursor) {
-      cursor.calculateHash(await cursor.left(tx), await cursor.right(tx))
-      await cursor.save(tx)
-      prevCursor = cursor
-      cursor = await cursor.parent(tx)
-    }
-
-    // returns root node
-    return prevCursor
   }
 
   class Node {
@@ -197,7 +179,12 @@ module.exports = function (db) {
 
     async put (node, tx) {
       if (node.key === this.key) {
-        throw Error(`Duplicate key "${this.key}"`)
+        // same key, just update the value of this node
+        this.value = node.value
+        this.calculateKVHash()
+        this.calculateHash(await this.left(tx), await this.right(tx))
+        await this.save(tx)
+        return this
       }
 
       let left = node.key < this.key
@@ -227,12 +214,12 @@ module.exports = function (db) {
         // promote successor child to this position
         let left = this.leftHeight > this.rightHeight
         let successor = await this.child(tx, left)
-        let otherNode = await this.child(tx, !left)
-        if (otherNode != null) {
-          // if there is another child then put it under successor
-          await successor.put(tx, otherNode)
-        }
         successor.parentKey = this.parentKey
+        let otherNode = await this.child(tx, !left)
+        if (otherNode) {
+          // if there is another child then put it under successor
+          successor = await successor.put(otherNode, tx)
+        }
         await delNode(tx, this)
         return successor
       }
@@ -282,6 +269,5 @@ module.exports = function (db) {
   }
 
   Node.get = (key, tx = db) => getNode(db, key)
-  Node.update = (node, tx) => updateNode(tx, node)
   return Node
 }
