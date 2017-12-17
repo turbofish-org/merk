@@ -14,6 +14,7 @@ npm install merk
 ```js
 let merk = require('merk')
 
+// creates or loads state
 let state = await merk(levelUpDb)
 
 // use state as you would any other object
