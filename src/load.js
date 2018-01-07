@@ -11,11 +11,16 @@ async function load (tree) {
 
   // get root object
   let cursor = await rootNode.min()
-  let root = parse(cursor.value)
+  let root = {}
+
+  if (cursor.key === '.') {
+    // cursor is root object
+    root = parse(cursor.value)
+    cursor = await cursor.next()
+  }
 
   // iterate through all keys in order,
   // create objects based on key/value
-  cursor = await cursor.next()
   while (cursor) {
     let path = keyToPath(cursor.key.slice(1))
     let [ parent ] = access(root, path.slice(0, -1))
