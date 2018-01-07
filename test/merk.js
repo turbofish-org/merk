@@ -52,6 +52,26 @@ test('create merk with existing data', async (t) => {
   t.deepEqual(mutations.after, {})
 })
 
+test('create merk with existing data, with no non-objects on root', async (t) => {
+  let db = mockDb({
+    store: {
+      ':root': '.foo',
+      'n.foo': 'BhyW9UF87vAuqjpLEAK6vRna4ikaK8tMtMAC0kv/GWdqqJL6mfKrMKs+oxi76hTTZTAmxGSXJ1+GsXJHzlO8cwABB3sieCI6NX0ABi5mb28ueQA=',
+      'n.foo.y': 'IN4PGZmDAfVOfLK9pEAQm8CHdfPhryGcSD3RfxPqMk/B+aH4xTjNCvJxITWoTsevFD1GIjHZOJ+IzpMhn4ipvwAACXsieiI6MTIzfQAABC5mb28='
+    }
+  })
+
+  let obj = await merk(db)
+
+  t.deepEqual(obj, {
+    foo: { x: 5, y: { z: 123 } }
+  })
+
+  let mutations = merk.mutations(obj)
+  t.deepEqual(mutations.before, {})
+  t.deepEqual(mutations.after, {})
+})
+
 test('rollback', async (t) => {
   let db = mockDb()
   let obj = await merk(db)
