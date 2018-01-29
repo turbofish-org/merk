@@ -267,8 +267,7 @@ module.exports = function (db) {
     prev () { return this.step(true) }
     next () { return this.step(false) }
 
-    // TODO: support ranges
-    async getBranch (key, tx) {
+    async getBranchRange (from, to, tx) {
       let left = await this.left(tx)
       let right = await this.right(tx)
 
@@ -277,18 +276,30 @@ module.exports = function (db) {
         right: right ? right.hash.toString('base64') : null
       }
 
-      if (this.key === key) {
-        branch.key = key
-        branch.value = this.value
-        return branch
+      async function isInRange (node) {
+        if (node.key < from) {
+          let next = await node.next(tx)
+          return next.key >= from
+        }
+        if (node.key > to) {
+          let prev = await node.prev(tx)
+          return prev.key <= to
+        }
+        return true
       }
 
-      branch.kvHash = this.kvHash.toString('base64')
-
-      if (key < this.key) {
-        branch.left = await left.getBranch(key, tx)
+      if (await isInRange(this)) {
+        branch.key = this.key
+        branch.value = this.value
       } else {
-        branch.right = await right.getBranch(key, tx)
+        branch.kvHash = this.kvHash.toString('base64')
+      }
+
+      if (left && this.key >= from) {
+        branch.left = await left.getBranchRange(from, to, tx)
+      }
+      if (right && this.key <= to) {
+        branch.right = await right.getBranchRange(from, to, tx)
       }
 
       return branch

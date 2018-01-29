@@ -288,19 +288,72 @@ test('get branch', async (t) => {
     root = await root.put(node, db)
   }
 
-  let branch = await root.getBranch('5', db)
+  let branch = await root.getBranchRange('5', '50', db)
   t.deepEqual(branch, {
     left: '+9Y1B580BnXMvHOGmmDe8ADemaE=',
     right: {
       left: {
-        left: '4uCka35K8P6Yh4Gxwc+sVoWShqA=',
-        right: 'fOBw2MIHQJDMedLRwP9O6YQxtoY=',
+        left: {
+          left: null,
+          right: null,
+          key: '4',
+          value: 'value'
+        },
+        right: {
+          left: null,
+          right: null,
+          key: '6',
+          value: 'value'
+        },
         key: '5',
         value: 'value'
       },
       right: 'g0+bmb75LW2OcJOnuuOgIFB7nbI=',
       kvHash: 'tPSczGXYqqu6v5gGmhwWR+1Tcp0='
     },
+    kvHash: 'QwyAOeqT0VqrIkc7Yw6xfAf3LPU='
+  })
+})
+
+test('get branch at edge', async (t) => {
+  let db = mockDb()
+  let Node = _Node(db)
+
+  // build tree
+  let root = new Node({ key: 'root', value: 'value' })
+  await root.save(db)
+  for (let i = 0; i < 20; i++) {
+    let node = new Node({ key: i.toString(), value: 'value' })
+    root = await root.put(node, db)
+  }
+
+  let branch = await root.getBranchRange('0', '1', db)
+  t.deepEqual(branch, {
+    left: {
+      left: {
+        left: {
+          left: {
+            left: null,
+            right: null,
+            key: '0',
+            value: 'value'
+          },
+          right: {
+            left: null,
+            right: null,
+            key: '10',
+            value: 'value'
+          },
+          key: '1',
+          value: 'value'
+        },
+        right: 'QoLxbyGXSYWfHDlwLECzo3DR6Ik=',
+        kvHash: 'DND2C4D6Pts17le1Ij2ZuPD8orw='
+      },
+      right: 'r0QwNnr5JKRuItbAUMLrBc9Uyyg=',
+      kvHash: 'SxX/9ZfXlgu1Sjc4ajJjEfe2etw='
+    },
+    right: 'aLtn69Wx/OFlNv25yMazt+gFbxY=',
     kvHash: 'QwyAOeqT0VqrIkc7Yw6xfAf3LPU='
   })
 })

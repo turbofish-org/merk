@@ -51,6 +51,16 @@ function hash (root) {
   return tree.rootHash()
 }
 
+// returns a merkle proof
+function proof (root, key = '') {
+  assertRoot(root)
+  let tree = root[symbols.db]()
+
+  let from = '.' + key
+  let to = '.' + key + '/' // 1 value past `key + '.'`
+  return tree.getBranchRange(from, to)
+}
+
 function getter (symbol) {
   return (root) => {
     assertRoot(root)
@@ -62,5 +72,6 @@ module.exports = Object.assign(createMerk, {
   mutations: getter(symbols.mutations),
   rollback,
   commit,
-  hash
+  hash,
+  proof
 })

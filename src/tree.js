@@ -122,11 +122,10 @@ class Tree {
     release()
   }
 
-  // TODO: support ranges
-  async getBranch (key) {
+  async getBranchRange (from, to) {
     await this.initialize
     let release = await this.acquireLock()
-    let branch = this._rootNode.getBranch(key, this.db)
+    let branch = this._rootNode.getBranchRange(from, to, this.db)
     release()
     return branch
   }
