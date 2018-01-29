@@ -266,6 +266,33 @@ module.exports = function (db) {
     }
     prev () { return this.step(true) }
     next () { return this.step(false) }
+
+    // TODO: support ranges
+    async getBranch (key, tx) {
+      let left = await this.left(tx)
+      let right = await this.right(tx)
+
+      let branch = {
+        left: left ? left.hash.toString('base64') : null,
+        right: right ? right.hash.toString('base64') : null
+      }
+
+      if (this.key === key) {
+        branch.key = key
+        branch.value = this.value
+        return branch
+      }
+
+      branch.kvHash = this.kvHash.toString('base64')
+
+      if (key < this.key) {
+        branch.left = await left.getBranch(key, tx)
+      } else {
+        branch.right = await right.getBranch(key, tx)
+      }
+
+      return branch
+    }
   }
 
   Node.get = (key, tx = db) => getNode(db, key)

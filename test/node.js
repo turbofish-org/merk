@@ -275,3 +275,32 @@ test('delete (random keys)', async (t) => {
 
   t.is(root, null)
 })
+
+test('get branch', async (t) => {
+  let db = mockDb()
+  let Node = _Node(db)
+
+  // build tree
+  let root = new Node({ key: 'root', value: 'value' })
+  await root.save(db)
+  for (let i = 0; i < 20; i++) {
+    let node = new Node({ key: i.toString(), value: 'value' })
+    root = await root.put(node, db)
+  }
+
+  let branch = await root.getBranch('5', db)
+  t.deepEqual(branch, {
+    left: '+9Y1B580BnXMvHOGmmDe8ADemaE=',
+    right: {
+      left: {
+        left: '4uCka35K8P6Yh4Gxwc+sVoWShqA=',
+        right: 'fOBw2MIHQJDMedLRwP9O6YQxtoY=',
+        key: '5',
+        value: 'value'
+      },
+      right: 'g0+bmb75LW2OcJOnuuOgIFB7nbI=',
+      kvHash: 'tPSczGXYqqu6v5gGmhwWR+1Tcp0='
+    },
+    kvHash: 'QwyAOeqT0VqrIkc7Yw6xfAf3LPU='
+  })
+})
