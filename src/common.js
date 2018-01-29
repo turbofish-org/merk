@@ -11,6 +11,10 @@ function sha256 (data) {
   return createHash('sha256').update(data).digest()
 }
 
+function ripemd160 (data) {
+  return createHash('ripemd160').update(data).digest()
+}
+
 function isObject (value) {
   return typeof value === 'object' && value != null
 }
@@ -70,6 +74,7 @@ function keyToPath (key) {
 
 module.exports = {
   sha256,
+  ripemd160,
   isObject,
   baseObject,
   access,

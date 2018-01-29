@@ -34,9 +34,9 @@ test('create merk with existing data', async (t) => {
   let db = mockDb({
     store: {
       ':root': '.foo',
-      'n.foo': 'FM21QJMlkitThEAO6vg196MgF/HRaukjRyhwN5aDyJtqqJL6mfKrMKs+oxi76hTTZTAmxGSXJ1+GsXJHzlO8cwEBB3sieCI6NX0BLgYuZm9vLnkA',
-      'n.foo.y': 'IN4PGZmDAfVOfLK9pEAQm8CHdfPhryGcSD3RfxPqMk/B+aH4xTjNCvJxITWoTsevFD1GIjHZOJ+IzpMhn4ipvwAACXsieiI6MTIzfQAABC5mb28=',
-      'n.': '0h1/8jCmYzJL9GFBO8p1DxSvhEAT10GJCfl0zpFBo0UIfXNjzc8RZK/segX2QVOH7PB2YvlaUr5pyZcTaUB4PQAADXsiYmFyIjoiYmF6In0AAAQuZm9v'
+      'n.foo': 'G+PH6PHsNTbVHY8Kt0AJypGvIU+9uZNSZeEldRF/R+AxQJmP7oqoQAEBB3sieCI6NX0BLgYuZm9vLnkA',
+      'n.foo.y': 'yJfgdnJGSp+rACbCM+3xlQeaxlAWd6DqBI4netwFUt3YkCpNxG7GCAAACXsieiI6MTIzfQAABC5mb28=',
+      'n.': 'cWSoYAhQYgpWR5tMg1mrQk7NKurl2dH4Ve4Abbq4P+mpcc7kve/sxgAADXsiYmFyIjoiYmF6In0AAAQuZm9v'
     }
   })
 
@@ -56,8 +56,8 @@ test('create merk with existing data, with no non-objects on root', async (t) =>
   let db = mockDb({
     store: {
       ':root': '.foo',
-      'n.foo': 'BhyW9UF87vAuqjpLEAK6vRna4ikaK8tMtMAC0kv/GWdqqJL6mfKrMKs+oxi76hTTZTAmxGSXJ1+GsXJHzlO8cwABB3sieCI6NX0ABi5mb28ueQA=',
-      'n.foo.y': 'IN4PGZmDAfVOfLK9pEAQm8CHdfPhryGcSD3RfxPqMk/B+aH4xTjNCvJxITWoTsevFD1GIjHZOJ+IzpMhn4ipvwAACXsieiI6MTIzfQAABC5mb28='
+      'n.foo': 'nVLY483AXQKEMrv1w66IcV3v/IG9uZNSZeEldRF/R+AxQJmP7oqoQAABB3sieCI6NX0ABi5mb28ueQA=',
+      'n.foo.y': 'yJfgdnJGSp+rACbCM+3xlQeaxlAWd6DqBI4netwFUt3YkCpNxG7GCAAACXsieiI6MTIzfQAABC5mb28='
     }
   })
 
@@ -104,7 +104,7 @@ test('commit', async (t) => {
     foo: { x: 5, y: { z: 123 } },
     bar: 'baz'
   })
-  t.is(merk.hash(obj).toString('hex'), '14cdb5409325922b5384400eeaf835f7a32017f1d16ae923472870379683c89b')
+  t.is(merk.hash(obj).toString('hex'), '1be3c7e8f1ec3536d51d8f0ab74009ca91af214f')
 
   let mutations = merk.mutations(obj)
   t.deepEqual(mutations.before, {})

@@ -30,8 +30,8 @@ test('create node', async (t) => {
   let node = new Node({ key: 'foo', value: 'bar' })
   t.is(node.key, 'foo')
   t.is(node.value, 'bar')
-  t.is(node.hash.toString('hex'), 'f2aafaf4e1a1064eed0fc5e1d7d6844fffaccdde46a3ca5f3885e8a685b9b09e')
-  t.is(node.kvHash.toString('hex'), '005c0446ea922e105fc1eb084c88ea4724444a42de49a57748241dad50a2f35d')
+  t.is(node.hash.toString('hex'), '81d19e175fab94e6370784ca6cd1358cd7ac00c9')
+  t.is(node.kvHash.toString('hex'), 'ad059f0ac2733621687adbd8c9c414daa550fe88')
   t.is(db.gets.length, 0)
   t.is(db.dels.length, 0)
   t.is(db.puts.length, 0)
@@ -69,7 +69,7 @@ test('save node', async (t) => {
   t.deepEqual(db.puts, [
     {
       key: 'nfoo',
-      value: '8qr69OGhBk7tD8Xh19aET/+szd5Go8pfOIXopoW5sJ4AXARG6pIuEF/B6whMiOpHJERKQt5JpXdIJB2tUKLzXQAAA2JhcgAAAA=='
+      value: 'gdGeF1+rlOY3B4TKbNE1jNesAMmtBZ8KwnM2IWh629jJxBTapVD+iAAAA2JhcgAAAA=='
     }
   ])
 })
@@ -91,7 +91,7 @@ test('save child node', async (t) => {
   t.deepEqual(db.puts, [
     {
       key: 'nfoo',
-      value: '8qr69OGhBk7tD8Xh19aET/+szd5Go8pfOIXopoW5sJ4AXARG6pIuEF/B6whMiOpHJERKQt5JpXdIJB2tUKLzXQAAA2JhcgAAAA=='
+      value: 'gdGeF1+rlOY3B4TKbNE1jNesAMmtBZ8KwnM2IWh629jJxBTapVD+iAAAA2JhcgAAAA=='
     }
   ])
 
@@ -100,11 +100,11 @@ test('save child node', async (t) => {
   t.deepEqual(tx.puts, [
     {
       key: 'nfoo',
-      value: 'kdtH7c7BAJ1kF/TKklMSIp8c1Cvlecnj1UZm3RcqXTYAXARG6pIuEF/B6whMiOpHJERKQt5JpXdIJB2tUKLzXQEAA2JhcgJmbwAA'
+      value: 'dr+bSNfQWI8G7CldNgJ45LFadOytBZ8KwnM2IWh629jJxBTapVD+iAEAA2JhcgJmbwAA'
     },
     {
       key: 'nfo',
-      value: 'zEZVbxfdifMgka4nG9eCnpx3LS9ixfj/wu6e2CpAo5x9utCs1Y1EXhDzBL56jeH6ZEMERAVkNpKMQeDaxBp6NwAAA2JhcgAAA2Zvbw=='
+      value: 'iSvPchhS6jutJq9zLLlKIw08Qrq+CXMsEG8Moyl4/gUZIBb1Hxfk7QAAA2JhcgAAA2Zvbw=='
     }
   ])
 
@@ -145,7 +145,7 @@ test('delete child node', async (t) => {
   t.deepEqual(tx.puts, [
     {
       key: 'nfoo',
-      value: '8qr69OGhBk7tD8Xh19aET/+szd5Go8pfOIXopoW5sJ4AXARG6pIuEF/B6whMiOpHJERKQt5JpXdIJB2tUKLzXQAAA2JhcgAAAA=='
+      value: 'gdGeF1+rlOY3B4TKbNE1jNesAMmtBZ8KwnM2IWh629jJxBTapVD+iAAAA2JhcgAAAA=='
     }
   ])
 
@@ -191,7 +191,7 @@ test('build 1000-node tree in fixed order', async (t) => {
     root = await root.put(node, db)
   }
 
-  t.is(root.hash.toString('hex'), '16072faa3fa5d0de0d6476710a857a9e40eab7390f712d8fdf6cda41e3aac400')
+  t.is(root.hash.toString('hex'), '711729815758ca82749d8d37de017fe435136fde')
 
   async function traverse (node) {
     // AVL invariant
@@ -230,7 +230,7 @@ test('build 1000-node tree in fixed order', async (t) => {
   let node = new Node({ key: '888', value: 'lol' })
   root = await root.put(node, db)
   node = await Node.get('888')
-  t.is(root.hash.toString('hex'), '14f7ef879e9c171ae353cae27ceeaf7d11f67224ba1674f454d1e075b8ec5b1a')
+  t.is(root.hash.toString('hex'), 'abc39acc95dce608fa3febf587fb868c39a74543')
   t.is(node.value, 'lol')
   await traverse(root)
 })

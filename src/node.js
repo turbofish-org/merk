@@ -1,13 +1,13 @@
 let struct = require('varstruct')
 let VarInt = require('varint')
-let { sha256 } = require('./common.js')
+let { sha256, ripemd160 } = require('./common.js')
 
-const nullHash = Buffer.alloc(32)
+const nullHash = Buffer.alloc(20)
 
 let VarString = struct.VarString(VarInt)
 let codec = struct([
-  ['hash', struct.Buffer(32)],
-  ['kvHash', struct.Buffer(32)],
+  ['hash', struct.Buffer(20)],
+  ['kvHash', struct.Buffer(20)],
   ['leftHeight', struct.UInt8],
   ['rightHeight', struct.UInt8],
   ['value', VarString],
@@ -164,7 +164,7 @@ module.exports = function (db) {
         rightChild ? rightChild.hash : nullHash,
         this.kvHash
       ])
-      this.hash = sha256(input)
+      this.hash = ripemd160(sha256(input))
       return this.hash
     }
 
@@ -173,7 +173,7 @@ module.exports = function (db) {
         VarString.encode(this.key),
         VarString.encode(this.value)
       ])
-      this.kvHash = sha256(input)
+      this.kvHash = ripemd160(sha256(input))
       return this.kvHash
     }
 
