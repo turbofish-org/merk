@@ -1,4 +1,4 @@
-let { createHash } = require('crypto')
+let createHash = require('create-hash')
 
 const symbols = {
   mutations: Symbol('mutations'),

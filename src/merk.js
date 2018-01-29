@@ -2,6 +2,7 @@ let wrap = require('./wrap.js')
 let Tree = require('./tree.js')
 let MutationStore = require('./mutationStore.js')
 let load = require('./load.js')
+let verify = require('./verify.js')
 let { symbols } = require('./common.js')
 
 async function createMerk (db) {
@@ -48,16 +49,17 @@ function commit (root) {
 function hash (root) {
   assertRoot(root)
   let tree = root[symbols.db]()
-  return tree.rootHash()
+  return tree.rootHash().toString('hex')
 }
 
 // returns a merkle proof
-function proof (root, key = '') {
+function proof (root, query = '') {
   assertRoot(root)
   let tree = root[symbols.db]()
 
-  let from = '.' + key
-  let to = '.' + key + '/' // 1 value past `key + '.'`
+  let from = '.' + query
+  let to = '.' + query + '/' // 1 value past `query + '.'`
+  if (query === '') to = '/'
   return tree.getBranchRange(from, to)
 }
 
@@ -73,5 +75,6 @@ module.exports = Object.assign(createMerk, {
   rollback,
   commit,
   hash,
-  proof
+  proof,
+  verify
 })
