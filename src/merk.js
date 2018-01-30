@@ -3,6 +3,7 @@ let Tree = require('./tree.js')
 let MutationStore = require('./mutationStore.js')
 let load = require('./load.js')
 let verify = require('./verify.js')
+let createProof = require('./proof.js')
 let { symbols } = require('./common.js')
 
 async function createMerk (db) {
@@ -53,29 +54,10 @@ function hash (root) {
 }
 
 // returns a merkle proof
-async function proof (root, query = '') {
+function proof (root, query = '') {
   assertRoot(root)
   let tree = root[symbols.db]()
-
-  // range is query path, and all its child objects
-  let from = '.' + query
-  let to = '.' + query + '/' // 1 value past `query + '.'`
-  if (query === '') to = '/'
-
-  // check if there is a match for this query
-  try {
-    await tree.get(from)
-  } catch (err) {
-    if (!err.notFound) throw err
-
-    // if not, try querying parent object
-    let path = query.split('.')
-    query = path.slice(0, -1).join('.')
-    from = '.' + query
-    to = '.' + query + '.'
-  }
-
-  return tree.getBranchRange(from, to)
+  return createProof(tree, query)
 }
 
 function getter (symbol) {
