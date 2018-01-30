@@ -53,13 +53,28 @@ function hash (root) {
 }
 
 // returns a merkle proof
-function proof (root, query = '') {
+async function proof (root, query = '') {
   assertRoot(root)
   let tree = root[symbols.db]()
 
+  // range is query path, and all its child objects
   let from = '.' + query
   let to = '.' + query + '/' // 1 value past `query + '.'`
   if (query === '') to = '/'
+
+  // check if there is a match for this query
+  try {
+    await tree.get(from)
+  } catch (err) {
+    if (!err.notFound) throw err
+
+    // if not, try querying parent object
+    let path = query.split('.')
+    query = path.slice(0, -1).join('.')
+    from = '.' + query
+    to = '.' + query + '.'
+  }
+
   return tree.getBranchRange(from, to)
 }
 

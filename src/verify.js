@@ -25,11 +25,9 @@ function childHash (child) {
 }
 
 function getHash (node) {
-  if (node.kvHash) {
-    var kvHash = Buffer.from(node.kvHash, 'base64')
-  } else {
-    var kvHash = getKvHash(node)
-  }
+  let kvHash = node.kvHash
+    ? Buffer.from(node.kvHash, 'base64')
+    : getKvHash(node)
 
   let input = Buffer.concat([
     childHash(node.left),
@@ -48,7 +46,6 @@ function getKvHash ({ key, value }) {
 }
 
 function flatten (node, nodes = [], path = []) {
-  let { key, value } = node
   if (node.left && typeof node.left === 'object') {
     flatten(node.left, nodes, path.concat(false))
   }
@@ -91,22 +88,49 @@ function verify (expectedRootHash, proof, query = '') {
     valueNodes.push(node)
   }
 
-  let firstKeyPastFrom = valueNodes[0].key >= from
-  let firstKeyIsEdge = valueNodes[0].isEdge
-  if (firstKeyPastFrom && !firstKeyIsEdge) {
-    throw Error('First key greater than beginning of range')
+  let checkRange = () => {
+    let firstKeyPastFrom = valueNodes[0].key >= from
+    let firstKeyIsEdge = valueNodes[0].isEdge
+    if (firstKeyPastFrom && !firstKeyIsEdge) {
+      throw Error('First key greater than beginning of range')
+    }
+
+    let lastKeyBeforeTo = valueNodes[valueNodes.length - 1].key <= to
+    let lastKeyIsEdge = valueNodes[valueNodes.length - 1].isEdge
+    if (lastKeyBeforeTo && !lastKeyIsEdge) {
+      throw Error('Last key less than end of range')
+    }
   }
 
-  let lastKeyBeforeTo = valueNodes[valueNodes.length - 1].key <= to
-  let lastKeyIsEdge = valueNodes[valueNodes.length - 1].isEdge
-  if (lastKeyBeforeTo && !lastKeyIsEdge) {
-    throw Error('Last key less than end of range')
+  let resultNodes = valueNodes.filter((node) => {
+    return node.key >= from && node.key <= to
+  })
+
+  // try getting parent object
+  if (resultNodes.length === 0) {
+    let path = query.split('.')
+    let parentKey = '.' + path.slice(0, -1).join('.')
+    let valueKey = path[path.length - 1]
+    from = parentKey
+    to = parentKey + '.'
+    checkRange()
+    for (let node of valueNodes) {
+      if (node.key === parentKey) {
+        var parentNode = node
+        break
+      }
+      if (node.key > parentKey) {
+        throw Error('Parent node not found')
+      }
+    }
+    let parentValue = parse(parentNode.value)
+    return parentValue[valueKey]
   }
+
+  checkRange()
 
   let result
-  for (let node of valueNodes) {
-    if (node.key < from || node.key > to) continue
-
+  for (let node of resultNodes) {
     // remove query prefix
     let key = node.key.slice(from.length)
     if (key === '') key = symbols.root
@@ -124,7 +148,6 @@ function verify (expectedRootHash, proof, query = '') {
       parent[name] = value
     }
   }
-
   return result
 }
 
