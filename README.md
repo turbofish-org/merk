@@ -29,7 +29,15 @@ await merk.commit(state)
 merk.rollback(state)
 
 // get Merkle root hash of last commit
-console.log(await merk.rootHash(state))
+let rootHash = merk.hash(state)
+
+// create a JSON Merkle proof of the queried path
+let proof = await merk.proof(state, 'baz.y')
+
+// verify a proof (throws if not valid)
+let value = merk.verify(rootHash, proof, 'baz.y')
+// -> { z: 456 }
+// also available as require('merk/verify') to make dependency smaller for light clients
 ```
 
 ## License
