@@ -22,6 +22,7 @@ function childHash (child) {
   if (typeof child === 'object') {
     return getHash(child)
   }
+  throw Error('Invalid child node value')
 }
 
 function getHash (node) {
@@ -49,9 +50,15 @@ function flatten (node, nodes = [], path = []) {
   if (node.left && typeof node.left === 'object') {
     flatten(node.left, nodes, path.concat(false))
   }
-  node.isEdge = (path.length === 0 ||
-    path.reduce((a, b) => a === b)) &&
-    node.left == null && node.right == null
+
+  if (path.length === 0) {
+    node.isEdge = node.left == null || node.right == null
+  } else {
+    node.isEdge = (path.length === 1 ||
+      path.reduce((a, b) => a === b)) &&
+      node.left == null && node.right == null
+  }
+
   nodes.push(node)
   if (node.right && typeof node.right === 'object') {
     flatten(node.right, nodes, path.concat(true))
@@ -59,7 +66,7 @@ function flatten (node, nodes = [], path = []) {
   return nodes
 }
 
-function verify (expectedRootHash, proof, query = '') {
+module.exports = function verify (expectedRootHash, proof, query = '') {
   let rootHash = getHash(proof).toString('hex')
   if (rootHash !== expectedRootHash) {
     throw Error('Proof does not match expected root hash')
@@ -69,14 +76,6 @@ function verify (expectedRootHash, proof, query = '') {
   let to = '.' + query + '/'
   if (query === '') to = '/'
   let nodes = flatten(proof)
-
-  // special case for single-node tree (only root object)
-  if (nodes.length === 1) {
-    if (nodes[0].key !== '.') {
-      throw Error('Expected node to be root object')
-    }
-    return JSON.parse(nodes[0].value)
-  }
 
   // get contiguous nodes which have key/value
   let valueNodes = []
@@ -88,6 +87,7 @@ function verify (expectedRootHash, proof, query = '') {
     valueNodes.push(node)
   }
 
+  // ensure we have proof of the entire range
   let checkRange = () => {
     let firstKeyPastFrom = valueNodes[0].key >= from
     let firstKeyIsEdge = valueNodes[0].isEdge
@@ -114,6 +114,7 @@ function verify (expectedRootHash, proof, query = '') {
     from = parentKey
     to = parentKey + '.'
     checkRange()
+
     for (let node of valueNodes) {
       if (node.key === parentKey) {
         var parentNode = node
@@ -150,5 +151,3 @@ function verify (expectedRootHash, proof, query = '') {
   }
   return result
 }
-
-module.exports = verify
