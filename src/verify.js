@@ -52,11 +52,19 @@ function flatten (node, nodes = [], path = []) {
   }
 
   if (path.length === 0) {
+    // root node, is edge if missing a child
     node.isEdge = node.left == null || node.right == null
   } else {
-    node.isEdge = (path.length === 1 ||
-      path.reduce((a, b) => a === b)) &&
-      node.left == null && node.right == null
+    // non-root node, is edge if it has no children
+    // and all path components are the same
+    let equal = true
+    for (let i = 1; i < path.length; i++) {
+      if (path[i] !== path[i - 1]) {
+        equal = false
+        break
+      }
+    }
+    node.isEdge = equal && node.left == null && node.right == null
   }
 
   nodes.push(node)
