@@ -1,0 +1,211 @@
+{
+  "left": {
+    "left": {
+      "left": {
+        "left": {
+          "left": {
+            "left": null,
+            "right": null,
+            "key": ".messages",
+            "value": "[]"
+          },
+          "right": {
+            "left": null,
+            "right": null,
+            "key": ".messages.1",
+            "value": "{\"message\":\"on the blockchain\",\"sender\":\"Devslopes\"}"
+          },
+          "key": ".messages.0",
+          "value": "{\"message\":\"secure chat\",\"sender\":\"Devslopes\"}"
+        },
+        "right": {
+          "left": {
+            "left": null,
+            "right": null,
+            "key": ".messages.11",
+            "value": "{\"message\":\"d\",\"sender\":\"keppel\"}"
+          },
+          "right": {
+            "left": null,
+            "right": null,
+            "key": ".messages.13",
+            "value": "{\"message\":\"asdf\",\"sender\":\"keppel\"}"
+          },
+          "key": ".messages.12",
+          "value": "{\"message\":\"lfkasdf\",\"sender\":\"keppel\"}"
+        },
+        "key": ".messages.10",
+        "value": "{\"message\":\"as\",\"sender\":\"keppel\"}"
+      },
+      "right": {
+        "left": {
+          "left": null,
+          "right": null,
+          "key": ".messages.15",
+          "value": "{\"message\":\"sdf\",\"sender\":\"keppel\"}"
+        },
+        "right": {
+          "left": {
+            "left": null,
+            "right": null,
+            "key": ".messages.17",
+            "value": "{\"message\":\"sdf\",\"sender\":\"keppel\"}"
+          },
+          "right": {
+            "left": null,
+            "right": null,
+            "key": ".messages.19",
+            "value": "{\"message\":\"f\",\"sender\":\"keppel\"}"
+          },
+          "key": ".messages.18",
+          "value": "{\"message\":\"ad\",\"sender\":\"keppel\"}"
+        },
+        "key": ".messages.16",
+        "value": "{\"message\":\"a\",\"sender\":\"keppel\"}"
+      },
+      "key": ".messages.14",
+      "value": "{\"message\":\"a\",\"sender\":\"keppel\"}"
+    },
+    "right": {
+      "left": {
+        "left": {
+          "left": null,
+          "right": null,
+          "key": ".messages.20",
+          "value": "{\"message\":\"a\",\"sender\":\"keppel\"}"
+        },
+        "right": {
+          "left": null,
+          "right": null,
+          "key": ".messages.22",
+          "value": "{\"message\":\"a\",\"sender\":\"keppel\"}"
+        },
+        "key": ".messages.21",
+        "value": "{\"message\":\"df\",\"sender\":\"keppel\"}"
+      },
+      "right": {
+        "left": {
+          "left": {
+            "left": null,
+            "right": null,
+            "key": ".messages.24",
+            "value": "{\"message\":\"asdfasdfasd\",\"sender\":\"keppel\"}"
+          },
+          "right": {
+            "left": null,
+            "right": null,
+            "key": ".messages.26",
+            "value": "{\"message\":\"af\",\"sender\":\"keppel\"}"
+          },
+          "key": ".messages.25",
+          "value": "{\"message\":\"asd\",\"sender\":\"keppel\"}"
+        },
+        "right": {
+          "left": null,
+          "right": {
+            "left": null,
+            "right": null,
+            "key": ".messages.29",
+            "value": "{\"message\":\"ad\",\"sender\":\"keppel\"}"
+          },
+          "key": ".messages.28",
+          "value": "{\"message\":\"sdf\",\"sender\":\"keppel\"}"
+        },
+        "key": ".messages.27",
+        "value": "{\"message\":\"a\",\"sender\":\"keppel\"}"
+      },
+      "key": ".messages.23",
+      "value": "{\"message\":\"df\",\"sender\":\"keppel\"}"
+    },
+    "key": ".messages.2",
+    "value": "{\"message\":\"endless uses\",\"sender\":\"Devslopes\"}"
+  },
+  "right": {
+    "left": {
+      "left": {
+        "left": {
+          "left": null,
+          "right": null,
+          "key": ".messages.30",
+          "value": "{\"message\":\"f\",\"sender\":\"keppel\"}"
+        },
+        "right": null,
+        "key": ".messages.31",
+        "value": "{\"message\":\"adf\",\"sender\":\"keppel\"}"
+      },
+      "right": {
+        "left": {
+          "left": {
+            "left": null,
+            "right": null,
+            "key": ".messages.33",
+            "value": "{\"message\":\"adgf\",\"sender\":\"keppel\"}"
+          },
+          "right": {
+            "left": null,
+            "right": null,
+            "key": ".messages.35",
+            "value": "{\"message\":\"g\",\"sender\":\"keppel\"}"
+          },
+          "key": ".messages.34",
+          "value": "{\"message\":\"asd\",\"sender\":\"keppel\"}"
+        },
+        "right": {
+          "left": {
+            "left": null,
+            "right": null,
+            "key": ".messages.37",
+            "value": "{\"message\":\"spam\",\"sender\":\"keppel\"}"
+          },
+          "right": {
+            "left": null,
+            "right": null,
+            "key": ".messages.39",
+            "value": "{\"message\":\"spam\",\"sender\":\"keppel\"}"
+          },
+          "key": ".messages.38",
+          "value": "{\"message\":\"spam\",\"sender\":\"keppel\"}"
+        },
+        "key": ".messages.36",
+        "value": "{\"message\":\"spam\",\"sender\":\"keppel\"}"
+      },
+      "key": ".messages.32",
+      "value": "{\"message\":\"sdgf\",\"sender\":\"keppel\"}"
+    },
+    "right": {
+      "left": {
+        "left": {
+          "left": null,
+          "right": null,
+          "key": ".messages.40",
+          "value": "{\"message\":\"hello\",\"sender\":\"test\"}"
+        },
+        "right": null,
+        "key": ".messages.5",
+        "value": "{\"message\":\"as\",\"sender\":\"keppel\"}"
+      },
+      "right": {
+        "left": {
+          "left": null,
+          "right": null,
+          "key": ".messages.7",
+          "value": "{\"message\":\"asd\",\"sender\":\"keppel\"}"
+        },
+        "right": {
+          "left": null,
+          "right": null,
+          "key": ".messages.9",
+          "value": "{\"message\":\"sd\",\"sender\":\"keppel\"}"
+        },
+        "key": ".messages.8",
+        "value": "{\"message\":\"a\",\"sender\":\"keppel\"}"
+      },
+      "key": ".messages.6",
+      "value": "{\"message\":\"d\",\"sender\":\"keppel\"}"
+    },
+    "key": ".messages.4",
+    "value": "{\"message\":\"asd\",\"sender\":\"keppel\"}"
+  },
+  "key": ".messages.3",
+  "value": "{\"message\":\"woo\",\"sender\":\"keppel\"}"
+}

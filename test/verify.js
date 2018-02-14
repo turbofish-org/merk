@@ -197,3 +197,14 @@ test('verify with unproven range', async (t) => {
     t.is(err.message, 'Last key less than end of range')
   }
 })
+
+test('verify with range that was previously broken', async (t) => {
+  let db = mockDb()
+  let state = await merk(db)
+
+  let rootHash = '8cbbf63175e9390054c2155419ccea4ce38508a0'
+  let proof = require('./fixtures/blockchat.json')
+
+  merk.verify(rootHash, proof, 'messages')
+  t.pass()
+})
