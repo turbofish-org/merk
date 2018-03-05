@@ -62,7 +62,9 @@ class MutationStore {
 
   rollback (state) {
     // reapply previous values
-    for (let key in this.before) {
+    let beforeKeys = Object.keys(this.before)
+    beforeKeys.sort()
+    for (let key of beforeKeys) {
       let value = this.before[key]
       let path = keyToPath(key)
 
@@ -72,7 +74,13 @@ class MutationStore {
       if (value === symbols.delete) {
         delete parent[lastKey]
       } else {
-        updateBase(parent[lastKey], value)
+        let base = parent[lastKey]
+        // handle restoring a deleted array child-object
+        if (Array.isArray(parent) && base == null) {
+          parent[lastKey] = value
+        } else {
+          updateBase(base, value)
+        }
       }
     }
 

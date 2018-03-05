@@ -47,6 +47,12 @@ function wrap (obj, onMutate, path = []) {
       recordMutation('put', path, base)
     }
 
+    // if parent is array, ensure length gets updated
+    if (Array.isArray(obj)) {
+      let parent = baseObject(obj)
+      recordMutation('put', path, parent)
+    }
+
     let base = baseObject(value)
     recordMutation('put', path.concat(key), base)
 

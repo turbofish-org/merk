@@ -23,7 +23,9 @@ function isObject (value) {
 function baseObject (obj) {
   if (!isObject(obj)) return obj
   let base = {}
-  if (Array.isArray(obj)) base = []
+  if (Array.isArray(obj)) {
+    base.length = obj.length
+  }
   for (let key in obj) {
     let value = obj[key]
     if (isObject(value)) continue

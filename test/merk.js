@@ -133,3 +133,78 @@ test('call merk methods on non-merk object', async (t) => {
     t.is(err.message, 'Must specify a root merk object')
   }
 })
+
+test('rollback on array length increase', async (t) => {
+  let db = mockDb()
+  let obj = await merk(db)
+
+  obj.array = [ 1, 2, 3 ]
+
+  await merk.commit(obj)
+
+  obj.array.push(4)
+
+  merk.rollback(obj)
+
+  t.deepEqual(obj, { array: [ 1, 2, 3 ] })
+})
+
+test('rollback on array length increase with objects', async (t) => {
+  let db = mockDb()
+  let obj = await merk(db)
+
+  obj.array = [ {}, {}, {} ]
+
+  await merk.commit(obj)
+
+  obj.array.push({})
+
+  merk.rollback(obj)
+
+  t.deepEqual(obj, { array: [ {}, {}, {} ] })
+})
+
+test('rollback on array length decrease', async (t) => {
+  let db = mockDb()
+  let obj = await merk(db)
+
+  obj.array = [ 1, 2, 3 ]
+
+  await merk.commit(obj)
+
+  obj.array.pop()
+
+  merk.rollback(obj)
+
+  t.deepEqual(obj, { array: [ 1, 2, 3 ] })
+})
+
+test('rollback on array length decrease with objects', async (t) => {
+  let db = mockDb()
+  let obj = await merk(db)
+
+  obj.array = [ {}, {}, {} ]
+
+  await merk.commit(obj)
+
+  obj.array.pop()
+
+  merk.rollback(obj)
+
+  t.deepEqual(obj, { array: [ {}, {}, {} ] })
+})
+
+test('rollback on array length increase with mixed types', async (t) => {
+  let db = mockDb()
+  let obj = await merk(db)
+
+  obj.array = [ {}, {}, {}, 4, 5, 6 ]
+
+  await merk.commit(obj)
+
+  obj.array.push({})
+
+  merk.rollback(obj)
+
+  t.deepEqual(obj, { array: [ {}, {}, {}, 4, 5, 6 ] })
+})
