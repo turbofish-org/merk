@@ -208,3 +208,19 @@ test('verify with range that was previously broken', async (t) => {
   merk.verify(rootHash, proof, 'messages')
   t.pass()
 })
+
+test('verify with single-node tree with no root object', async (t) => {
+  let db = mockDb()
+  let state = await merk(db)
+
+  state.foo = { beep: 'boop' }
+
+  await merk.commit(state)
+
+  let proof = await merk.proof(state)
+
+  let rootHash = '4a492d386d845c19a691698b91d9afaddba0a0fb'
+  let value = merk.verify(rootHash, proof)
+
+  t.pass()
+})

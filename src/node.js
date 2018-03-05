@@ -279,10 +279,12 @@ module.exports = function (db) {
       async function isInRange (node) {
         if (node.key < from) {
           let next = await node.next(tx)
+          if (next == null) return true
           return next.key >= from
         }
         if (node.key > to) {
           let prev = await node.prev(tx)
+          if (prev == null) return true
           return prev.key <= to
         }
         return true

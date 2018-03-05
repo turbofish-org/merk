@@ -154,6 +154,7 @@ module.exports = function verify (expectedRootHash, proof, query = '') {
     if (path.length === 0) {
       result = value
     } else {
+      if (!result) result = {}
       let [ parent ] = access(result, path.slice(0, -1))
       let name = path[path.length - 1]
       parent[name] = value
