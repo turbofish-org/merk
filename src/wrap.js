@@ -98,7 +98,12 @@ function wrap (obj, onMutate, path = []) {
     // recursively wrap child objects when accessed
     get (obj, key) {
       let value = obj[key]
-      if (!isObject(value)) return value
+      if (typeof value === 'function') {
+        return value.bind(obj)
+      }
+      if (!isObject(value)) {
+        return value
+      }
 
       // if value is object, recursively wrap
       let childPath = path.concat(key)
