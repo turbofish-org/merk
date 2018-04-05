@@ -1,5 +1,5 @@
 let old = require('old')
-let Transaction = require('level-transactions')
+let createTx = require('./transaction.js')
 let _Node = require('./node.js')
 
 class Tree {
@@ -15,6 +15,11 @@ class Tree {
 
     this.initialized = false
     this.initialize = this.maybeLoad()
+  }
+
+  async batch () {
+    let release = await this.acquireLock()
+    return new Batch(this, release)
   }
 
   async maybeLoad () {
@@ -38,27 +43,6 @@ class Tree {
     return this._rootNode.hash
   }
 
-  async setRoot (node, tx) {
-    await this.initialize
-
-    if (!tx) {
-      tx = createTx(this.db)
-      var createdTx = true
-    }
-
-    if (node != null) {
-      await this.db.put(':root', node.key)
-    } else {
-      await this.db.del(':root')
-    }
-
-    this._rootNode = node
-
-    if (createdTx) {
-      await tx.commit()
-    }
-  }
-
   async acquireLock () {
     while (true) {
       if (!this.lock) break
@@ -77,51 +61,6 @@ class Tree {
     return releaseLock
   }
 
-  async put (key, value) {
-    await this.initialize
-
-    let release = await this.acquireLock()
-
-    let tx = createTx(this.db)
-    let node = new this.Node({ key, value, db: this.db })
-
-    // no root, set node as root
-    if (this._rootNode == null) {
-      await node.save(tx)
-      await this.setRoot(node, tx)
-      await tx.commit()
-      release()
-      return
-    }
-
-    let successor = await this._rootNode.put(node, tx)
-    await this.setRoot(successor, tx)
-    await tx.commit()
-    release()
-  }
-
-  async get (key) {
-    await this.initialize
-    return this.Node.get(key)
-  }
-
-  async del (key) {
-    await this.initialize
-
-    if (this._rootNode == null) {
-      throw Error('Tree is empty')
-    }
-
-    let release = await this.acquireLock()
-
-    let tx = createTx(this.db)
-    let successor = await this._rootNode.delete(key, tx)
-    await this.setRoot(successor, tx)
-    await tx.commit()
-
-    release()
-  }
-
   async getBranchRange (from, to) {
     await this.initialize
     let release = await this.acquireLock()
@@ -133,17 +72,6 @@ class Tree {
 
 module.exports = old(Tree)
 
-// promsifies level-transactions methods
-function createTx (db) {
-  let tx = new Transaction(db)
-  return {
-    get: promisify(tx, 'get'),
-    put: promisify(tx, 'put'),
-    del: promisify(tx, 'del'),
-    commit: promisify(tx, 'commit')
-  }
-}
-
 function promisify (obj, method) {
   return (...args) => {
     return new Promise((resolve, reject) => {
@@ -152,5 +80,62 @@ function promisify (obj, method) {
         resolve(value)
       })
     })
+  }
+}
+
+class Batch {
+  constructor (tree, release) {
+    this.tree = tree
+    this.release = release
+    this.tx = createTx(tree.db)
+    this.rootNode = tree._rootNode
+  }
+
+  async setRoot (node) {
+    if (node != null) {
+      await this.tx.put(':root', node.key)
+    } else {
+      await this.tx.del(':root')
+    }
+
+    this.rootNode = node
+  }
+
+  async put (key, value) {
+    let node = new this.tree.Node({ key, value, db: this.tree.db })
+
+    // no root, set node as root
+    if (this.rootNode == null) {
+      await node.save(this.tx)
+      await this.setRoot(node)
+      return
+    }
+
+    let successor = await this.rootNode.put(node, this.tx)
+    await this.setRoot(successor)
+  }
+
+  async get (key) {
+    return this.tree.Node.get(key, this.tx)
+  }
+
+  async del (key) {
+    if (this.rootNode == null) {
+      throw Error('Tree is empty')
+    }
+
+    let successor = await this.rootNode.delete(key, this.tx)
+    await this.setRoot(successor)
+  }
+
+  write () {
+    try {
+      this.tree._rootNode = this.rootNode
+      return this.tx.commit()
+    } catch (err) {
+      throw err
+    } finally {
+      this.release()
+    }
   }
 }

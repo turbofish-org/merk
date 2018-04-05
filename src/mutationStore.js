@@ -94,8 +94,6 @@ class MutationStore {
   }
 
   async commit (db) {
-    let promises = []
-
     let mutationKeys = Object.keys(this.after)
     if (this.after[symbols.root]) {
       // root symbol is a special case since Symbols
@@ -103,21 +101,21 @@ class MutationStore {
       mutationKeys.push(symbols.root)
     }
 
+    let batch = await db.batch()
     for (let key of mutationKeys) {
       let prefixedKey = '.'
       if (key !== symbols.root) prefixedKey += key
 
       let value = this.after[key]
       if (value === symbols.delete) {
-        promises.push(db.del(prefixedKey))
+        await batch.del(prefixedKey)
       } else {
         let json = stringify(value)
-        promises.push(db.put(prefixedKey, json))
+        await batch.put(prefixedKey, json)
       }
     }
 
-    // wait for all updates to complete
-    await Promise.all(promises)
+    await batch.write()
 
     this.reset()
   }

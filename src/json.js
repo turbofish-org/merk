@@ -39,7 +39,7 @@ function bufferToBase64Replacer (value) {
     value = Buffer.from(value)
   }
   if (!Buffer.isBuffer(value)) return value
-  return `${base64Prefix}${value.toString('base64')}`
+  return `${base64Prefix}${Buffer.from(value).toString('base64')}`
 }
 function base64ToBufferReplacer (value) {
   if (typeof value !== 'string') return value
