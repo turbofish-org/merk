@@ -6,7 +6,7 @@ test('set non-object on root', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => mutations = []
+  let reset = () => { mutations = [] }
 
   wrapper.foo = 'bar'
   deepEqual(t, mutations, [
@@ -26,7 +26,7 @@ test('set object on root', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => mutations = []
+  let reset = () => { mutations = [] }
 
   wrapper.foo = { x: 5 }
   deepEqual(t, mutations, [
@@ -46,7 +46,7 @@ test('mutate root non-object', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => mutations = []
+  let reset = () => { mutations = [] }
 
   wrapper.foo = 'bar'
 
@@ -69,7 +69,7 @@ test('replace root non-object with object', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => mutations = []
+  let reset = () => { mutations = [] }
 
   wrapper.foo = 'bar'
 
@@ -98,7 +98,7 @@ test('replace object with non-object', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => mutations = []
+  let reset = () => { mutations = [] }
 
   wrapper.foo = { x: 5 }
 
@@ -127,7 +127,7 @@ test('mutate non-root object', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => mutations = []
+  let reset = () => { mutations = [] }
 
   wrapper.foo = { x: 5 }
 
@@ -150,7 +150,7 @@ test('delete object', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => mutations = []
+  let reset = () => { mutations = [] }
 
   wrapper.foo = { x: 5 }
 
@@ -173,7 +173,7 @@ test('delete root non-object', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => mutations = []
+  let reset = () => { mutations = [] }
 
   wrapper.foo = 'bar'
 
@@ -196,7 +196,7 @@ test('delete non-root non-object', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => mutations = []
+  let reset = () => { mutations = [] }
 
   wrapper.foo = { x: 5 }
 
@@ -219,7 +219,7 @@ test('override object by setting on parent', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => mutations = []
+  let reset = () => { mutations = [] }
 
   wrapper.foo = { x: { y: 5 } }
 
@@ -248,7 +248,7 @@ test('set multiple-level object', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => mutations = []
+  let reset = () => { mutations = [] }
 
   wrapper.foo = { x: { y: 5 } }
   deepEqual(t, mutations, [
@@ -274,7 +274,7 @@ test('delete multiple-level object', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => mutations = []
+  let reset = () => { mutations = [] }
 
   wrapper.foo = { x: { y: 5 } }
 
@@ -309,4 +309,16 @@ test('delete non-existent key', (t) => {
   deepEqual(t, mutations, [])
   deepEqual(t, obj, {})
   deepEqual(t, wrapper, {})
+})
+
+test('functions are bound to parent', (t) => {
+  let mutations = []
+  let obj = { array: [] }
+  let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
+
+  obj.array.push(123)
+
+  deepEqual(t, mutations, [ {} ])
+  deepEqual(t, obj, { array: [ 123 ] })
+  deepEqual(t, wrapper, { array: [ 123 ] })
 })
