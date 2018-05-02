@@ -94,12 +94,12 @@ function wrap (obj, onMutate, path = []) {
     recordMutation('del', path.concat(key))
   }
 
-  return new Proxy(obj, {
+  let wrapped = new Proxy(obj, {
     // recursively wrap child objects when accessed
     get (obj, key) {
       let value = obj[key]
       if (typeof value === 'function') {
-        return value.bind(obj)
+        return value.bind(wrapped)
       }
       if (!isObject(value)) {
         return value
@@ -130,6 +130,7 @@ function wrap (obj, onMutate, path = []) {
       return Object.getOwnPropertyNames(obj)
     }
   })
+  return wrapped
 }
 
 module.exports = wrap
