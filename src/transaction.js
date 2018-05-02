@@ -11,6 +11,9 @@ class Transaction {
 
   async get (key) {
     if (this.cache[key] != null) {
+      if (this.cache[key] === NULL) {
+        return null
+      }
       return this.cache[key]
     }
     return this.db.get(key)
