@@ -1,5 +1,5 @@
 let { access, keyToPath } = require('./common.js')
-let { parse } = require('./json.js')
+let { parse } = require('deterministic-json')
 
 // load existing data if it exists
 async function load (tree) {

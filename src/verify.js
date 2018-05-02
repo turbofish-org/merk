@@ -7,7 +7,7 @@ let {
   access,
   symbols
 } = require('./common.js')
-let { parse } = require('./json.js')
+let { parse } = require('deterministic-json')
 
 const nullHash = Buffer.alloc(20)
 const VarString = struct.VarString(VarInt)

@@ -1,5 +1,5 @@
 let old = require('old')
-let { stringify } = require('./json.js')
+let { stringify } = require('deterministic-json')
 let {
   access,
   symbols,
