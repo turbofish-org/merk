@@ -28,28 +28,34 @@ function mockDb (db) {
   }
 
   let mockDb = {
-    gets, puts, dels,
-    get, put, del,
+    gets,
+    puts,
+    dels,
+    get,
+    put,
+    del,
+    batch: () => ({
+      get,
+      put,
+      del,
+      write: () => Promise.resolve()
+    }),
     store,
     toString: () => 'LevelUP'
-  }
-
-  // support callbacks for level-transactions
-  mockDb.batch = async function (batch, cb) {
-    try {
-      for (let { type, key, value } of batch) {
-        await mockDb[type](key, value)
-      }
-    } catch (err) {
-      if (cb) return cb(err)
-      throw err
-    }
-    if (cb) cb()
   }
 
   return mockDb
 }
 
+// hack to fix deepEqual check for Proxied objects
+function deepEqual (t, actual, expected) {
+  return t.deepEqual(
+    JSON.parse(JSON.stringify(actual)),
+    JSON.parse(JSON.stringify(expected))
+  )
+}
+
 module.exports = {
-  mockDb
+  mockDb,
+  deepEqual
 }

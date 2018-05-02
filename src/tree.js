@@ -22,6 +22,10 @@ class Tree {
     return new Batch(this, release)
   }
 
+  get (key) {
+    return this.Node.get(key)
+  }
+
   async maybeLoad () {
     try {
       let rootKey = (await this.db.get(':root')).toString()
@@ -72,17 +76,6 @@ class Tree {
 
 module.exports = old(Tree)
 
-function promisify (obj, method) {
-  return (...args) => {
-    return new Promise((resolve, reject) => {
-      obj[method](...args, (err, value) => {
-        if (err) return reject(err)
-        resolve(value)
-      })
-    })
-  }
-}
-
 class Batch {
   constructor (tree, release) {
     this.tree = tree
@@ -115,7 +108,7 @@ class Batch {
     await this.setRoot(successor)
   }
 
-  async get (key) {
+  get (key) {
     return this.tree.Node.get(key, this.tx)
   }
 

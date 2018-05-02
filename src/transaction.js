@@ -13,7 +13,7 @@ class Transaction {
     if (this.cache[key] != null) {
       return this.cache[key]
     }
-    return await this.db.get(key)
+    return this.db.get(key)
   }
 
   async put (key, value) {

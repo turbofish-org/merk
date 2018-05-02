@@ -1,5 +1,5 @@
 let test = require('ava')
-let { mockDb } = require('./common.js')
+let { mockDb, deepEqual } = require('./common.js')
 let merk = require('../src/merk.js')
 
 test('verify single-node root proof', async (t) => {
@@ -12,7 +12,7 @@ test('verify single-node root proof', async (t) => {
   let proof = await merk.proof(state)
   let value = merk.verify(rootHash, proof)
 
-  t.deepEqual(value, { foo: 'bar' })
+  deepEqual(t, value, { foo: 'bar' })
 })
 
 test('verify single-node non-object child proof', async (t) => {
@@ -39,7 +39,7 @@ test('verify multi-node root proof', async (t) => {
   let proof = await merk.proof(state)
   let value = merk.verify(rootHash, proof)
 
-  t.deepEqual(value, { foo: 'bar', baz: { x: 123 } })
+  deepEqual(t, value, { foo: 'bar', baz: { x: 123 } })
 })
 
 test('verify multi-node child proof', async (t) => {
@@ -53,7 +53,7 @@ test('verify multi-node child proof', async (t) => {
   let proof = await merk.proof(state, 'baz')
   let value = merk.verify(rootHash, proof, 'baz')
 
-  t.deepEqual(value, { x: 123 })
+  deepEqual(t, value, { x: 123 })
 })
 
 test('verify multi-node non-object child proof', async (t) => {
@@ -120,7 +120,7 @@ test('verify with array range', async (t) => {
   }
 
   let value = merk.verify(rootHash, proof, 'array')
-  t.deepEqual(value, [{n: 0}, {n: 1}, {n: 2}, {n: 3}])
+  deepEqual(t, value, [{n: 0}, {n: 1}, {n: 2}, {n: 3}])
 })
 
 test('verify with array child', async (t) => {
@@ -135,7 +135,7 @@ test('verify with array child', async (t) => {
   let proof = await merk.proof(state, 'array.1')
 
   let value = merk.verify(rootHash, proof, 'array.1')
-  t.deepEqual(value, {n: 1})
+  deepEqual(t, value, {n: 1})
 })
 
 test('verify with unproven range', async (t) => {

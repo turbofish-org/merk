@@ -1,5 +1,6 @@
 let test = require('ava')
 let wrap = require('../src/wrap.js')
+let { deepEqual } = require('./common.js')
 
 test('set non-object on root', (t) => {
   let mutations = []
@@ -8,7 +9,7 @@ test('set non-object on root', (t) => {
   let reset = () => mutations = []
 
   wrapper.foo = 'bar'
-  t.deepEqual(mutations, [
+  deepEqual(t, mutations, [
     {
       op: 'put',
       path: [],
@@ -17,8 +18,8 @@ test('set non-object on root', (t) => {
       existed: true
     }
   ])
-  t.deepEqual(obj, { foo: 'bar' })
-  t.deepEqual(wrapper, { foo: 'bar' })
+  deepEqual(t, obj, { foo: 'bar' })
+  deepEqual(t, wrapper, { foo: 'bar' })
 })
 
 test('set object on root', (t) => {
@@ -28,7 +29,7 @@ test('set object on root', (t) => {
   let reset = () => mutations = []
 
   wrapper.foo = { x: 5 }
-  t.deepEqual(mutations, [
+  deepEqual(t, mutations, [
     {
       op: 'put',
       path: [ 'foo' ],
@@ -37,8 +38,8 @@ test('set object on root', (t) => {
       existed: false
     }
   ])
-  t.deepEqual(obj, { foo: { x: 5 } })
-  t.deepEqual(wrapper, { foo: { x: 5 } })
+  deepEqual(t, obj, { foo: { x: 5 } })
+  deepEqual(t, wrapper, { foo: { x: 5 } })
 })
 
 test('mutate root non-object', (t) => {
@@ -51,7 +52,7 @@ test('mutate root non-object', (t) => {
 
   reset()
   wrapper.foo = 'bar2'
-  t.deepEqual(mutations, [
+  deepEqual(t, mutations, [
     {
       op: 'put',
       path: [],
@@ -60,8 +61,8 @@ test('mutate root non-object', (t) => {
       existed: true
     }
   ])
-  t.deepEqual(obj, { foo: 'bar2' })
-  t.deepEqual(wrapper, { foo: 'bar2' })
+  deepEqual(t, obj, { foo: 'bar2' })
+  deepEqual(t, wrapper, { foo: 'bar2' })
 })
 
 test('replace root non-object with object', (t) => {
@@ -74,7 +75,7 @@ test('replace root non-object with object', (t) => {
 
   reset()
   wrapper.foo = { x: 5 }
-  t.deepEqual(mutations, [
+  deepEqual(t, mutations, [
     {
       op: 'put',
       path: [],
@@ -89,8 +90,8 @@ test('replace root non-object with object', (t) => {
       existed: true
     }
   ])
-  t.deepEqual(obj, { foo: { x: 5 } })
-  t.deepEqual(wrapper, { foo: { x: 5 } })
+  deepEqual(t, obj, { foo: { x: 5 } })
+  deepEqual(t, wrapper, { foo: { x: 5 } })
 })
 
 test('replace object with non-object', (t) => {
@@ -103,7 +104,7 @@ test('replace object with non-object', (t) => {
 
   reset()
   wrapper.foo = 'bar'
-  t.deepEqual(mutations, [
+  deepEqual(t, mutations, [
     {
       op: 'del',
       path: [ 'foo' ],
@@ -118,8 +119,8 @@ test('replace object with non-object', (t) => {
       existed: true
     }
   ])
-  t.deepEqual(obj, { foo: 'bar' })
-  t.deepEqual(wrapper, { foo: 'bar' })
+  deepEqual(t, obj, { foo: 'bar' })
+  deepEqual(t, wrapper, { foo: 'bar' })
 })
 
 test('mutate non-root object', (t) => {
@@ -132,7 +133,7 @@ test('mutate non-root object', (t) => {
 
   reset()
   wrapper.foo.x++
-  t.deepEqual(mutations, [
+  deepEqual(t, mutations, [
     {
       op: 'put',
       path: [ 'foo' ],
@@ -141,8 +142,8 @@ test('mutate non-root object', (t) => {
       existed: true
     }
   ])
-  t.deepEqual(obj, { foo: { x: 6 } })
-  t.deepEqual(wrapper, { foo: { x: 6 } })
+  deepEqual(t, obj, { foo: { x: 6 } })
+  deepEqual(t, wrapper, { foo: { x: 6 } })
 })
 
 test('delete object', (t) => {
@@ -155,7 +156,7 @@ test('delete object', (t) => {
 
   reset()
   delete wrapper.foo
-  t.deepEqual(mutations, [
+  deepEqual(t, mutations, [
     {
       op: 'del',
       path: [ 'foo' ],
@@ -164,8 +165,8 @@ test('delete object', (t) => {
       existed: true
     }
   ])
-  t.deepEqual(obj, {})
-  t.deepEqual(wrapper, {})
+  deepEqual(t, obj, {})
+  deepEqual(t, wrapper, {})
 })
 
 test('delete root non-object', (t) => {
@@ -178,7 +179,7 @@ test('delete root non-object', (t) => {
 
   reset()
   delete wrapper.foo
-  t.deepEqual(mutations, [
+  deepEqual(t, mutations, [
     {
       op: 'put',
       path: [],
@@ -187,8 +188,8 @@ test('delete root non-object', (t) => {
       existed: true
     }
   ])
-  t.deepEqual(obj, {})
-  t.deepEqual(wrapper, {})
+  deepEqual(t, obj, {})
+  deepEqual(t, wrapper, {})
 })
 
 test('delete non-root non-object', (t) => {
@@ -201,7 +202,7 @@ test('delete non-root non-object', (t) => {
 
   reset()
   delete wrapper.foo.x
-  t.deepEqual(mutations, [
+  deepEqual(t, mutations, [
     {
       op: 'put',
       path: [ 'foo' ],
@@ -210,8 +211,8 @@ test('delete non-root non-object', (t) => {
       existed: true
     }
   ])
-  t.deepEqual(obj, { foo: {} })
-  t.deepEqual(wrapper, { foo: {} })
+  deepEqual(t, obj, { foo: {} })
+  deepEqual(t, wrapper, { foo: {} })
 })
 
 test('override object by setting on parent', (t) => {
@@ -224,7 +225,7 @@ test('override object by setting on parent', (t) => {
 
   reset()
   wrapper.foo = { x: 5 }
-  t.deepEqual(mutations, [
+  deepEqual(t, mutations, [
     {
       op: 'put',
       path: [ 'foo' ],
@@ -239,8 +240,8 @@ test('override object by setting on parent', (t) => {
       existed: true
     }
   ])
-  t.deepEqual(obj, { foo: { x: 5 } })
-  t.deepEqual(wrapper, { foo: { x: 5 } })
+  deepEqual(t, obj, { foo: { x: 5 } })
+  deepEqual(t, wrapper, { foo: { x: 5 } })
 })
 
 test('set multiple-level object', (t) => {
@@ -250,7 +251,7 @@ test('set multiple-level object', (t) => {
   let reset = () => mutations = []
 
   wrapper.foo = { x: { y: 5 } }
-  t.deepEqual(mutations, [
+  deepEqual(t, mutations, [
     {
       op: 'put',
       path: [ 'foo' ],
@@ -265,8 +266,8 @@ test('set multiple-level object', (t) => {
       existed: false
     }
   ])
-  t.deepEqual(obj, { foo: { x: { y: 5 } } })
-  t.deepEqual(wrapper, { foo: { x: { y: 5 } } })
+  deepEqual(t, obj, { foo: { x: { y: 5 } } })
+  deepEqual(t, wrapper, { foo: { x: { y: 5 } } })
 })
 
 test('delete multiple-level object', (t) => {
@@ -279,7 +280,7 @@ test('delete multiple-level object', (t) => {
 
   reset()
   delete wrapper.foo
-  t.deepEqual(mutations, [
+  deepEqual(t, mutations, [
     {
       op: 'del',
       path: [ 'foo', 'x' ],
@@ -294,8 +295,8 @@ test('delete multiple-level object', (t) => {
       existed: true
     }
   ])
-  t.deepEqual(obj, {})
-  t.deepEqual(wrapper, {})
+  deepEqual(t, obj, {})
+  deepEqual(t, wrapper, {})
 })
 
 test('delete non-existent key', (t) => {
@@ -305,7 +306,7 @@ test('delete non-existent key', (t) => {
 
   delete wrapper.foo
 
-  t.deepEqual(mutations, [])
-  t.deepEqual(obj, {})
-  t.deepEqual(wrapper, {})
+  deepEqual(t, mutations, [])
+  deepEqual(t, obj, {})
+  deepEqual(t, wrapper, {})
 })

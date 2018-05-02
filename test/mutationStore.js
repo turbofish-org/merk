@@ -1,12 +1,12 @@
 let test = require('ava')
-let { mockDb } = require('./common.js')
+let { mockDb, deepEqual } = require('./common.js')
 let { symbols } = require('../src/common.js')
 let MutationStore = require('../src/mutationStore.js')
 
 test('create mutationStore', (t) => {
   let ms = MutationStore()
-  t.deepEqual(ms.before, {})
-  t.deepEqual(ms.after, {})
+  deepEqual(t, ms.before, {})
+  deepEqual(t, ms.after, {})
 })
 
 test('put non-object on root', (t) => {
@@ -20,10 +20,10 @@ test('put non-object on root', (t) => {
     existed: true
   })
 
-  t.deepEqual(ms.before, {
+  deepEqual(t, ms.before, {
     [symbols.root]: {}
   })
-  t.deepEqual(ms.after, {
+  deepEqual(t, ms.after, {
     [symbols.root]: { foo: 'bar' }
   })
 })
@@ -40,10 +40,10 @@ test('put object on root', (t) => {
     existed: false
   })
 
-  t.deepEqual(ms.before, {
+  deepEqual(t, ms.before, {
     foo: symbols.delete
   })
-  t.deepEqual(ms.after, {
+  deepEqual(t, ms.after, {
     foo: { x: 5 }
   })
 })
@@ -66,10 +66,10 @@ test('ms are deduped', (t) => {
     existed: true
   })
 
-  t.deepEqual(ms.before, {
+  deepEqual(t, ms.before, {
     foo: symbols.delete
   })
-  t.deepEqual(ms.after, {
+  deepEqual(t, ms.after, {
     foo: { x: 6 }
   })
 })
@@ -92,8 +92,8 @@ test('delete non-preexisting key', (t) => {
     existed: true
   })
 
-  t.deepEqual(ms.before, {})
-  t.deepEqual(ms.after, {})
+  deepEqual(t, ms.before, {})
+  deepEqual(t, ms.after, {})
 })
 
 test('delete key from non-preexisting object', (t) => {
@@ -114,10 +114,10 @@ test('delete key from non-preexisting object', (t) => {
     existed: true
   })
 
-  t.deepEqual(ms.before, {
+  deepEqual(t, ms.before, {
     foo: symbols.delete
   })
-  t.deepEqual(ms.after, {
+  deepEqual(t, ms.after, {
     foo: {}
   })
 })
@@ -154,8 +154,8 @@ test('delete multi-level non-preexisting key', (t) => {
     existed: true
   })
 
-  t.deepEqual(ms.before, {})
-  t.deepEqual(ms.after, {})
+  deepEqual(t, ms.before, {})
+  deepEqual(t, ms.after, {})
 })
 
 test('commit', async (t) => {
@@ -179,10 +179,10 @@ test('commit', async (t) => {
 
   await ms.commit(db)
 
-  t.deepEqual(ms.before, {})
-  t.deepEqual(ms.after, {})
+  deepEqual(t, ms.before, {})
+  deepEqual(t, ms.after, {})
 
-  t.deepEqual(db.puts, [
+  deepEqual(t, db.puts, [
     { key: '.foo', value: '{"x":5}' },
     { key: '.', value: '{"bar":"baz"}' }
   ])
@@ -226,18 +226,18 @@ test('mutate after commit', async (t) => {
     existed: true
   })
 
-  t.deepEqual(ms.before, {
+  deepEqual(t, ms.before, {
     foo: { x: 5 },
     [symbols.root]: { bar: 'baz' }
   })
-  t.deepEqual(ms.after, {
+  deepEqual(t, ms.after, {
     foo: { x: 6 },
     [symbols.root]: { bar: 'BAZ' }
   })
 
   await ms.commit(db)
 
-  t.deepEqual(db.puts, [
+  deepEqual(t, db.puts, [
     { key: '.foo', value: '{"x":5}' },
     { key: '.', value: '{"bar":"baz"}' },
     { key: '.foo', value: '{"x":6}' },
@@ -281,11 +281,11 @@ test('delete after commit', async (t) => {
     existed: true
   })
 
-  t.deepEqual(ms.before, {
+  deepEqual(t, ms.before, {
     foo: { x: 5 },
     [symbols.root]: { bar: 'baz' }
   })
-  t.deepEqual(ms.after, {
+  deepEqual(t, ms.after, {
     foo: symbols.delete,
     [symbols.root]: {}
   })
@@ -329,15 +329,15 @@ test('commit deletion', async (t) => {
 
   await ms.commit(db)
 
-  t.deepEqual(ms.before, {})
-  t.deepEqual(ms.after, {})
+  deepEqual(t, ms.before, {})
+  deepEqual(t, ms.after, {})
 
-  t.deepEqual(db.puts, [
+  deepEqual(t, db.puts, [
     { key: '.foo', value: '{"x":5}' },
     { key: '.', value: '{"bar":"baz"}' },
     { key: '.', value: '{}' }
   ])
-  t.deepEqual(db.dels, [
+  deepEqual(t, db.dels, [
     { key: '.foo' }
   ])
   t.is(db.gets.length, 0)
@@ -367,11 +367,11 @@ test('commit without root mutation', async (t) => {
 
   await ms.commit(db)
 
-  t.deepEqual(db.puts, [ { key: '.foo', value: '{"x":5}' } ])
-  t.deepEqual(db.dels, [ { key: '.foo' } ])
+  deepEqual(t, db.puts, [ { key: '.foo', value: '{"x":5}' } ])
+  deepEqual(t, db.dels, [ { key: '.foo' } ])
 
-  t.deepEqual(ms.before, {})
-  t.deepEqual(ms.after, {})
+  deepEqual(t, ms.before, {})
+  deepEqual(t, ms.after, {})
 })
 
 test('rollback from null state', async (t) => {
@@ -407,9 +407,9 @@ test('rollback from null state', async (t) => {
 
   ms.rollback(obj)
 
-  t.deepEqual(obj, {})
-  t.deepEqual(ms.before, {})
-  t.deepEqual(ms.after, {})
+  deepEqual(t, obj, {})
+  deepEqual(t, ms.before, {})
+  deepEqual(t, ms.after, {})
 })
 
 test('rollback from committed state', async (t) => {
@@ -469,13 +469,13 @@ test('rollback from committed state', async (t) => {
 
   ms.rollback(obj)
 
-  t.deepEqual(obj, {
+  deepEqual(t, obj, {
     foo: { x: 5, y: { z: 123 } },
     bar: 'baz'
   })
 
-  t.deepEqual(ms.before, {})
-  t.deepEqual(ms.after, {})
+  deepEqual(t, ms.before, {})
+  deepEqual(t, ms.after, {})
 })
 
 test('rollback without root mutation', async (t) => {
@@ -520,10 +520,10 @@ test('rollback without root mutation', async (t) => {
 
   ms.rollback(obj)
 
-  t.deepEqual(obj, {
+  deepEqual(t, obj, {
     foo: { x: 5, y: { z: 123 } }
   })
 
-  t.deepEqual(ms.before, {})
-  t.deepEqual(ms.after, {})
+  deepEqual(t, ms.before, {})
+  deepEqual(t, ms.after, {})
 })

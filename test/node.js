@@ -1,5 +1,5 @@
 let test = require('ava')
-let { mockDb } = require('./common.js')
+let { mockDb, deepEqual } = require('./common.js')
 let _Node = require('../src/node.js')
 
 test('create node without key', async (t) => {
@@ -66,7 +66,7 @@ test('save node', async (t) => {
 
   t.is(db.gets.length, 0)
   t.is(db.dels.length, 0)
-  t.deepEqual(db.puts, [
+  deepEqual(t, db.puts, [
     {
       key: 'nfoo',
       value: 'gdGeF1+rlOY3B4TKbNE1jNesAMmtBZ8KwnM2IWh629jJxBTapVD+iAAAA2JhcgAAAA=='
@@ -88,7 +88,7 @@ test('save child node', async (t) => {
 
   t.is(db.gets.length, 0)
   t.is(db.dels.length, 0)
-  t.deepEqual(db.puts, [
+  deepEqual(t, db.puts, [
     {
       key: 'nfoo',
       value: 'gdGeF1+rlOY3B4TKbNE1jNesAMmtBZ8KwnM2IWh629jJxBTapVD+iAAAA2JhcgAAAA=='
@@ -97,7 +97,7 @@ test('save child node', async (t) => {
 
   t.is(tx.gets.length, 0)
   t.is(tx.dels.length, 0)
-  t.deepEqual(tx.puts, [
+  deepEqual(t, tx.puts, [
     {
       key: 'nfoo',
       value: 'dr+bSNfQWI8G7CldNgJ45LFadOytBZ8KwnM2IWh629jJxBTapVD+iAEAA2JhcgJmbwAA'
@@ -116,14 +116,14 @@ test('save child node', async (t) => {
   let parent = await node2.parent(tx)
   t.is(parent.key, 'foo')
   t.is(parent.value, 'bar')
-  t.deepEqual(tx.gets, [ { key: 'nfoo' } ])
+  deepEqual(t, tx.gets, [ { key: 'nfoo' } ])
 
   // get child
   tx = mockDb(tx)
   let child = await node.left(tx)
   t.is(child.key, 'fo')
   t.is(child.value, 'bar')
-  t.deepEqual(tx.gets, [ { key: 'nfo' } ])
+  deepEqual(t, tx.gets, [ { key: 'nfo' } ])
 })
 
 test('delete child node', async (t) => {
@@ -140,9 +140,9 @@ test('delete child node', async (t) => {
   tx = mockDb(tx)
   node = await node.delete('fo', tx)
 
-  t.deepEqual(tx.gets, [ { key: 'nfo' } ])
-  t.deepEqual(tx.dels, [ { key: 'nfo' } ])
-  t.deepEqual(tx.puts, [
+  deepEqual(t, tx.gets, [ { key: 'nfo' } ])
+  deepEqual(t, tx.dels, [ { key: 'nfo' } ])
+  deepEqual(t, tx.puts, [
     {
       key: 'nfoo',
       value: 'gdGeF1+rlOY3B4TKbNE1jNesAMmtBZ8KwnM2IWh629jJxBTapVD+iAAAA2JhcgAAAA=='
@@ -167,8 +167,8 @@ test('delete parent node', async (t) => {
   tx = mockDb(tx)
   node = await node.delete('foo', tx)
 
-  t.deepEqual(tx.gets, [ { key: 'nfo' } ])
-  t.deepEqual(tx.dels, [ { key: 'nfoo' } ])
+  deepEqual(t, tx.gets, [ { key: 'nfo' } ])
+  deepEqual(t, tx.dels, [ { key: 'nfoo' } ])
   t.is(tx.puts.length, 0)
   t.is(node.key, 'fo')
 
@@ -289,7 +289,7 @@ test('get branch', async (t) => {
   }
 
   let branch = await root.getBranchRange('5', '50', db)
-  t.deepEqual(branch, {
+  deepEqual(t, branch, {
     left: '+9Y1B580BnXMvHOGmmDe8ADemaE=',
     right: {
       left: {
@@ -328,7 +328,7 @@ test('get branch at edge', async (t) => {
   }
 
   let branch = await root.getBranchRange('0', '1', db)
-  t.deepEqual(branch, {
+  deepEqual(t, branch, {
     left: {
       left: {
         left: {
