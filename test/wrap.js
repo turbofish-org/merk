@@ -316,9 +316,24 @@ test('functions are bound to parent', (t) => {
   let obj = { array: [] }
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
 
-  obj.array.push(123)
+  wrapper.array.push(123)
 
-  deepEqual(t, mutations, [ {} ])
+  // XXX wonky mutation log
+  deepEqual(t, mutations, [
+    {
+      existed: true,
+      newValue: { 0: 123, length: 0 },
+      oldValue: { length: 0 },
+      op: 'put',
+      path: [ 'array' ]
+    }, {
+      existed: true,
+      newValue: { 0: 123, length: 1 },
+      oldValue: { 0: 123, length: 1 },
+      op: 'put',
+      path: [ 'array' ]
+    }
+  ])
   deepEqual(t, obj, { array: [ 123 ] })
   deepEqual(t, wrapper, { array: [ 123 ] })
 })
