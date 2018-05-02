@@ -31,7 +31,6 @@ test('put non-object on root', (t) => {
 test('put object on root', (t) => {
   let ms = MutationStore()
 
-
   ms.mutate({
     op: 'put',
     path: [ 'foo' ],
@@ -375,7 +374,6 @@ test('commit without root mutation', async (t) => {
 })
 
 test('rollback from null state', async (t) => {
-  let db = mockDb()
   let ms = MutationStore()
 
   let obj = {
