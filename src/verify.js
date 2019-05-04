@@ -7,7 +7,7 @@ let {
   access,
   symbols
 } = require('./common.js')
-let { parse } = require('deterministic-json')
+let DJSON = require('deterministic-json')
 
 const nullHash = Buffer.alloc(20)
 const VarString = struct.VarString(VarInt)
@@ -161,4 +161,28 @@ module.exports = function verify (expectedRootHash, proof, query = '') {
     }
   }
   return result
+}
+
+function maybeConvertArrayBase (obj) {
+  if (!('__MERK_ARRAY__' in obj)) return obj
+  let array = new Array(obj.length)
+  Object.assign(array, obj)
+  delete array.__MERK_ARRAY__
+  return array
+}
+
+function parse (json) {
+  function traverse (obj) {
+    obj = maybeConvertArrayBase(obj)
+    for (let key in obj) {
+      let value = obj[key]
+      if (value != null && typeof value === 'object') {
+        obj[key] = traverse(value)
+      }
+    }
+    return obj
+  }
+
+  let data = DJSON.parse(json)
+  return traverse(data)
 }
