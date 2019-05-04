@@ -6,7 +6,6 @@ test('set non-object on root', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => { mutations = [] }
 
   wrapper.foo = 'bar'
   deepEqual(t, mutations, [
@@ -26,7 +25,6 @@ test('set object on root', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => { mutations = [] }
 
   wrapper.foo = { x: 5 }
   deepEqual(t, mutations, [
@@ -248,7 +246,6 @@ test('set multiple-level object', (t) => {
   let mutations = []
   let obj = {}
   let wrapper = wrap(obj, (mutation) => mutations.push(mutation))
-  let reset = () => { mutations = [] }
 
   wrapper.foo = { x: { y: 5 } }
   deepEqual(t, mutations, [
@@ -322,14 +319,14 @@ test('functions are bound to parent', (t) => {
   deepEqual(t, mutations, [
     {
       existed: true,
-      newValue: { 0: 123, length: 0 },
-      oldValue: { length: 0 },
+      newValue: { 0: 123, length: 0, __MERK_ARRAY__: 1 },
+      oldValue: { length: 0, __MERK_ARRAY__: 1 },
       op: 'put',
       path: [ 'array' ]
     }, {
       existed: true,
-      newValue: { 0: 123, length: 1 },
-      oldValue: { 0: 123, length: 1 },
+      newValue: { 0: 123, length: 1, __MERK_ARRAY__: 1 },
+      oldValue: { 0: 123, length: 1, __MERK_ARRAY__: 1 },
       op: 'put',
       path: [ 'array' ]
     }
