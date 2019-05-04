@@ -24,6 +24,8 @@ function baseObject (obj) {
   if (!isObject(obj)) return obj
   let base = {}
   if (Array.isArray(obj)) {
+    // XXX
+    base.__MERK_ARRAY__ = 1
     base.length = obj.length
   }
   for (let key in obj) {

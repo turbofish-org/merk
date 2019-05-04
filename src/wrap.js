@@ -98,11 +98,23 @@ function wrap (obj, onMutate, path = []) {
     // recursively wrap child objects when accessed
     get (obj, key) {
       let value = obj[key]
+
+      // functions should be bound to parent
       if (typeof value === 'function') {
         return value.bind(wrapped)
       }
+
+      // don't recurse if not object
       if (!isObject(value)) {
         return value
+      }
+
+      // convert array bases to actual array
+      if ('__MERK_ARRAY__' in value) {
+        let base = value
+        value = new Array(value.length)
+        Object.assign(value, base)
+        delete value.__MERK_ARRAY__
       }
 
       // if value is object, recursively wrap
