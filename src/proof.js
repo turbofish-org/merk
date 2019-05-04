@@ -17,6 +17,9 @@ module.exports = async function createProof (tree, query) {
     query = path.slice(0, -1).join('.')
     from = '.' + query
     to = '.' + query + '.'
+
+    // special case for root object (get all values)
+    if (query === '') to = '/'
   }
 
   return tree.getBranchRange(from, to)
