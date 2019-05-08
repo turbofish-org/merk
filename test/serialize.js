@@ -12,3 +12,14 @@ test('serialize/deserialize array', async (t) => {
   let obj2 = await merk(db)
   deepEqual(t, obj2, { array: [ 1, 2, 3 ] })
 })
+
+test('serialize/deserialize Buffer', async (t) => {
+  let db = mockDb()
+
+  let obj = await merk(db)
+  obj.buf = Buffer.from([ 1, 2, 3 ])
+  await merk.commit(obj)
+
+  let obj2 = await merk(db)
+  deepEqual(t, obj2, { buf: Buffer.from([ 1, 2, 3 ]) })
+})
