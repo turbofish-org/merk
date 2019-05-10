@@ -16,7 +16,7 @@ function ripemd160 (data) {
 }
 
 function isObject (value) {
-  return typeof value === 'object' && value != null
+  return typeof value === 'object' && value != null && !Buffer.isBuffer(value)
 }
 
 // clones an object, without any properties of type 'object'

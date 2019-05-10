@@ -24,10 +24,6 @@ function wrap (obj, onMutate, path = []) {
   // otherwise ops like splices and shifts will create N mutations
 
   function put (obj, key, value, path = []) {
-    if (Buffer.isBuffer(value)) {
-      value = ':base64:' + value.toString('base64')
-    }
-
     if (!isObject(value)) {
       // if we are overriding an existing object,
       // record deletion
@@ -38,7 +34,7 @@ function wrap (obj, onMutate, path = []) {
 
       // record parent object update
       let parent = baseObject(obj)
-      parent[key] = value
+      parent[key] = baseObject(value)
       recordMutation('put', path, parent)
       return
     }
