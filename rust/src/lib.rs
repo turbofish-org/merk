@@ -1,74 +1,104 @@
 extern crate rocksdb;
 
 mod node {
-
     use rocksdb::{DB, DBIterator};
-    use std::convert::TryInto;
+    use std::mem::{size_of, transmute};
 
-    // TODO: include neighbor keys, or just use iterator to access?
-    pub struct Node<'a> {
-        bytes: &'a mut [u8]
+    const HASH_LENGTH: usize = 20;
+    const MAX_KEY_LENGTH: usize = 80;
+    const NODE_HEAD_LENGTH: usize = size_of::<NodeHead>();
+
+    type Hash = [u8; HASH_LENGTH];
+    type Key = [u8; MAX_KEY_LENGTH];
+
+    #[repr(C)]
+    struct NodeHead {
+        hash: Hash,
+        kv_hash: Hash,
+        parent_key: Key,
+        left_key: Key,
+        right_key: Key,
+        left_height: u8,
+        right_height: u8
     }
 
-    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    #[repr(C)]
+    pub struct Node {
+        head: NodeHead,
+        value: [u8]
+    }
+
+    #[derive(Debug)]
     pub struct TryFromBytesError ();
 
-    macro_rules! field {
-        ($name:ident, $offset:expr, $length:expr) => {
-            pub fn $name (&self) -> &[u8; $length] {
-                self.bytes[$offset..($offset + $length)]
-                    .try_into()
-                    .unwrap()
-            }
-        };
-        ($name:ident, $offset:expr) => {
-            pub fn $name (&self) -> u8 {
-                self.bytes[$offset]
-            }
-        };
-    }
-
-    macro_rules! field_mut {
-        ($name:ident, $offset:expr, $length:expr) => {
-            pub fn $name (&mut self) -> &mut [u8; $length] {
-                (&mut self.bytes[$offset..($offset + $length)])
-                    .try_into()
-                    .unwrap()
-            }
-        };
-        ($name:ident, $offset:expr) => {
-            pub fn $name (&mut self) -> &mut u8 {
-                &mut self.bytes[$offset]
-            }
-        };
-    }
-
-    impl<'a> Node<'a> {
-        pub fn from_bytes(bytes: &'a mut [u8]) -> Result<Node<'a>, TryFromBytesError> {
-            if bytes.len() < 63 {
+    impl<'a> Node {
+        pub fn try_from_bytes(bytes: &'a mut [u8]) -> Result<&'a mut Node, TryFromBytesError> {
+            if bytes.len() < NODE_HEAD_LENGTH {
                 Err(TryFromBytesError())
             } else {
-                Ok(Node{bytes})
+                let value_length = bytes.len() - NODE_HEAD_LENGTH;
+                let shortened_ptr = &mut bytes[0..value_length];
+                unsafe {
+                    Ok(transmute(shortened_ptr))
+                }
             }
         }
 
-        field!(hash, 0, 20);
-        field_mut!(hash_mut, 0, 20);
+        pub fn hash(&self) -> &Hash {
+            &self.head.hash
+        }
+        pub fn hash_mut(&mut self) -> &mut Hash {
+            &mut self.head.hash
+        }
 
-        field!(kv_hash, 20, 20);
-        field_mut!(kv_hash_mut, 20, 20);
+        pub fn kv_hash(&self) -> &Hash {
+            &self.head.kv_hash
+        }
+        pub fn kv_hash_mut(&mut self) -> &mut Hash {
+            &mut self.head.kv_hash
+        }
 
-        field!(parent_hash, 42, 20);
-        field_mut!(parent_hash_mut, 42, 20);
+        pub fn parent_key(&self) -> &Key {
+            &self.head.parent_key
+        }
+        pub fn parent_key_mut(&mut self) -> &mut Key {
+            &mut self.head.parent_key
+        }
 
-        field!(parent_side, 60);
-        field_mut!(parent_side_mut, 60);
+        pub fn left_key(&self) -> &Key {
+            &self.head.left_key
+        }
+        pub fn left_key_mut(&mut self) -> &mut Key {
+            &mut self.head.left_key
+        }
 
-        field!(left_height, 61);
-        field_mut!(left_height_mut, 61);
+        pub fn right_key(&self) -> &Key {
+            &self.head.right_key
+        }
+        pub fn right_key_mut(&mut self) -> &mut Key {
+            &mut self.head.right_key
+        }
 
-        field!(right_height, 62);
-        field_mut!(right_height_mut, 62);
+        pub fn right_height(&self) -> u8 {
+            self.head.right_height
+        }
+        pub fn right_height_mut(&mut self) -> &mut u8 {
+            &mut self.head.right_height
+        }
+
+        pub fn left_height(&self) -> u8 {
+            self.head.left_height
+        }
+        pub fn left_height_mut(&mut self) -> &mut u8 {
+            &mut self.head.left_height
+        }
+
+        pub fn value(&self) -> &[u8] {
+            &self.value
+        }
+        pub fn value_mut(&mut self) -> &mut [u8] {
+            &mut self.value
+        }
     }
 }
 
@@ -81,19 +111,34 @@ mod tests {
         let mut bytes = [
             0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0,
             1,1,1,1,1, 1,1,1,1,1, 1,1,1,1,1, 1,1,1,1,1,
-            2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2,
-            3, 4, 5
+            2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2,
+            3,3,3,3,3, 3,3,3,3,3, 3,3,3,3,3, 3,3,3,3,3, 3,3,3,3,3, 3,3,3,3,3, 3,3,3,3,3, 3,3,3,3,3, 3,3,3,3,3, 3,3,3,3,3, 3,3,3,3,3, 3,3,3,3,3, 3,3,3,3,3, 3,3,3,3,3, 3,3,3,3,3, 3,3,3,3,3,
+            4,4,4,4,4, 4,4,4,4,4, 4,4,4,4,4, 4,4,4,4,4, 4,4,4,4,4, 4,4,4,4,4, 4,4,4,4,4, 4,4,4,4,4, 4,4,4,4,4, 4,4,4,4,4, 4,4,4,4,4, 4,4,4,4,4, 4,4,4,4,4, 4,4,4,4,4, 4,4,4,4,4, 4,4,4,4,4,
+            5, 6,
+            7,7,7,7,7, 7,7,7,7,7
         ];
-        let mut node = Node::from_bytes(&mut bytes).unwrap();
+        {
+            let mut node = Node::try_from_bytes(&mut bytes).unwrap();
 
-        println!("{:?}", node.hash());
-        println!("{:?}", node.kv_hash());
-        println!("{:?}", node.left_height());
-        node.hash_mut()[0] += 10;
-        *node.left_height_mut() += 20;
-        println!("{:?}", node.hash());
-        println!("{:?}", node.kv_hash());
-        println!("{:?}", node.left_height());
+            println!("{:?}", node.hash());
+            println!("{:?}", node.kv_hash());
+            println!("{:?}", &node.left_key()[..]);
+            println!("{:?}", node.left_height());
+            *node.right_height_mut() += 10;
+            println!("{:?}", node.right_height());
+            println!("{:?}", &node.value()[..]);
+        }
         println!("{:?}", &bytes[..]);
+        // println!("{:?}", &node.value[..]);
+        // println!("{:?}", node.head.hash);
+        // println!("{:?}", node.head.kv_hash);
+        // println!("{:?}", node.head.left_height);
+        // println!("{:?}", node.left_height());
+        // node.hash_mut()[0] += 10;
+        // *node.left_height_mut() += 20;
+        // println!("{:?}", node.hash());
+        // println!("{:?}", node.kv_hash());
+        // println!("{:?}", node.left_height());
+        // println!("{:?}", &bytes[..]);
     }
 }
