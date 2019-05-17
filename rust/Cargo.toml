@@ -1,8 +1,10 @@
 [package]
 name = "merk"
+description = "Merkle AVL tree"
 version = "0.1.0"
 authors = ["Matt Bell <mappum@gmail.com>"]
 edition = "2018"
+license = "MIT"
 
 [dependencies]
 time = "0.1.42"
