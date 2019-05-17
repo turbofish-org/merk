@@ -14,8 +14,9 @@ type Hash = [u8; HASH_LENGTH];
 const NULL_HASH: Hash = [0 as u8; HASH_LENGTH];
 
 struct Child {
-    key: Box<[u8]>,
-    hash: Hash
+    key: Vec<u8>,
+    hash: Hash,
+    height: u8
 }
 
 /// Represents a tree node, and provides methods for working with
@@ -26,9 +27,7 @@ pub struct Node {
     kv_hash: Hash,
     parent_key: Option<Vec<u8>>,
     left: Option<Child>,
-    right: Option<Child>,
-    left_height: u8,
-    right_height: u8
+    right: Option<Child>
 }
 
 ///
@@ -41,9 +40,7 @@ impl Node {
             kv_hash: Default::default(),
             parent_key: None,
             left: None,
-            right: None,
-            left_height: 0,
-            right_height: 0
+            right: None
         }
     }
 
