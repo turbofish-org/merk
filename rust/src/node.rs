@@ -1,33 +1,36 @@
 extern crate byteorder;
 extern crate blake2_rfc;
 extern crate hex;
+extern crate serde;
+
+use std::fmt;
+use std::cmp::max;
 
 use blake2_rfc::blake2b::Blake2b;
 use byteorder::{ByteOrder, BigEndian};
-
-// use crate::raw::*;
-// use crate::store::*;
-use std::fmt;
+use serde::{Serialize, Deserialize};
 
 const HASH_LENGTH: usize = 20;
 type Hash = [u8; HASH_LENGTH];
 const NULL_HASH: Hash = [0 as u8; HASH_LENGTH];
 
-struct Child {
-    key: Vec<u8>,
-    hash: Hash,
-    height: u8
+#[derive(Serialize, Deserialize)]
+pub struct Child {
+    pub key: Vec<u8>,
+    pub hash: Hash,
+    pub height: u8
 }
 
 /// Represents a tree node, and provides methods for working with
 /// the tree structure stored in a database.
+#[derive(Serialize, Deserialize)]
 pub struct Node {
-    key: Vec<u8>,
-    value: Vec<u8>,
-    kv_hash: Hash,
-    parent_key: Option<Vec<u8>>,
-    left: Option<Child>,
-    right: Option<Child>
+    pub key: Vec<u8>,
+    pub value: Vec<u8>,
+    pub kv_hash: Hash,
+    pub parent_key: Option<Vec<u8>>,
+    pub left: Option<Child>,
+    pub right: Option<Child>
 }
 
 ///
@@ -44,7 +47,12 @@ impl Node {
         }
     }
 
-    pub fn calculate_kv_hash (&mut self) {
+    pub fn decode(bytes: &[u8]) -> bincode::Result<Node> {
+        bincode::deserialize(bytes)
+    }
+
+    pub fn update_kv_hash (&mut self) {
+        // TODO: make generic to allow other hashers
         let mut hasher = Blake2b::new(HASH_LENGTH);
 
         hasher.update(&[ self.key.len() as u8 ]);
@@ -60,7 +68,8 @@ impl Node {
         self.kv_hash.copy_from_slice(res.as_bytes());
     }
 
-    pub fn calculate_hash (&self) -> Hash {
+    pub fn hash (&self) -> Hash {
+        // TODO: make generic to allow other hashers
         let mut hasher = Blake2b::new(HASH_LENGTH);
         hasher.update(&self.kv_hash);
         hasher.update(match &self.left {
@@ -77,6 +86,48 @@ impl Node {
         hash
     }
 
+    pub fn child(&self, left: bool) -> &Option<Child> {
+        if left { &self.left } else { &self.right }
+    }
+
+    pub fn child_height(&self, left: bool) -> u8 {
+        let child = self.child(left);
+        match child {
+            Some(child) => child.height,
+            None => 0
+        }
+    }
+
+    pub fn height(&self) -> u8 {
+        max(
+            self.child_height(true),
+            self.child_height(false)
+        ) + 1
+    }
+
+    pub fn to_child(&self) -> Child {
+        Child{
+            key: self.key.to_vec(),
+            hash: self.hash(),
+            height: self.height()
+        }
+    }
+
+    pub fn set_child(&mut self, left: bool, child_node: &mut Node) {
+        let child = Some(child_node.to_child());
+        if left {
+            self.left = child;
+        } else {
+            self.right = child;
+        }
+
+        child_node.parent_key = Some(self.key.to_vec());
+    }
+
+    pub fn encode(&self) -> bincode::Result<Vec<u8>> {
+        bincode::serialize(&self)
+    }
+
     // pub fn put(
     //     &mut self,
     //     key: &'a [u8],
@@ -84,7 +135,7 @@ impl Node {
     // ) -> Result<(), Error> {
     //     if self.key == key {
     //         // same key, just update the value of this node
-    //         self.value = value;
+    //         self.valu = value;
     //         // self.calculate_kv_hash();
     //         // self.calculate_hash(&left_hash, &right_hash);
     //         // self.save()?;
@@ -124,7 +175,7 @@ impl fmt::Debug for Node {
             "({:?}: {:?}, h{:?})",
             String::from_utf8(self.key.to_vec()).unwrap(),
             String::from_utf8(self.value.to_vec()).unwrap(),
-            hex::encode(self.calculate_hash())
+            hex::encode(self.hash())
         )
     }
 }
@@ -149,7 +200,16 @@ mod tests {
     #[test]
     fn it_works() {
         let mut node = Node::new(b"foo", b"bar");
-        node.calculate_kv_hash();
+        node.update_kv_hash();
+        println!("node: {:?}", node);
+        println!("encoded length: {:?}", node.encode().unwrap().len());
+
+        let node2 = Node::decode(&node.encode().unwrap()[..]);
+        println!("node2: {:?}", node2);
+
+        let mut node3 = Node::new(b"foo2", b"bar2");
+        node.set_child(true, &mut node3);
+
         println!("node: {:?}", node);
     }
 }
