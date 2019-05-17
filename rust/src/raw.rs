@@ -8,8 +8,9 @@ pub type Hash = [u8; HASH_LENGTH];
 pub type Key = [u8; MAX_KEY_LENGTH];
 
 #[repr(C)]
-struct RawNodeHead {
-    hash: Hash,
+pub struct RawNodeHead {
+    left_hash: Hash,
+    right_hash: Hash,
     kv_hash: Hash,
     parent_key: Key,
     left_key: Key,
@@ -27,6 +28,26 @@ pub struct RawNode {
 
 #[derive(Debug)]
 pub struct FromBytesError ();
+
+macro_rules! key_getter {
+    ($name:ident) => {
+        pub fn $name(&self) -> Option<&[u8]> {
+            if self.head.$name[0] == 0 {
+                None
+            } else {
+                let length = get_key_length(&self.head.$name);
+                Some(&self.head.$name[0..length])
+            }
+        }
+    };
+}
+
+fn get_key_length(key: &Key) -> usize {
+    for i in 0..MAX_KEY_LENGTH {
+        if key[i] == 0 { return i; }
+    }
+    return MAX_KEY_LENGTH;
+}
 
 ///
 impl<'a> RawNode {
@@ -75,25 +96,17 @@ impl<'a> RawNode {
         &mut self.head.kv_hash
     }
 
-    // TODO: make key methods return an Option<&[u8]>
-
-    pub fn parent_key(&self) -> &Key {
-        &self.head.parent_key
-    }
+    key_getter!(parent_key);
     pub fn parent_key_mut(&mut self) -> &mut Key {
         &mut self.head.parent_key
     }
 
-    pub fn left_key(&self) -> &Key {
-        &self.head.left_key
-    }
+    key_getter!(left_key);
     pub fn left_key_mut(&mut self) -> &mut Key {
         &mut self.head.left_key
     }
 
-    pub fn right_key(&self) -> &Key {
-        &self.head.right_key
-    }
+    key_getter!(right_key);
     pub fn right_key_mut(&mut self) -> &mut Key {
         &mut self.head.right_key
     }
@@ -122,7 +135,7 @@ impl<'a> RawNode {
 
 #[cfg(test)]
 mod tests {
-    use crate::node::*;
+    use crate::raw::*;
 
     #[test]
     fn it_works() {
@@ -136,11 +149,11 @@ mod tests {
             // 7,7,7,7,7, 7,7,7,7,7
         ];
         {
-            let mut node = Node::from_bytes(&mut bytes).unwrap();
+            let mut node = RawNode::from_bytes(&mut bytes).unwrap();
 
             println!("{:?}", node.hash());
             println!("{:?}", node.kv_hash());
-            println!("{:?}", &node.left_key()[..]);
+            println!("{:?}", &node.left_key().unwrap()[..]);
             println!("{:?}", node.left_height());
             *node.right_height_mut() += 10;
             println!("{:?}", node.right_height());
