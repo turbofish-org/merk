@@ -15,7 +15,7 @@ type Hash = [u8; HASH_LENGTH];
 const NULL_HASH: Hash = [0 as u8; HASH_LENGTH];
 
 #[derive(Serialize, Deserialize)]
-pub struct Child {
+pub struct Link {
     pub key: Vec<u8>,
     pub hash: Hash,
     pub height: u8
@@ -29,22 +29,42 @@ pub struct Node {
     pub value: Vec<u8>,
     pub kv_hash: Hash,
     pub parent_key: Option<Vec<u8>>,
-    pub left: Option<Child>,
-    pub right: Option<Child>
+    pub left: Option<Link>,
+    pub right: Option<Link>
+}
+
+struct SparseTree {
+    node: Node,
+    left: Option<SparseTree>,
+    right: Option<SparseTree>
+}
+
+/// Replaces the value of a `Vec<T>` by cloning into it,
+/// possibly not needing to allocate.
+fn set_vec<T: Clone>(dest: &mut Vec<T>, src: &[T]) {
+    dest.clear();
+    dest.extend_from_slice(src);
+}
+
+pub trait Store {
+    fn put(&mut self, node: &Node);
+    fn get(&self, link: &Link) -> Node;
 }
 
 ///
 impl Node {
     /// Creates a new node from a key and value.
     pub fn new(key: &[u8], value: &[u8]) -> Node {
-        Node{
+        let mut node = Node{
             key: key.to_vec(),
             value: value.to_vec(),
             kv_hash: Default::default(),
             parent_key: None,
             left: None,
             right: None
-        }
+        };
+        node.update_kv_hash();
+        node
     }
 
     pub fn decode(bytes: &[u8]) -> bincode::Result<Node> {
@@ -86,14 +106,14 @@ impl Node {
         hash
     }
 
-    pub fn child(&self, left: bool) -> &Option<Child> {
+    pub fn child_link(&self, left: bool) -> &Option<Link> {
         if left { &self.left } else { &self.right }
     }
 
     pub fn child_height(&self, left: bool) -> u8 {
-        let child = self.child(left);
-        match child {
-            Some(child) => child.height,
+        let link = self.child_link(left);
+        match link {
+            Some(link) => link.height,
             None => 0
         }
     }
@@ -105,67 +125,102 @@ impl Node {
         ) + 1
     }
 
-    pub fn to_child(&self) -> Child {
-        Child{
+    pub fn balance_factor(&self) -> i8 {
+        self.child_height(false) as i8 -
+        self.child_height(true) as i8
+    }
+
+    pub fn to_link(&self) -> Link {
+        Link{
             key: self.key.to_vec(),
             hash: self.hash(),
             height: self.height()
         }
     }
 
-    pub fn set_child(&mut self, left: bool, child_node: &mut Node) {
-        let child = Some(child_node.to_child());
+    pub fn set_child(&mut self, left: bool, child: &mut Node) {
+        let link = Some(child.to_link());
         if left {
-            self.left = child;
+            self.left = link;
         } else {
-            self.right = child;
+            self.right = link;
         }
 
-        child_node.parent_key = Some(self.key.to_vec());
+        child.parent_key = Some(self.key.to_vec());
+    }
+
+    pub fn set_value(&mut self, value: &[u8]) {
+        set_vec(&mut self.value, value);
+        self.update_kv_hash();
     }
 
     pub fn encode(&self) -> bincode::Result<Vec<u8>> {
         bincode::serialize(&self)
     }
 
-    // pub fn put(
-    //     &mut self,
-    //     key: &'a [u8],
-    //     value: &'a [u8]
-    // ) -> Result<(), Error> {
-    //     if self.key == key {
-    //         // same key, just update the value of this node
-    //         self.valu = value;
-    //         // self.calculate_kv_hash();
-    //         // self.calculate_hash(&left_hash, &right_hash);
-    //         // self.save()?;
-    //         return Ok(());
-    //     }
-    //
-    //     let left = key < self.key;
-    //     println!("left: {:?}", left);
-    //     let child = self.child(left);
-    //     return Ok(());
-    // }
-    //
-    // pub fn child(&self, left: bool) -> Result<Option<Node<'a, S>>, Error> {
-    //     let key = if left {
-    //         self.left_key
-    //     } else {
-    //         self.right_key
-    //     };
-    //     match key {
-    //         None => Ok(None),
-    //         Some(key) => {
-    //             let value = self.store.get(key)??;
-    //             let mut value2 = vec![0 as u8; value.len()];
-    //             value2.copy_from_slice(&value[..]);
-    //             let child_raw = RawNode::from_bytes(&mut value2)?;
-    //             let child = Node::from_raw(self.store, key, &child_raw);
-    //             Ok(Some(child))
-    //         }
-    //     }
-    // }
+    pub fn put<S: Store>(
+        mut self,
+        store: &mut S,
+        key: &[u8],
+        value: &[u8]
+    ) -> SparseTree {
+        if self.key == key {
+            // same key, just update the value of this node
+            self.set_value(value);
+            store.put(&self);
+            return self;
+        }
+
+        let left = key < &self.key;
+        let old_child = self.child_link(left);
+
+        let mut new_child = match old_child {
+            Some(link) => {
+                // recursively put value under child
+                let child = store.get(link);
+                child.put(store, key, value)
+            },
+            None => {
+                // no child here, create node to set as child
+                Node::new(key, value)
+            }
+        };
+
+        // update self to point to new child
+        self.set_child(left, &mut new_child);
+
+        // maybe rebalance
+        self.maybe_rebalance(store, &mut new_child);
+
+        // update self and child in store
+        store.put(&new_child);
+        store.put(&self);
+
+        self
+    }
+
+    fn maybe_rebalance(&mut self, store: &mut S, child: &mut Node) {
+        let balance_factor = self.balance_factor();
+
+        // check if we need to balance
+        if (balance_factor.abs() <= 1) {
+            return;
+        }
+
+         // check if we should do a double rotation
+        let left = balance_factor < 0;
+        let double = if left {
+            child.balance_factor() > 0
+        } else {
+            child.balance_factor() < 0
+        };
+
+        if double {
+            let new_child = child.rotate(store, !left);
+            self.set_child(left, new_child);
+        }
+        self.rotate(store, left)
+    }
 }
 
 impl fmt::Debug for Node {
@@ -179,19 +234,6 @@ impl fmt::Debug for Node {
         )
     }
 }
-
-// pub struct MockStore {
-//
-// }
-// impl Store for MockStore {
-//     fn get(&self, key: &[u8]) -> Result<Option<&[u8]>, Error> {
-//         Ok(Some(&[]))
-//     }
-//
-//     fn put(&self, key: &[u8], value: &[u8]) -> Result<(), Error> {
-//         Ok(())
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
