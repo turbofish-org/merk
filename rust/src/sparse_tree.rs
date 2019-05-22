@@ -31,13 +31,16 @@ impl SparseTree {
         SparseTree::new(get_node(link), get_node)
     }
 
-    pub fn entries(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
-        fn traverse (tree: &SparseTree, vec: Vec<(Vec<u8>, Vec<u8>)>) -> Vec<(Vec<u8>, Vec<u8>)> {
+    pub fn entries<'a>(&'a self) -> Vec<(&'a [u8], &'a [u8])> {
+        fn traverse<'a>(
+            tree: &'a SparseTree,
+            vec: Vec<(&'a [u8], &'a [u8])>
+        ) -> Vec<(&'a [u8], &'a [u8])> {
             let mut vec = match tree.child_tree(true) {
                 Some(child) => traverse(child, vec),
                 None => vec
             };
-            vec.push((tree.node.key.clone(), tree.node.value.clone()));
+            vec.push((&tree.node.key, &tree.node.value));
             match tree.child_tree(false) {
                 Some(child) => traverse(child, vec),
                 None => vec
