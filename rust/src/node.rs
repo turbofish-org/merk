@@ -168,15 +168,10 @@ impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({}: {}, h={}, kvh={}, p={})",
+            "({}: {}, hash={})",
             String::from_utf8(self.key.to_vec()).unwrap(),
             String::from_utf8(self.value.to_vec()).unwrap(),
-            hex::encode(&self.hash()[0..3]),
-            hex::encode(&self.kv_hash[0..3]),
-            self.parent_key.clone()
-                .map(|k| String::from_utf8(k))
-                .map(|k| k.unwrap())
-                .unwrap_or("".to_string())
+            hex::encode(&self.hash()[..])
         )
     }
 }

@@ -1,3 +1,5 @@
+extern crate colored;
+
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
@@ -223,29 +225,53 @@ impl DerefMut for SparseTree {
 
 impl fmt::Debug for SparseTree {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fn traverse(f: &mut fmt::Formatter, cursor: &SparseTree, depth: u8, left: bool) {
-            write!(f, "{}", "  ".repeat(depth as usize));
+        use colored::*;
+
+        fn traverse(f: &mut fmt::Formatter, cursor: &SparseTree, stack: &mut Vec<bool>, left: bool, has_sibling_after: bool) {
+            let depth = stack.len();
+
+            if depth > 0 {
+                // draw ancestor's vertical lines
+                for i in 0..depth-1 {
+                    write!(f, "{}", match stack[i] {
+                        true => " │   ",
+                        false => "    "
+                    }.dimmed());
+                }
+
+                // draw our connecting line to parent
+                write!(f, "{}", match has_sibling_after {
+                    true => " ├",
+                    false => " └"
+                }.dimmed());
+            }
 
             let prefix = if depth == 0 {
                 ""
             } else if left {
-                "L: "
+                "L─"
             } else {
-                "R: "
+                "R─"
             };
-            write!(f, "{}{:?}\n", prefix, cursor.node);
+            write!(f, "{}{:?}\n", prefix.dimmed(), cursor.node);
 
+            stack.push(true);
             match &cursor.left {
-                Some(child) => { traverse(f, &child, depth + 1, true); },
+                Some(child) => { traverse(f, &child, stack, true, cursor.right.is_some()); },
                 None => {}
             };
+            stack.pop();
+
+            stack.push(false);
             match &cursor.right {
-                (Some(child)) => { traverse(f, &child, depth + 1, false); },
+                (Some(child)) => { traverse(f, &child, stack, false, false); },
                 (None) => {}
             };
+            stack.pop();
         };
 
-        traverse(f, self, 0, false);
+        let mut stack = vec![];
+        traverse(f, self, &mut stack, false, false);
         write!(f, "\n")
     }
 }
@@ -263,6 +289,7 @@ fn simple_put() {
     for i in 1..20 {
         tree.put(&i.to_string().into_bytes()[..], b"x");
         assert_tree_valid(&tree);
+        println!("{:?}", tree);
     }
 
     // known final state for deterministic tree
@@ -274,6 +301,8 @@ fn simple_put() {
     assert_eq!(tree.height(), 5);
     assert_eq!(tree.child_height(true), 4);
     assert_eq!(tree.child_height(false), 3);
+
+    println!("{:?}", tree);
 }
 
 /// Recursively asserts invariants for each node in the tree.
