@@ -259,14 +259,24 @@ fn simple_put() {
     );
     assert_tree_valid(&tree);
 
+    // put sequential keys
     for i in 1..20 {
         tree.put(&i.to_string().into_bytes()[..], b"x");
         assert_tree_valid(&tree);
     }
 
+    // known final state for deterministic tree
+    assert_eq!(
+        hex::encode(tree.hash()),
+        "7a9968205f500cb8de6ac37ddf53fcd97cef6524"
+    );
+    assert_eq!(tree.node.key, b"3");
     assert_eq!(tree.height(), 5);
+    assert_eq!(tree.child_height(true), 4);
+    assert_eq!(tree.child_height(false), 3);
 }
 
+/// Recursively asserts invariants for each node in the tree.
 fn assert_tree_valid(tree: &SparseTree) {
     // ensure node is balanced
     assert!(tree.balance_factor().abs() <= 1);
@@ -281,7 +291,7 @@ fn assert_tree_valid(tree: &SparseTree) {
             &tree.node.key
         );
 
-        // ensure node link matches child
+        // ensure parent link matches child
         assert_eq!(
             tree.child_link(left).unwrap(),
             child.as_link()
