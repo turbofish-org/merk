@@ -5,14 +5,16 @@ extern crate serde;
 
 use std::fmt;
 use std::cmp::max;
+use std::ops::{Deref, DerefMut};
 
 use blake2_rfc::blake2b::Blake2b;
 use byteorder::{ByteOrder, BigEndian};
 use serde::{Serialize, Deserialize};
 
 const HASH_LENGTH: usize = 20;
+const NULL_HASH: Hash = [0; HASH_LENGTH];
+
 type Hash = [u8; HASH_LENGTH];
-const NULL_HASH: Hash = [0 as u8; HASH_LENGTH];
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Link {
@@ -27,7 +29,7 @@ impl fmt::Debug for Link {
             f,
             "(key={}, hash={}, height={})",
             String::from_utf8(self.key.to_vec()).unwrap(),
-            hex::encode(self.hash),
+            hex::encode(&self.hash[0..3]),
             self.height
         )
     }
@@ -166,11 +168,15 @@ impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({}: {}, h={}, p={:?})",
+            "({}: {}, h={}, kvh={}, p={})",
             String::from_utf8(self.key.to_vec()).unwrap(),
             String::from_utf8(self.value.to_vec()).unwrap(),
-            hex::encode(self.hash()),
-            self.parent_key.clone().map(|k| String::from_utf8(k))
+            hex::encode(&self.hash()[0..3]),
+            hex::encode(&self.kv_hash[0..3]),
+            self.parent_key.clone()
+                .map(|k| String::from_utf8(k))
+                .map(|k| k.unwrap())
+                .unwrap_or("".to_string())
         )
     }
 }
