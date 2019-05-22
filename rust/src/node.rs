@@ -120,7 +120,7 @@ impl Node {
         self.child_height(true) as i8
     }
 
-    pub fn to_link(&self) -> Link {
+    pub fn as_link(&self) -> Link {
         Link{
             key: self.key.to_vec(),
             hash: self.hash(),
@@ -128,8 +128,7 @@ impl Node {
         }
     }
 
-    pub fn set_child(&mut self, left: bool, child_link: Link) {
-        let link = Some(child_link);
+    pub fn set_child(&mut self, left: bool, link: Option<Link>) {
         if left {
             self.left = link;
         } else {
