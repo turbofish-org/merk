@@ -129,7 +129,7 @@ impl SparseTree {
             let get_node = self.get_node;
             let child_field = self.child_field_mut(left);
             // if field is already set, get mutable reference to existing child
-            // tree. if not, call out to `get_node and put result in a box.
+            // tree. if not, get from db and put result in a box.
             let child_tree = child_field.get_or_insert_with(|| {
                 Box::new(SparseTree::get(&link, get_node))
             });
@@ -187,6 +187,7 @@ impl SparseTree {
     fn swap(&mut self, other: &mut SparseTree) {
         // XXX: this could be more efficient, we clone the whole node
         //      including its key/value
+        // XXX: we wouldn't have to do this if we instead returned recursive children in rotate/put
 
         let self_node = self.node.clone();
         let self_left = self.left.take();
@@ -248,84 +249,55 @@ impl fmt::Debug for SparseTree {
         write!(f, "\n")
     }
 }
-//
-// #[cfg(test)]
-// mod tests {
-//     use crate::sparse_tree::*;
 
 #[test]
-fn it_works() {
-    // let st = SparseTree{node: Node::new(b"a", b"b"), left: None, right: None};
-    // println!("{:?}", st);
-    //
-    // let st = SparseTree::join(
-    //     Node::new(b"aa", b"b"), Some(st), Some(SparseTree::new(Node::new(b"aa", b"b")))
-    // );
-    //
-    // let st = SparseTree::join(
-    //     Node::new(b"ab", b"b"), Some(st), Some(SparseTree::new(Node::new(b"abc", b"b")))
-    // );
-    // println!("{:?}", st);
-
-    let mut st = SparseTree::new(
-        Node::new(b"abc", b"x"),
-        |link| Node::new(link.key.as_slice(), b"x")
+fn simple_put() {
+    let mut tree = SparseTree::new(
+        Node::new(b"0", b"x"),
+        // we build from scratch in this test, so we never call get_node
+        |link| unreachable!()
     );
-    println!("{:?}", st);
+    assert_tree_valid(&tree);
 
-    st.put(
-        b"abcd", b"x"
-    );
-    println!("{:?}", st);
+    for i in 1..20 {
+        tree.put(&i.to_string().into_bytes()[..], b"x");
+        assert_tree_valid(&tree);
+    }
 
-    st.put(
-        b"a", b"x"
-    );
-    println!("{:?}", st);
+    assert_eq!(tree.height(), 5);
+}
 
-    st.put(
-        b"ab", b"x"
-    );
-    println!("{:?}", st);
+fn assert_tree_valid(tree: &SparseTree) {
+    // ensure node is balanced
+    assert!(tree.balance_factor().abs() <= 1);
 
-    st.put(
-        b"ab", b"y"
-    );
-    println!("{:?}", st);
+    let assert_child_valid = |child: &SparseTree, left: bool| {
+        // check key ordering
+        assert!((child.node.key < tree.node.key) == left);
 
-    st.put(
-        b"6", b"x"
-    );
-    println!("{:?}", st);
+        // ensure child points to parent
+        assert_eq!(
+            child.node.parent_key.as_ref().unwrap(),
+            &tree.node.key
+        );
 
-    st.put(
-        b"b", b"x"
-    );
-    println!("{:?}", st);
+        // ensure node link matches child
+        assert_eq!(
+            tree.child_link(left).unwrap(),
+            child.as_link()
+        );
 
-    st.put(
-        b"bc", b"x"
-    );
-    println!("{:?}", st);
+        // recursive validity check
+        assert_tree_valid(child);
+    };
 
-    st.put(b"x", b"x");
-    st.put(b"xx", b"x");
-    st.put(b"xxx", b"x");
-    st.put(b"xxxx", b"x");
-    st.put(b"xxxxx", b"x");
-    st.put(b"xxxxxx", b"x");
-    println!("{:?}", st);
+    // check left child
+    tree.child_tree(true).map(|left| {
+        assert_child_valid(left, true);
+    });
 
-    // let mut node = Node::new(b"foo", b"bar");
-    // node.update_kv_hash();
-    // println!("node: {:?}", node);
-    // println!("encoded length: {:?}", node.encode().unwrap().len());
-    //
-    // let node2 = Node::decode(&node.encode().unwrap()[..]);
-    // println!("node2: {:?}", node2);
-    //
-    // let mut node3 = Node::new(b"foo2", b"bar2");
-    // node.set_child(true, &mut node3);
-    //
-    // println!("node: {:?}", node);
+    // check right child
+    tree.child_tree(false).map(|right| {
+        assert_child_valid(right, false);
+    });
 }
