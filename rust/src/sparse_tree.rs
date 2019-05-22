@@ -31,6 +31,22 @@ impl SparseTree {
         SparseTree::new(get_node(link), get_node)
     }
 
+    pub fn entries(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
+        fn traverse (tree: &SparseTree, vec: Vec<(Vec<u8>, Vec<u8>)>) -> Vec<(Vec<u8>, Vec<u8>)> {
+            let mut vec = match tree.child_tree(true) {
+                Some(child) => traverse(child, vec),
+                None => vec
+            };
+            vec.push((tree.node.key.clone(), tree.node.value.clone()));
+            match tree.child_tree(false) {
+                Some(child) => traverse(child, vec),
+                None => vec
+            }
+        };
+
+        traverse(self, vec![])
+    }
+
     pub fn put(&mut self, key: &[u8], value: &[u8]) {
         if self.node.key == key {
             // same key, just update the value of this node
