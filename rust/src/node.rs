@@ -137,7 +137,7 @@ impl Node {
     }
 
     pub fn set_parent(&mut self, parent_key: Vec<u8>) {
-        self.parent_key = Some(self.key.to_vec());
+        self.parent_key = Some(parent_key);
     }
 
     pub fn set_value(&mut self, value: &[u8]) {
