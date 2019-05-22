@@ -47,6 +47,7 @@ impl SparseTree {
             Some(child_tree) => {
                 // recursively put value under child
                 child_tree.put(key, value);
+
                 // update link since we know child hash changed
                 self.update_link(left);
             },
@@ -58,33 +59,42 @@ impl SparseTree {
                         self.get_node
                     )
                 );
-                // set child and
-                self.set_child(left, child_tree);
+
+                // set child field, update link, and update child's parent_key
+                self.set_child(left, Some(child_tree));
             }
         };
+
+        // rebalance if necessary
+        self.maybe_rebalance();
     }
 
     fn update_link(&mut self, left: bool) {
-        // get child link
+        // compute child link
         let link = self.child_tree(left).map(|child| {
             child.as_link()
         });
+
+        // set link on our Node
         self.node.set_child(left, link);
     }
 
-    fn set_child(&mut self, left: bool, child_tree: Box<SparseTree>) {
+    fn set_child(&mut self, left: bool, child_tree: Option<Box<SparseTree>>) {
         // set child field
-        let child_field = self.child_field_mut(left);
-        *child_field = Some(child_tree);
+        {
+            let child_field = self.child_field_mut(left);
+            *child_field = child_tree;
+        }
 
         // update link
         self.update_link(left);
 
         // update child node's parent_key to point to us
         let self_key = self.node.key.clone();
-        // (this unwrap should never panic)
-        let child = self.child_tree_mut(left).unwrap();
-        child.set_parent(self_key);
+        let child_field = self.child_field_mut(left);
+        child_field.as_mut().map(|child| {
+            child.set_parent(Some(self_key));
+        });
     }
 
     fn child_tree(&self, left: bool) -> Option<&SparseTree> {
@@ -130,29 +140,69 @@ impl SparseTree {
         }
     }
 
-    // pub fn maybe_rebalance(self, get_node: GetNodeFn) -> SparseTree {
-    //     let balance_factor = self.node.balance_factor();
-    //
-    //     // check if we need to balance
-    //     if (balance_factor.abs() <= 1) {
-    //         return self;
-    //     }
-    //
-    //      // check if we should do a double rotation
-    //     let left = balance_factor < 0;
-    //     let child = self.child(left, get_node);
-    //     let double = if left {
-    //         child.balance_factor() > 0
-    //     } else {
-    //         child.balance_factor() < 0
-    //     };
-    //
-    //     if double {
-    //         let new_child = child.rotate(store, !left);
-    //         self.set_child(left, new_child);
-    //     }
-    //     self.rotate(store, left)
-    // }
+    fn maybe_rebalance(&mut self) {
+        let balance_factor = self.balance_factor();
+
+        // return early if we don't need to balance
+        if (balance_factor.abs() <= 1) {
+            return;
+        }
+
+        // get child
+       let left = balance_factor < 0;
+       // (this unwrap should never panic, if the tree
+       // is unbalanced in this direction then we know
+       // there is a child)
+       let child = self.maybe_get_child(left).unwrap();
+
+         // maybe do a double rotation
+        let double = if left {
+            child.balance_factor() > 0
+        } else {
+            child.balance_factor() < 0
+        };
+        if double {
+            // rotate child opposite direction, then update link
+            child.rotate(!left);
+            self.update_link(left);
+        }
+
+        self.rotate(left);
+    }
+
+    fn rotate(&mut self, left: bool) {
+        self.maybe_get_child(left);
+        let mut child = self.child_field_mut(left).take().unwrap();
+
+        child.maybe_get_child(!left);
+        let grandchild = child.child_field_mut(!left).take();
+        self.set_child(left, grandchild);
+
+        self.swap(child.as_mut());
+        self.update_link(left);
+        child.update_link(!left);
+        self.set_child(!left, Some(child));
+    }
+
+    fn swap(&mut self, other: &mut SparseTree) {
+        // XXX: this could be more efficient, we clone the whole node
+        //      including its key/value
+
+        let self_node = self.node.clone();
+        let self_left = self.left.take();
+        let self_right = self.right.take();
+        let self_parent = self.node.parent_key.take();
+
+        self.node = other.node.clone();
+        self.left = other.left.take();
+        self.right = other.right.take();
+        self.set_parent(other.node.parent_key.take());
+
+        other.node = self_node;
+        other.left = self_left;
+        other.right = self_right;
+        other.set_parent(self_parent);
+    }
 }
 
 impl Deref for SparseTree {
@@ -197,77 +247,84 @@ impl fmt::Debug for SparseTree {
         write!(f, "\n")
     }
 }
+//
+// #[cfg(test)]
+// mod tests {
+//     use crate::sparse_tree::*;
 
-#[cfg(test)]
-mod tests {
-    use crate::sparse_tree::*;
+#[test]
+fn it_works() {
+    // let st = SparseTree{node: Node::new(b"a", b"b"), left: None, right: None};
+    // println!("{:?}", st);
+    //
+    // let st = SparseTree::join(
+    //     Node::new(b"aa", b"b"), Some(st), Some(SparseTree::new(Node::new(b"aa", b"b")))
+    // );
+    //
+    // let st = SparseTree::join(
+    //     Node::new(b"ab", b"b"), Some(st), Some(SparseTree::new(Node::new(b"abc", b"b")))
+    // );
+    // println!("{:?}", st);
 
-    #[test]
-    fn it_works() {
-        // let st = SparseTree{node: Node::new(b"a", b"b"), left: None, right: None};
-        // println!("{:?}", st);
-        //
-        // let st = SparseTree::join(
-        //     Node::new(b"aa", b"b"), Some(st), Some(SparseTree::new(Node::new(b"aa", b"b")))
-        // );
-        //
-        // let st = SparseTree::join(
-        //     Node::new(b"ab", b"b"), Some(st), Some(SparseTree::new(Node::new(b"abc", b"b")))
-        // );
-        // println!("{:?}", st);
+    let mut st = SparseTree::new(
+        Node::new(b"abc", b"x"),
+        |link| Node::new(link.key.as_slice(), b"x")
+    );
+    println!("{:?}", st);
 
-        let mut st = SparseTree::new(
-            Node::new(b"abc", b"x"),
-            |link| Node::new(link.key.as_slice(), b"x")
-        );
-        println!("{:?}", st);
+    st.put(
+        b"abcd", b"x"
+    );
+    println!("{:?}", st);
 
-        st.put(
-            b"abcd", b"x"
-        );
-        println!("{:?}", st);
+    st.put(
+        b"a", b"x"
+    );
+    println!("{:?}", st);
 
-        st.put(
-            b"a", b"x"
-        );
-        println!("{:?}", st);
+    st.put(
+        b"ab", b"x"
+    );
+    println!("{:?}", st);
 
-        st.put(
-            b"ab", b"x"
-        );
-        println!("{:?}", st);
+    st.put(
+        b"ab", b"y"
+    );
+    println!("{:?}", st);
 
-        st.put(
-            b"ab", b"y"
-        );
-        println!("{:?}", st);
+    st.put(
+        b"6", b"x"
+    );
+    println!("{:?}", st);
 
-        st.put(
-            b"6", b"x"
-        );
-        println!("{:?}", st);
+    st.put(
+        b"b", b"x"
+    );
+    println!("{:?}", st);
 
-        st.put(
-            b"b", b"x"
-        );
-        println!("{:?}", st);
+    st.put(
+        b"bc", b"x"
+    );
+    println!("{:?}", st);
 
-        st.put(
-            b"bc", b"x"
-        );
-        println!("{:?}", st);
+    st.put(b"x", b"x");
+    st.put(b"xx", b"x");
+    st.put(b"xxx", b"x");
+    st.put(b"xxxx", b"x");
+    st.put(b"xxxxx", b"x");
+    st.put(b"xxxxxx", b"x");
+    println!("{:?}", st);
 
-        // let mut node = Node::new(b"foo", b"bar");
-        // node.update_kv_hash();
-        // println!("node: {:?}", node);
-        // println!("encoded length: {:?}", node.encode().unwrap().len());
-        //
-        // let node2 = Node::decode(&node.encode().unwrap()[..]);
-        // println!("node2: {:?}", node2);
-        //
-        // let mut node3 = Node::new(b"foo2", b"bar2");
-        // node.set_child(true, &mut node3);
-        //
-        // println!("node: {:?}", node);
-    }
+    // let mut node = Node::new(b"foo", b"bar");
+    // node.update_kv_hash();
+    // println!("node: {:?}", node);
+    // println!("encoded length: {:?}", node.encode().unwrap().len());
+    //
+    // let node2 = Node::decode(&node.encode().unwrap()[..]);
+    // println!("node2: {:?}", node2);
+    //
+    // let mut node3 = Node::new(b"foo2", b"bar2");
+    // node.set_child(true, &mut node3);
+    //
+    // println!("node: {:?}", node);
 }

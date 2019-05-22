@@ -23,7 +23,7 @@ pub struct Link {
 
 /// Represents a tree node, and provides methods for working with
 /// the tree structure stored in a database.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Node {
     // TODO: don't serialize key since it's implied from the db
     pub key: Vec<u8>,
@@ -136,8 +136,8 @@ impl Node {
         }
     }
 
-    pub fn set_parent(&mut self, parent_key: Vec<u8>) {
-        self.parent_key = Some(parent_key);
+    pub fn set_parent(&mut self, parent_key: Option<Vec<u8>>) {
+        self.parent_key = parent_key;
     }
 
     pub fn set_value(&mut self, value: &[u8]) {
