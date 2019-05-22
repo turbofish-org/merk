@@ -3,3 +3,4 @@ node_modules
 coverage
 rust/target
 rust/temp.db
+.DS_Store
