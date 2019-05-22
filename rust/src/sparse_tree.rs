@@ -353,4 +353,12 @@ fn assert_tree_valid(tree: &SparseTree) {
     tree.child_tree(false).map(|right| {
         assert_child_valid(right, false);
     });
+
+    // ensure keys are globally ordered (root only)
+    let entries = tree.entries();
+    let mut prev = &entries[0].0;
+    for (k, _) in tree.entries()[1..].iter() {
+        assert!(k > prev);
+        prev = &k;
+    }
 }
