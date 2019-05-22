@@ -162,7 +162,7 @@ impl SparseTree {
         let balance_factor = self.balance_factor();
 
         // return early if we don't need to balance
-        if (balance_factor.abs() <= 1) {
+        if balance_factor.abs() <= 1 {
             return;
         }
 
@@ -271,19 +271,17 @@ impl fmt::Debug for SparseTree {
             };
             write!(f, "{}{:?}\n", prefix.dimmed(), cursor.node);
 
-            stack.push(true);
-            match &cursor.left {
-                Some(child) => { traverse(f, &child, stack, true, cursor.right.is_some()); },
-                None => {}
-            };
-            stack.pop();
+            if let Some(child) = &cursor.left {
+                stack.push(true);
+                traverse(f, &child, stack, true, cursor.right.is_some());
+                stack.pop();
+            }
 
-            stack.push(false);
-            match &cursor.right {
-                (Some(child)) => { traverse(f, &child, stack, false, false); },
-                (None) => {}
-            };
-            stack.pop();
+            if let Some(child) = &cursor.right {
+                stack.push(false);
+                traverse(f, &child, stack, false, false);
+                stack.pop();
+            }
         };
 
         let mut stack = vec![];
