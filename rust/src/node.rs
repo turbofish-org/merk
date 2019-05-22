@@ -5,11 +5,9 @@ extern crate serde;
 
 use std::fmt;
 use std::cmp::max;
-use std::ops::{Deref, DerefMut};
 
 use blake2_rfc::blake2b::Blake2b;
 use byteorder::{ByteOrder, BigEndian};
-use serde::{Serialize, Deserialize};
 
 const HASH_LENGTH: usize = 20;
 const NULL_HASH: Hash = [0; HASH_LENGTH];
