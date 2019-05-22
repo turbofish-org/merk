@@ -65,41 +65,47 @@ impl SparseTree {
     }
 
     fn update_link(&mut self, left: bool) {
-        if let Some(child) = self.child_tree(left) {
-            // get link from child
-            let link = child.as_link();
-
-            // update our node's link
-            self.node.set_child(left, Some(link));
-
-            // update child node's parent_key to point to us
-            let self_key = self.node.key.clone();
-            let child = self.child_tree_mut(left).as_mut().unwrap();
-            child.set_parent(self_key);
-        } else {
-            // no child
-            self.node.set_child(left, None);
-        };
+        // get child link
+        let link = self.child_tree(left).map(|child| {
+            child.as_link()
+        });
+        self.node.set_child(left, link);
     }
 
     fn set_child(&mut self, left: bool, child_tree: Box<SparseTree>) {
         // set child field
-        let child_field = self.child_tree_mut(left);
+        let child_field = self.child_field_mut(left);
         *child_field = Some(child_tree);
 
         // update link
         self.update_link(left);
+
+        // update child node's parent_key to point to us
+        let self_key = self.node.key.clone();
+        // (this unwrap should never panic)
+        let child = self.child_tree_mut(left).unwrap();
+        child.set_parent(self_key);
     }
 
-    fn child_tree(&self, left: bool) -> &Option<Box<SparseTree>> {
-        if left {
+    fn child_tree(&self, left: bool) -> Option<&SparseTree> {
+        let option = if left {
             &self.left
         } else {
             &self.right
-        }
+        };
+        option.as_ref().map(|_box| _box.as_ref())
     }
 
-    fn child_tree_mut(&mut self, left: bool) -> &mut Option<Box<SparseTree>> {
+    fn child_tree_mut(&mut self, left: bool) -> Option<&mut SparseTree> {
+        let option = if left {
+            &mut self.left
+        } else {
+            &mut self.right
+        };
+        option.as_mut().map(|_box| _box.as_mut())
+    }
+
+    fn child_field_mut(&mut self, left: bool) -> &mut Option<Box<SparseTree>> {
         if left {
             &mut self.left
         } else {
@@ -111,7 +117,7 @@ impl SparseTree {
         if let Some(link) = self.child_link(left) {
             // node has a link
             let get_node = self.get_node;
-            let child_field = self.child_tree_mut(left);
+            let child_field = self.child_field_mut(left);
             // if field is already set, get mutable reference to existing child
             // tree. if not, call out to `get_node and put result in a box.
             let child_tree = child_field.get_or_insert_with(|| {
