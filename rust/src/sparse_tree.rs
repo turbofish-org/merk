@@ -192,16 +192,17 @@ impl SparseTree {
         let self_left = self.left.take();
         let self_right = self.right.take();
         let self_parent = self.node.parent_key.take();
+        let other_parent = other.node.parent_key.take();
 
         self.node = other.node.clone();
         self.left = other.left.take();
         self.right = other.right.take();
-        self.set_parent(other.node.parent_key.take());
+        self.set_parent(self_parent);
 
         other.node = self_node;
         other.left = self_left;
         other.right = self_right;
-        other.set_parent(self_parent);
+        other.set_parent(other_parent);
     }
 }
 
