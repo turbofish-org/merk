@@ -14,11 +14,23 @@ const HASH_LENGTH: usize = 20;
 type Hash = [u8; HASH_LENGTH];
 const NULL_HASH: Hash = [0 as u8; HASH_LENGTH];
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Link {
     pub key: Vec<u8>,
     pub hash: Hash,
     pub height: u8
+}
+
+impl fmt::Debug for Link {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "(key={}, hash={}, height={})",
+            String::from_utf8(self.key.to_vec()).unwrap(),
+            hex::encode(self.hash),
+            self.height
+        )
+    }
 }
 
 /// Represents a tree node, and provides methods for working with
