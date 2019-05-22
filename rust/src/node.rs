@@ -17,7 +17,7 @@ const NULL_HASH: Hash = [0 as u8; HASH_LENGTH];
 
 type GetNodeFn = fn(link: &Link) -> Node;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Link {
     pub key: Vec<u8>,
     pub hash: Hash,
@@ -40,6 +40,7 @@ pub struct Node {
 /// A selection of connected nodes in a tree.
 pub struct SparseTree {
     pub node: Node,
+    get_node: GetNodeFn,
     left: Option<Box<SparseTree>>,
     right: Option<Box<SparseTree>>
 }
@@ -106,8 +107,8 @@ impl Node {
         hash
     }
 
-    pub fn child_link(&self, left: bool) -> &Option<Link> {
-        if left { &self.left } else { &self.right }
+    pub fn child_link(&self, left: bool) -> Option<Link> {
+        if left { self.left.clone() } else { self.right.clone() }
     }
 
     pub fn child_height(&self, left: bool) -> u8 {
@@ -175,20 +176,20 @@ impl fmt::Debug for Node {
 }
 
 impl SparseTree {
-    pub fn new(node: Node) -> SparseTree {
+    pub fn new(node: Node, get_node: GetNodeFn) -> SparseTree {
         SparseTree{
             node,
+            get_node,
             left: None,
             right: None
         }
     }
 
-    pub fn put(
-        &mut self,
-        get_node: GetNodeFn,
-        key: &[u8],
-        value: &[u8]
-    ) {
+    pub fn get(link: &Link, get_node: GetNodeFn) -> SparseTree {
+        SparseTree::new(get_node(link), get_node)
+    }
+
+    pub fn put(&mut self, key: &[u8], value: &[u8]) {
         if self.node.key == key {
             // same key, just update the value of this node
             self.node.set_value(value);
@@ -196,18 +197,19 @@ impl SparseTree {
         }
 
         let left = key < &self.node.key;
-        let child_tree = self.maybe_get_child(left, get_node);
+        let child_tree = self.maybe_get_child(left);
         let child_tree = match child_tree {
             Some(child_tree) => {
                 // println!("-{:?}", child_node);
                 // recursively put value under child
-                child_tree.put(get_node, key, value);
+                child_tree.put(key, value);
             },
             None => {
                 // no child here, create node and set as child
                 let child_tree = Box::new(
                     SparseTree::new(
-                        Node::new(key, value)
+                        Node::new(key, value),
+                        self.get_node
                     )
                 );
                 if left {
@@ -249,24 +251,17 @@ impl SparseTree {
         }
     }
 
-    pub fn maybe_get_child(
-        &mut self,
-        left: bool,
-        get_node: GetNodeFn
-    ) -> &mut Option<Box<SparseTree>> {
-        if let Some(child) = self.child_tree_mut(left) {
-            // already have child, noop
-        } else if let Some(link) = self.child_link(left) {
-            // node has link, we can fetch child
-            let child = Box::new(
-                SparseTree::new(
-                    get_node(link)
-                )
-            );
-            let child_tree = self.child_tree_mut(left);
-            *child_tree = Some(child);
+    pub fn maybe_get_child(&mut self, left: bool) -> Option<&mut Box<SparseTree>> {
+        if let Some(link) = self.child_link(left) {
+            let get_node = self.get_node;
+            let child_field = self.child_tree_mut(left);
+            let child_tree = child_field.get_or_insert_with(|| {
+                Box::new(SparseTree::get(&link, get_node))
+            });
+            Some(child_tree)
+        } else {
+            None
         }
-        self.child_tree_mut(left)
     }
 
     // pub fn maybe_rebalance(self, get_node: GetNodeFn) -> SparseTree {
@@ -368,47 +363,43 @@ mod tests {
         // );
         // println!("{:?}", st);
 
-        let mut st = SparseTree::new(Node::new(b"abc", b"x"));
+        let mut st = SparseTree::new(
+            Node::new(b"abc", b"x"),
+            |link| Node::new(link.key.as_slice(), b"x")
+        );
         println!("{:?}", st);
 
         st.put(
-            |link| Node::new(link.key.as_slice(), b"x"),
             b"abcd", b"x"
         );
         println!("{:?}", st);
 
         st.put(
-            |link| Node::new(link.key.as_slice(), b"x"),
             b"a", b"x"
         );
         println!("{:?}", st);
 
         st.put(
-            |link| Node::new(link.key.as_slice(), b"x"),
             b"ab", b"x"
         );
         println!("{:?}", st);
 
         st.put(
-            |link| Node::new(link.key.as_slice(), b"x"),
             b"ab", b"y"
         );
         println!("{:?}", st);
 
         st.put(
-            |link| Node::new(link.key.as_slice(), b"x"),
             b"6", b"x"
         );
         println!("{:?}", st);
 
         st.put(
-            |link| Node::new(link.key.as_slice(), b"x"),
             b"b", b"x"
         );
         println!("{:?}", st);
 
         st.put(
-            |link| Node::new(link.key.as_slice(), b"x"),
             b"bc", b"x"
         );
         println!("{:?}", st);
