@@ -10,6 +10,14 @@ type GetNodeFn = fn(link: &Link) -> Node;
 /// A selection of connected nodes in a tree.
 ///
 /// SparseTrees are acyclic, and have exactly one root node.
+///
+/// Operations fetch `Nodes` from the backing database lazily,
+/// and retain them in memory. Mutation operations only operate
+/// on the in-memory structure, but a consumer can flush the
+/// updated structure to a backing database by reading from
+/// [`entries`].
+///
+/// [`entries`]: #method.entries
 pub struct SparseTree {
     node: Node,
     get_node: GetNodeFn,
@@ -17,7 +25,10 @@ pub struct SparseTree {
     right: Option<Box<SparseTree>>
 }
 
+///
 impl SparseTree {
+    /// Returns a new SparseTree which has the gien `Node` as its
+    /// root, and no children.
     pub fn new(node: Node, get_node: GetNodeFn) -> SparseTree {
         SparseTree{
             node,
@@ -27,10 +38,17 @@ impl SparseTree {
         }
     }
 
+    /// Fetches a Node from the backing database and creates a
+    /// new SparseTree with it as its root, and no children.
     pub fn get(link: &Link, get_node: GetNodeFn) -> SparseTree {
         SparseTree::new(get_node(link), get_node)
     }
 
+    /// Gets an ordered list of all (key, value) entries in the
+    /// tree.
+    ///
+    /// This operation is O(N) but only uses references so does
+    /// not make any allocations other than the containing `Vec`.
     pub fn entries<'a>(&'a self) -> Vec<(&'a [u8], &'a [u8])> {
         fn traverse<'a>(
             tree: &'a SparseTree,
@@ -50,6 +68,13 @@ impl SparseTree {
         traverse(self, vec![])
     }
 
+    /// Puts the key/value pair into the tree.
+    ///
+    /// The tree structure and relevant Merkle hashes
+    /// are updated in memory.
+    ///
+    /// This method will fetch relevant missing nodes
+    /// (if any) from the backing database.
     pub fn put(&mut self, key: &[u8], value: &[u8]) {
         if self.node.key == key {
             // same key, just update the value of this node
@@ -318,8 +343,6 @@ fn simple_put() {
     assert_eq!(tree.height(), 5);
     assert_eq!(tree.child_height(true), 4);
     assert_eq!(tree.child_height(false), 3);
-
-    println!("{:?}", tree);
 }
 
 /// Recursively asserts invariants for each node in the tree.

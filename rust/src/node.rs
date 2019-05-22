@@ -14,6 +14,11 @@ const NULL_HASH: Hash = [0; HASH_LENGTH];
 
 type Hash = [u8; HASH_LENGTH];
 
+/// Represents a reference to another tree node.
+///
+/// Note that the referenced node is not necessarily
+/// loaded in memory, but can be fetched from a backing
+/// database by its key.
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Link {
     pub key: Vec<u8>,
@@ -33,8 +38,7 @@ impl fmt::Debug for Link {
     }
 }
 
-/// Represents a tree node, and provides methods for working with
-/// the tree structure stored in a database.
+/// Represents a tree node and its associated key/value pair.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Node {
     // TODO: don't serialize key since it's implied from the db
