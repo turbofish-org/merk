@@ -41,7 +41,8 @@ impl fmt::Debug for Link {
 /// Represents a tree node and its associated key/value pair.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Node {
-    // TODO: don't serialize key since it's implied from the db
+    // don't serialize key since it's implied from the db
+    #[serde(skip)]
     pub key: Vec<u8>,
     pub value: Vec<u8>,
     pub kv_hash: Hash,
@@ -73,8 +74,11 @@ impl Node {
         node
     }
 
-    pub fn decode(bytes: &[u8]) -> bincode::Result<Node> {
-        bincode::deserialize(bytes)
+    pub fn decode(key: &[u8], bytes: &[u8]) -> bincode::Result<Node> {
+        bincode::deserialize(bytes).map(|mut node: Node| {
+            set_vec(&mut node.key, key);
+            node
+        })
     }
 
     pub fn update_kv_hash (&mut self) {

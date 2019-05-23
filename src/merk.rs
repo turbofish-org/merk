@@ -26,7 +26,7 @@ impl Merk {
         let mut get_node = |link: &Link| {
             // TODO: Result instead of unwrap
             let bytes = &db.get(&link.key).unwrap().unwrap()[..];
-            Node::decode(bytes).unwrap()
+            Node::decode(&link.key, bytes).unwrap()
         };
 
         match &mut self.tree {
