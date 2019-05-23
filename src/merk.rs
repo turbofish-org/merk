@@ -21,7 +21,7 @@ impl Merk {
         })
     }
 
-    pub fn put(&mut self, key: &[u8], value: &[u8]) {
+    pub fn put_batch(&mut self, batch: &[(&[u8], &[u8])]) -> Result<(), Error> {
         let db = &self.db;
         let mut get_node = |link: &Link| {
             // TODO: Result instead of unwrap
@@ -32,19 +32,47 @@ impl Merk {
         match &mut self.tree {
             Some(tree) => {
                 // tree is not empty, put under it
-                tree.put(&mut get_node, key, value);
+                tree.put_batch(&mut get_node, batch);
             },
             None => {
-                // empty tree, set key/value as root
-                let tree = SparseTree::new(
-                    Node::new(key, value)
+                // empty tree, set middle key/value as root
+                let mid = batch.len() / 2;
+                let mut tree = SparseTree::new(
+                    Node::new(batch[mid].0, batch[mid].1)
                 );
+
+                // put the rest of the batch under the tree
+                if batch.len() > 1 {
+                    tree.put_batch(&mut get_node, &batch[..mid]);
+                }
+                if batch.len() > 2 {
+                    tree.put_batch(&mut get_node, &batch[mid+1..]);
+                }
+
                 self.tree = Some(tree);
             }
         }
+
+        // commit changes to db
+        self.commit()
     }
 
-    pub fn commit(&mut self) -> Result<(), Error> {
+    fn commit(&mut self) -> Result<(), Error> {
+        if let Some(tree) = &mut self.tree {
+            let batch = tree.to_write_batch();
+
+            // TODO: store pointer to root node
+
+            // TODO: write options
+            self.db.write(batch)?;
+
+            // clear tree so it only contains the root node
+            // TODO: strategies for persisting nodes in memory
+            tree.prune();
+        } else {
+            // TODO: clear db
+        }
+
         Ok(())
     }
 }
@@ -60,16 +88,18 @@ fn defaultDbOpts() -> rocksdb::Options {
 #[test]
 fn simple_put() {
     let mut merk = Merk::new("./test.db").unwrap();
-    merk.put(b"key", b"value");
-    merk.put(b"key", b"value2");
-    merk.put(b"key2", b"value");
+    let batch: Vec<(&[u8], &[u8])> = vec![
+        (b"key", b"value"),
+        (b"key2", b"value2"),
+    ];
+    merk.put_batch(&batch);
 
-    let entries = merk.tree.as_ref().unwrap().entries();
-    for (key, value) in entries {
-        println!(
-            "{:?}: {:?}",
-            String::from_utf8(key.to_vec()).unwrap(),
-            String::from_utf8(value.to_vec()).unwrap()
-        );
-    }
+    // let entries = merk.tree.as_ref().unwrap().entries();
+    // for (key, value) in entries {
+    //     println!(
+    //         "{:?}: {:?}",
+    //         String::from_utf8(key.to_vec()).unwrap(),
+    //         String::from_utf8(value.to_vec()).unwrap()
+    //     );
+    // }
 }
