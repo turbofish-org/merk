@@ -1,4 +1,7 @@
 extern crate colored;
+extern crate rand;
+
+use rand::prelude::*;
 
 use std::fmt;
 use std::ops::{Deref, DerefMut};
@@ -399,7 +402,7 @@ fn simple_put() {
     assert_tree_valid(&tree);
 
     // put sequential keys
-    for i in 1..20 {
+    for i in 1..200 {
         tree.put(
             // we build from scratch in this test, so we never call get_node
             &mut |link| unreachable!(),
@@ -413,18 +416,52 @@ fn simple_put() {
     // known final state for deterministic tree
     assert_eq!(
         hex::encode(tree.hash()),
-        "7a9968205f500cb8de6ac37ddf53fcd97cef6524"
+        "7ca6b0783f7f4b9fc33630635e45742945c230b2"
     );
-    assert_eq!(tree.node.key, b"3");
-    assert_eq!(tree.height(), 5);
-    assert_eq!(tree.child_height(true), 4);
-    assert_eq!(tree.child_height(false), 3);
+    assert_eq!(tree.node.key, b"19");
+    assert_eq!(tree.height(), 8);
+    assert_eq!(tree.child_height(true), 7);
+    assert_eq!(tree.child_height(false), 7);
+}
+
+#[test]
+fn batch_put() {
+    let mut tree = SparseTree::new(
+        Node::new(&[63], b"0")
+    );
+    assert_tree_valid(&tree);
+
+    // put sequential keys
+    let mut keys = vec![];
+    let mut batch: Vec<(&[u8], &[u8])> = vec![];
+    for i in 1..150 {
+        keys.push([i + 64 as u8]);
+    }
+    for i in 1..150 {
+        batch.push((&keys[i - 1], b"x"));
+    }
+    tree.put_batch(
+        &mut |link| unreachable!(),
+        &batch[..]
+    );
+
+    assert_tree_valid(&tree);
+
+    // known final state for deterministic tree
+    // assert_eq!(
+    //     hex::encode(tree.hash()),
+    //     "7a9968205f500cb8de6ac37ddf53fcd97cef6524"
+    // );
+    // assert_eq!(tree.node.key, b"3");
+    // assert_eq!(tree.height(), 5);
+    // assert_eq!(tree.child_height(true), 4);
+    // assert_eq!(tree.child_height(false), 3);
 }
 
 /// Recursively asserts invariants for each node in the tree.
 fn assert_tree_valid(tree: &SparseTree) {
     // ensure node is balanced
-    assert!(tree.balance_factor().abs() <= 1);
+    assert!(tree.balance_factor().abs() <= 1, format!("bf:{} {:?}", tree.balance_factor(), tree));
 
     let assert_child_valid = |child: &SparseTree, left: bool| {
         // check key ordering
@@ -463,4 +500,58 @@ fn assert_tree_valid(tree: &SparseTree) {
         assert!(k > prev);
         prev = &k;
     }
+}
+
+#[bench]
+fn bench_put(b: &mut test::Bencher) {
+    let mut tree = SparseTree::new(
+        Node::new(b"0", b"x")
+    );
+
+    let mut i = 0;
+    b.iter(|| {
+        tree.put(
+            // we build from scratch in this test, so we never call get_node
+            &mut |link| unreachable!(),
+            &i.to_string().into_bytes()[..],
+            b"x"
+        );
+        i += 1;
+    });
+}
+
+#[bench]
+fn bench_batch_put(b: &mut test::Bencher) {
+    let mut rng = rand::thread_rng();
+
+    let mut tree = SparseTree::new(
+        Node::new(b"0", b"x")
+    );
+
+    let mut i = 0;
+    b.iter(|| {
+        let mut keys = vec![];
+        for i in 0..10_000 {
+            keys.push(random_bytes(&mut rng, 4));
+        }
+
+        let mut batch: Vec<(&[u8], &[u8])> = vec![];
+        for i in 0..10_000 {
+            batch.push((&keys[i], b"x"));
+        }
+
+        tree.put_batch(
+            // we build from scratch in this test, so we never call get_node
+            &mut |link| unreachable!(),
+            &batch[..]
+        );
+        i += 1;
+    });
+    println!("final tree size: {}", i * 10_000);
+}
+
+fn random_bytes(rng: &mut ThreadRng, length: usize) -> Vec<u8> {
+    (0..length)
+        .map(|_| -> u8 { rng.gen() })
+        .collect()
 }
