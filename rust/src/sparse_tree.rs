@@ -5,7 +5,8 @@ use std::ops::{Deref, DerefMut};
 
 use crate::node::*;
 
-type GetNodeFn = fn(link: &Link) -> Node;
+// TODO: return Result<Node, Error>, handle in calls
+pub trait GetNodeFn = FnMut(&Link) -> Node;
 
 /// A selection of connected nodes in a tree.
 ///
@@ -20,7 +21,6 @@ type GetNodeFn = fn(link: &Link) -> Node;
 /// [`entries`]: #method.entries
 pub struct SparseTree {
     node: Node,
-    get_node: GetNodeFn,
     left: Option<Box<SparseTree>>,
     right: Option<Box<SparseTree>>
 }
@@ -29,23 +29,16 @@ pub struct SparseTree {
 impl SparseTree {
     /// Returns a new SparseTree which has the gien `Node` as its
     /// root, and no children.
-    pub fn new(node: Node, get_node: GetNodeFn) -> SparseTree {
+    pub fn new(node: Node) -> SparseTree {
         SparseTree{
             node,
-            get_node,
             left: None,
             right: None
         }
     }
 
-    /// Fetches a Node from the backing database and creates a
-    /// new SparseTree with it as its root, and no children.
-    pub fn get(link: &Link, get_node: GetNodeFn) -> SparseTree {
-        SparseTree::new(get_node(link), get_node)
-    }
-
-    /// Gets an ordered list of all (key, value) entries in the
-    /// tree.
+    /// Gets a list of all (key, value) entries in the tree,
+    /// ordered ascending by key.
     ///
     /// This operation is O(N) but only uses references so does
     /// not make any allocations other than the containing `Vec`.
@@ -75,7 +68,7 @@ impl SparseTree {
     ///
     /// This method will fetch relevant missing nodes
     /// (if any) from the backing database.
-    pub fn put(&mut self, key: &[u8], value: &[u8]) {
+    pub fn put(&mut self, get_node: &mut GetNodeFn, key: &[u8], value: &[u8]) {
         if self.node.key == key {
             // same key, just update the value of this node
             self.set_value(value);
@@ -89,10 +82,10 @@ impl SparseTree {
         let left = key < &self.node.key;
 
         // try to get child, fetching from db if necessary
-        match self.maybe_get_child(left) {
+        match self.maybe_get_child(get_node, left) {
             Some(child_tree) => {
                 // recursively put value under child
-                child_tree.put(key, value);
+                child_tree.put(get_node, key, value);
 
                 // update link since we know child hash changed
                 self.update_link(left);
@@ -101,8 +94,7 @@ impl SparseTree {
                 // no child here, create node and set as child
                 let child_tree = Box::new(
                     SparseTree::new(
-                        Node::new(key, value),
-                        self.get_node
+                        Node::new(key, value)
                     )
                 );
 
@@ -112,7 +104,7 @@ impl SparseTree {
         };
 
         // rebalance if necessary
-        self.maybe_rebalance();
+        self.maybe_rebalance(get_node);
     }
 
     fn update_link(&mut self, left: bool) {
@@ -169,15 +161,14 @@ impl SparseTree {
         }
     }
 
-    fn maybe_get_child(&mut self, left: bool) -> Option<&mut Box<SparseTree>> {
+    fn maybe_get_child(&mut self, get_node: &mut GetNodeFn, left: bool) -> Option<&mut Box<SparseTree>> {
         if let Some(link) = self.child_link(left) {
-            // node has a link
-            let get_node = self.get_node;
+            // node has a link, get from memory or fetch from db
             let child_field = self.child_field_mut(left);
             // if field is already set, get mutable reference to existing child
             // tree. if not, get from db and put result in a box.
             let child_tree = child_field.get_or_insert_with(|| {
-                Box::new(SparseTree::get(&link, get_node))
+                Box::new(SparseTree::new(get_node(&link)))
             });
             Some(child_tree)
         } else {
@@ -186,7 +177,7 @@ impl SparseTree {
         }
     }
 
-    fn maybe_rebalance(&mut self) {
+    fn maybe_rebalance(&mut self, get_node: &mut GetNodeFn) {
         let balance_factor = self.balance_factor();
 
         // return early if we don't need to balance
@@ -199,7 +190,7 @@ impl SparseTree {
        // (this unwrap should never panic, if the tree
        // is unbalanced in this direction then we know
        // there is a child)
-       let child = self.maybe_get_child(left).unwrap();
+       let child = self.maybe_get_child(get_node, left).unwrap();
 
          // maybe do a double rotation
         let double = if left {
@@ -209,18 +200,18 @@ impl SparseTree {
         };
         if double {
             // rotate child opposite direction, then update link
-            child.rotate(!left);
+            child.rotate(get_node, !left);
             self.update_link(left);
         }
 
-        self.rotate(left);
+        self.rotate(get_node, left);
     }
 
-    fn rotate(&mut self, left: bool) {
-        self.maybe_get_child(left);
+    fn rotate(&mut self, get_node: &mut GetNodeFn, left: bool) {
+        self.maybe_get_child(get_node, left);
         let mut child = self.child_field_mut(left).take().unwrap();
 
-        child.maybe_get_child(!left);
+        child.maybe_get_child(get_node, !left);
         let grandchild = child.child_field_mut(!left).take();
         self.set_child(left, grandchild);
 
@@ -321,15 +312,18 @@ impl fmt::Debug for SparseTree {
 #[test]
 fn simple_put() {
     let mut tree = SparseTree::new(
-        Node::new(b"0", b"x"),
-        // we build from scratch in this test, so we never call get_node
-        |link| unreachable!()
+        Node::new(b"0", b"x")
     );
     assert_tree_valid(&tree);
 
     // put sequential keys
     for i in 1..20 {
-        tree.put(&i.to_string().into_bytes()[..], b"x");
+        tree.put(
+            // we build from scratch in this test, so we never call get_node
+            &mut |link| unreachable!(),
+            &i.to_string().into_bytes()[..],
+            b"x"
+        );
         assert_tree_valid(&tree);
         println!("{:?}", tree);
     }
