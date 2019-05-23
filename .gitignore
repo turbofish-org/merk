@@ -1,6 +1,3 @@
-node_modules
-.nyc_output
-coverage
-rust/target
-rust/temp.db
+target
+temp.db
 .DS_Store
