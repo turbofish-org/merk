@@ -1,5 +1,6 @@
 extern crate colored;
 extern crate rand;
+extern crate rocksdb;
 
 use rand::prelude::*;
 
@@ -40,28 +41,27 @@ impl SparseTree {
         }
     }
 
-    /// Gets a list of all (key, value) entries in the tree,
-    /// ordered ascending by key.
-    ///
-    /// This operation is O(N) but only uses references so does
-    /// not make any allocations other than the containing `Vec`.
-    pub fn entries<'a>(&'a self) -> Vec<(&'a [u8], &'a [u8])> {
-        fn traverse<'a>(
-            tree: &'a SparseTree,
-            vec: Vec<(&'a [u8], &'a [u8])>
-        ) -> Vec<(&'a [u8], &'a [u8])> {
-            let mut vec = match tree.child_tree(true) {
-                Some(child) => traverse(child, vec),
-                None => vec
-            };
-            vec.push((&tree.node.key, &tree.node.value));
-            match tree.child_tree(false) {
-                Some(child) => traverse(child, vec),
-                None => vec
+    pub fn to_write_batch(&self) -> rocksdb::WriteBatch {
+        fn traverse(
+            tree: &SparseTree,
+            batch: &mut rocksdb::WriteBatch
+        ) {
+            if let Some(child) = tree.child_tree(true) {
+                traverse(child, batch);
             }
-        };
 
-        traverse(self, vec![])
+            // TODO: Result
+            let bytes = tree.node.encode().unwrap();
+            batch.put(&tree.node.key, bytes);
+
+            if let Some(child) = tree.child_tree(false) {
+                traverse(child, batch);
+            }
+        }
+
+        let mut batch = rocksdb::WriteBatch::default();
+        traverse(self, &mut batch);
+        batch
     }
 
     /// Puts the key/value pair into the tree.
@@ -493,13 +493,13 @@ fn assert_tree_valid(tree: &SparseTree) {
         assert_child_valid(right, false);
     });
 
-    // ensure keys are globally ordered (root only)
-    let entries = tree.entries();
-    let mut prev = &entries[0].0;
-    for (k, _) in tree.entries()[1..].iter() {
-        assert!(k > prev);
-        prev = &k;
-    }
+    // // ensure keys are globally ordered (root only)
+    // let entries = tree.entries();
+    // let mut prev = &entries[0].0;
+    // for (k, _) in tree.entries()[1..].iter() {
+    //     assert!(k > prev);
+    //     prev = &k;
+    // }
 }
 
 #[bench]
@@ -531,12 +531,12 @@ fn bench_batch_put(b: &mut test::Bencher) {
     let mut i = 0;
     b.iter(|| {
         let mut keys = vec![];
-        for i in 0..100_000 {
+        for i in 0..10_000 {
             keys.push(random_bytes(&mut rng, 4));
         }
 
         let mut batch: Vec<(&[u8], &[u8])> = vec![];
-        for i in 0..100_000 {
+        for i in 0..10_000 {
             batch.push((&keys[i], b"x"));
         }
 
@@ -547,7 +547,7 @@ fn bench_batch_put(b: &mut test::Bencher) {
         );
         i += 1;
     });
-    println!("final tree size: {}", i * 100_000);
+    println!("final tree size: {}", i * 10_000);
 }
 
 fn random_bytes(rng: &mut ThreadRng, length: usize) -> Vec<u8> {
