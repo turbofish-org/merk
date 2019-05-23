@@ -184,6 +184,12 @@ impl SparseTree {
         self.maybe_rebalance(get_node);
     }
 
+    pub fn prune(&mut self) {
+        // TODO: keep upper levels of tree?
+        self.left.take();
+        self.right.take();
+    }
+
     fn update_link(&mut self, left: bool) {
         // compute child link
         let link = self.child_tree(left).map(|child| {
