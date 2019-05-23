@@ -107,6 +107,80 @@ impl SparseTree {
         self.maybe_rebalance(get_node);
     }
 
+    /// Puts the batch of key/value pair into the tree.
+    ///
+    /// This method is faster than repeated calls to [`put`]
+    /// since we can save some work by only calculating hashes
+    /// of higher nodes once.
+    ///
+    /// The tree structure and relevant Merkle hashes
+    /// are updated in memory.
+    ///
+    /// This method will fetch relevant missing nodes
+    /// (if any) from the backing database.
+    ///
+    /// [`put`]: #method.put
+    pub fn put_batch(&mut self, get_node: &mut GetNodeFn, batch: &[(&[u8], &[u8])]) {
+        let search = batch.binary_search_by(|(key, _value)| {
+            key.cmp(&&self.node.key[..])
+        });
+        let (left_batch, right_batch) = match search {
+            Ok(index) => {
+                // a key matches this node's key, update the value
+                self.set_value(batch[index].1);
+                // split batch, exluding matched value
+                (&batch[..index], &batch[index+1..],)
+            },
+            Err(index) => {
+                // split batch
+                batch.split_at(index)
+            }
+        };
+
+        let mut recurse = |batch, left| {
+            // try to get child, fetching from db if necessary
+            match self.maybe_get_child(get_node, left) {
+                Some(child_tree) => {
+                    // recursively put value under child
+                    child_tree.put_batch(get_node, batch);
+
+                    // update link since we know child hash changed
+                    self.update_link(left);
+                },
+                None => {
+                    // no child here, create subtree set as child,
+                    // with middle value as root (to minimize balances)
+                    let mid = batch.len() / 2;
+                    let mut child_tree = Box::new(
+                        SparseTree::new(
+                            Node::new(batch[mid].0, batch[mid].1)
+                        )
+                    );
+
+                    // add the rest of the batch to the new subtree
+                    if batch.len() > 1 {
+                        child_tree.put_batch(get_node, &batch[..mid]);
+                    }
+                    if batch.len() > 2 {
+                        child_tree.put_batch(get_node, &batch[mid+1..]);
+                    }
+
+                    // set child field, update link, and update child's parent_key
+                    self.set_child(left, Some(child_tree));
+                }
+            };
+        };
+        if left_batch.len() > 0 {
+            recurse(left_batch, true);
+        }
+        if right_batch.len() > 0 {
+            recurse(right_batch, false);
+        }
+
+        // rebalance if necessary
+        self.maybe_rebalance(get_node);
+    }
+
     fn update_link(&mut self, left: bool) {
         // compute child link
         let link = self.child_tree(left).map(|child| {
@@ -186,11 +260,11 @@ impl SparseTree {
         }
 
         // get child
-       let left = balance_factor < 0;
-       // (this unwrap should never panic, if the tree
-       // is unbalanced in this direction then we know
-       // there is a child)
-       let child = self.maybe_get_child(get_node, left).unwrap();
+        let left = balance_factor < 0;
+        // (this unwrap should never panic, if the tree
+        // is unbalanced in this direction then we know
+        // there is a child)
+        let child = self.maybe_get_child(get_node, left).unwrap();
 
          // maybe do a double rotation
         let double = if left {
@@ -205,6 +279,14 @@ impl SparseTree {
         }
 
         self.rotate(get_node, left);
+
+        // rebalance recursively if necessary
+        let mut child = self.maybe_get_child(get_node, !left).unwrap();
+        child.maybe_rebalance(get_node);
+        self.update_link(!left);
+
+        // rebalance self if necessary
+        self.maybe_rebalance(get_node);
     }
 
     fn rotate(&mut self, get_node: &mut GetNodeFn, left: bool) {
