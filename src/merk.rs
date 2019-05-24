@@ -1,7 +1,9 @@
 extern crate rocksdb;
 extern crate num_cpus;
 
-use std::path::Path;
+use rand::prelude::*;
+
+use std::path::{Path, PathBuf};
 use rocksdb::Error;
 
 use crate::*;
@@ -9,20 +11,24 @@ use crate::*;
 /// A handle to a Merklized key/value store backed by RocksDB.
 pub struct Merk {
     tree: Option<SparseTree>,
-    db: rocksdb::DB
+    db: Option<rocksdb::DB>,
+    path: PathBuf
 }
 
 impl Merk {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Merk, Error> {
         let db_opts = defaultDbOpts();
+        let mut path_buf = PathBuf::new();
+        path_buf.push(path);
         Ok(Merk{
             tree: None,
-            db: rocksdb::DB::open(&db_opts, path)?
+            db: Some(rocksdb::DB::open(&db_opts, &path_buf)?),
+            path: path_buf
         })
     }
 
     pub fn put_batch(&mut self, batch: &[(&[u8], &[u8])]) -> Result<(), Error> {
-        let db = &self.db;
+        let db = &self.db.as_ref().unwrap();
         let mut get_node = |link: &Link| {
             // TODO: Result instead of unwrap
             let bytes = &db.get(&link.key).unwrap().unwrap()[..];
@@ -57,6 +63,12 @@ impl Merk {
         self.commit()
     }
 
+    pub fn delete(mut self) -> Result<(), Error> {
+        let opts = defaultDbOpts();
+        self.db.take();
+        rocksdb::DB::destroy(&opts, &self.path)
+    }
+
     fn commit(&mut self) -> Result<(), Error> {
         if let Some(tree) = &mut self.tree {
             let batch = tree.to_write_batch();
@@ -64,7 +76,7 @@ impl Merk {
             // TODO: store pointer to root node
 
             // TODO: write options
-            self.db.write(batch)?;
+            self.db.as_ref().unwrap().write(batch)?;
 
             // clear tree so it only contains the root node
             // TODO: strategies for persisting nodes in memory
@@ -87,12 +99,13 @@ fn defaultDbOpts() -> rocksdb::Options {
 
 #[test]
 fn simple_put() {
-    let mut merk = Merk::new("./test.db").unwrap();
+    let mut merk = Merk::new("./test_merk_simple_put.db").unwrap();
     let batch: Vec<(&[u8], &[u8])> = vec![
         (b"key", b"value"),
         (b"key2", b"value2"),
     ];
-    merk.put_batch(&batch);
+    merk.put_batch(&batch).unwrap();
+    merk.delete().unwrap();
 
     // let entries = merk.tree.as_ref().unwrap().entries();
     // for (key, value) in entries {
