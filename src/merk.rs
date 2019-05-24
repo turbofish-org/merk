@@ -1,5 +1,6 @@
 extern crate rocksdb;
 extern crate num_cpus;
+extern crate rand;
 
 use rand::prelude::*;
 
@@ -115,4 +116,42 @@ fn simple_put() {
     //         String::from_utf8(value.to_vec()).unwrap()
     //     );
     // }
+}
+
+#[bench]
+fn bench_put(b: &mut test::Bencher) {
+    let mut merk = Merk::new("./test_merk_bench_put.db").unwrap();
+
+    let mut rng = rand::thread_rng();
+
+    let mut tree = SparseTree::new(
+        Node::new(b"0", b"x")
+    );
+
+    let mut i = 0;
+    b.iter(|| {
+        let mut kvs = vec![];
+        for i in 0..10_000 {
+            kvs.push(random_bytes(&mut rng, 220));
+        }
+
+        let mut batch: Vec<(&[u8], &[u8])> = vec![];
+        for i in 0..10_000 {
+            batch.push((&kvs[i][..20], &kvs[i][20..]));
+        }
+
+        merk.put_batch(&batch).unwrap();
+
+        i += 1;
+    });
+
+    println!("final tree size: {}", i * 10_000);
+
+    merk.delete().unwrap();
+}
+
+fn random_bytes(rng: &mut ThreadRng, length: usize) -> Vec<u8> {
+    (0..length)
+        .map(|_| -> u8 { rng.gen() })
+        .collect()
 }
