@@ -76,8 +76,10 @@ impl Merk {
 
             // TODO: store pointer to root node
 
-            // TODO: write options
-            self.db.as_ref().unwrap().write(batch)?;
+            let mut opts = rocksdb::WriteOptions::default();
+            opts.set_sync(false);
+
+            self.db.as_ref().unwrap().write_opt(batch, &opts)?;
 
             // clear tree so it only contains the root node
             // TODO: strategies for persisting nodes in memory
