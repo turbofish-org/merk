@@ -64,65 +64,13 @@ impl SparseTree {
         batch
     }
 
-    /// Puts the key/value pair into the tree.
+    /// Puts the batch of key/value pairs into the tree.
     ///
     /// The tree structure and relevant Merkle hashes
     /// are updated in memory.
     ///
     /// This method will fetch relevant missing nodes
     /// (if any) from the backing database.
-    pub fn put(&mut self, get_node: &mut GetNodeFn, key: &[u8], value: &[u8]) {
-        if self.node.key == key {
-            // same key, just update the value of this node
-            self.set_value(value);
-
-            // we can return early since we know no children
-            // have updated
-            return;
-        }
-
-        // bytewise key comparison to get traversal direction
-        let left = key < &self.node.key;
-
-        // try to get child, fetching from db if necessary
-        match self.maybe_get_child(get_node, left) {
-            Some(child_tree) => {
-                // recursively put value under child
-                child_tree.put(get_node, key, value);
-
-                // update link since we know child hash changed
-                self.update_link(left);
-            },
-            None => {
-                // no child here, create node and set as child
-                let child_tree = Box::new(
-                    SparseTree::new(
-                        Node::new(key, value)
-                    )
-                );
-
-                // set child field, update link, and update child's parent_key
-                self.set_child(left, Some(child_tree));
-            }
-        };
-
-        // rebalance if necessary
-        self.maybe_rebalance(get_node);
-    }
-
-    /// Puts the batch of key/value pair into the tree.
-    ///
-    /// This method is faster than repeated calls to [`put`]
-    /// since we can save some work by only calculating hashes
-    /// of higher nodes once.
-    ///
-    /// The tree structure and relevant Merkle hashes
-    /// are updated in memory.
-    ///
-    /// This method will fetch relevant missing nodes
-    /// (if any) from the backing database.
-    ///
-    /// [`put`]: #method.put
     pub fn put_batch(&mut self, get_node: &mut GetNodeFn, batch: &[(&[u8], &[u8])]) {
         let search = batch.binary_search_by(|(key, _value)| {
             key.cmp(&&self.node.key[..])
@@ -401,36 +349,6 @@ impl fmt::Debug for SparseTree {
 }
 
 #[test]
-fn simple_put() {
-    let mut tree = SparseTree::new(
-        Node::new(b"0", b"x")
-    );
-    assert_tree_valid(&tree);
-
-    // put sequential keys
-    for i in 1..200 {
-        tree.put(
-            // we build from scratch in this test, so we never call get_node
-            &mut |link| unreachable!(),
-            &i.to_string().into_bytes()[..],
-            b"x"
-        );
-        assert_tree_valid(&tree);
-        println!("{:?}", tree);
-    }
-
-    // known final state for deterministic tree
-    assert_eq!(
-        hex::encode(tree.hash()),
-        "7ca6b0783f7f4b9fc33630635e45742945c230b2"
-    );
-    assert_eq!(tree.node.key, b"19");
-    assert_eq!(tree.height(), 8);
-    assert_eq!(tree.child_height(true), 7);
-    assert_eq!(tree.child_height(false), 7);
-}
-
-#[test]
 fn batch_put() {
     let mut tree = SparseTree::new(
         Node::new(&[63], b"0")
@@ -506,24 +424,6 @@ fn assert_tree_valid(tree: &SparseTree) {
     //     assert!(k > prev);
     //     prev = &k;
     // }
-}
-
-#[bench]
-fn bench_put(b: &mut test::Bencher) {
-    let mut tree = SparseTree::new(
-        Node::new(b"0", b"x")
-    );
-
-    let mut i = 0;
-    b.iter(|| {
-        tree.put(
-            // we build from scratch in this test, so we never call get_node
-            &mut |link| unreachable!(),
-            &i.to_string().into_bytes()[..],
-            b"x"
-        );
-        i += 1;
-    });
 }
 
 #[bench]
