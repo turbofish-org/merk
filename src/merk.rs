@@ -9,9 +9,9 @@ use rocksdb::Error;
 
 use crate::*;
 
-/// A handle to a Merklized key/value store backed by RocksDB.
+/// A handle to a Merkle key/value store backed by RocksDB.
 pub struct Merk {
-    tree: Option<SparseTree>,
+    pub tree: Option<SparseTree>,
     db: Option<rocksdb::DB>,
     path: PathBuf
 }
@@ -107,20 +107,11 @@ fn simple_put() {
     ];
     merk.put_batch(&batch).unwrap();
     merk.delete().unwrap();
-
-    // let entries = merk.tree.as_ref().unwrap().entries();
-    // for (key, value) in entries {
-    //     println!(
-    //         "{:?}: {:?}",
-    //         String::from_utf8(key.to_vec()).unwrap(),
-    //         String::from_utf8(value.to_vec()).unwrap()
-    //     );
-    // }
 }
 
 #[bench]
-fn bench_put(b: &mut test::Bencher) {
-    let mut merk = Merk::new("./test_merk_bench_put.db").unwrap();
+fn bench_put_insert(b: &mut test::Bencher) {
+    let mut merk = Merk::new("./test_merk_bench_put_insert.db").unwrap();
 
     let mut rng = rand::thread_rng();
 
@@ -130,14 +121,17 @@ fn bench_put(b: &mut test::Bencher) {
 
     let mut i = 0;
     b.iter(|| {
-        let mut kvs = vec![];
-        for i in 0..10_000 {
-            kvs.push(random_bytes(&mut rng, 220));
+        let mut keys = vec![];
+        for j in 0..10_000 {
+            let n = i as u128 + (j * 100) as u128;
+            keys.push(n.to_be_bytes());
         }
+
+        let value = [123 as u8; 40];
 
         let mut batch: Vec<(&[u8], &[u8])> = vec![];
         for i in 0..10_000 {
-            batch.push((&kvs[i][..20], &kvs[i][20..]));
+            batch.push((&keys[i], &value));
         }
 
         merk.put_batch(&batch).unwrap();
@@ -146,6 +140,56 @@ fn bench_put(b: &mut test::Bencher) {
     });
 
     println!("final tree size: {}", i * 10_000);
+
+    merk.delete().unwrap();
+}
+
+#[bench]
+fn bench_put_update(b: &mut test::Bencher) {
+    let mut merk = Merk::new("./test_merk_bench_put_update.db").unwrap();
+
+    let mut rng = rand::thread_rng();
+
+    let mut tree = SparseTree::new(
+        Node::new(b"0", b"x")
+    );
+
+    let value = random_bytes(&mut rng, 40);
+
+    for i in 0..100 {
+        let mut keys = vec![];
+        for j in 0..10_000 {
+            let n = (i * 10_000) as u128 + j as u128;
+            keys.push(n.to_be_bytes());
+        }
+
+        let mut batch: Vec<(&[u8], &[u8])> = vec![];
+        for j in 0..10_000 {
+            batch.push((&keys[j], &value));
+        }
+        merk.put_batch(&batch).unwrap();
+    }
+
+    let mut i = 0;
+    b.iter(|| {
+        let mut keys = vec![];
+        for j in 0..10_000 {
+            let n = i as u128 + (j * 100) as u128;
+            keys.push(n.to_be_bytes());
+        }
+
+        let mut batch: Vec<(&[u8], &[u8])> = vec![];
+        for j in 0..10_000 {
+            batch.push((&keys[j], &value));
+        }
+
+        merk.put_batch(&batch).unwrap();
+
+        i += 1;
+    });
+
+    println!("final tree size: {}", i * 10_000);
+    println!("height: {}", merk.tree.as_ref().unwrap().height());
 
     merk.delete().unwrap();
 }
