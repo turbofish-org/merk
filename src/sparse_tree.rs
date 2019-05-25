@@ -1,6 +1,3 @@
-extern crate colored;
-extern crate rocksdb;
-
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 

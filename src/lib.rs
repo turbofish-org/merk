@@ -1,13 +1,17 @@
 #![feature(trait_alias)]
-#![feature(test)]
 
 #[macro_use]
 extern crate error_chain;
-
 #[macro_use]
 extern crate serde_derive;
-
-extern crate test;
+extern crate rocksdb;
+extern crate bincode;
+extern crate num_cpus;
+extern crate byteorder;
+extern crate blake2_rfc;
+extern crate hex;
+extern crate serde;
+extern crate colored;
 
 mod node;
 mod sparse_tree;

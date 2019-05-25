@@ -1,6 +1,3 @@
-extern crate rocksdb;
-extern crate num_cpus;
-
 use std::path::{Path, PathBuf};
 
 use crate::sparse_tree::*;

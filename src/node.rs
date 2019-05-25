@@ -1,8 +1,3 @@
-extern crate byteorder;
-extern crate blake2_rfc;
-extern crate hex;
-extern crate serde;
-
 use std::fmt;
 use std::cmp::max;
 
