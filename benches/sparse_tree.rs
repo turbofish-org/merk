@@ -30,7 +30,7 @@ fn bench_batch_put(b: &mut test::Bencher) {
             // we build from scratch in this test, so we never call get_node
             &mut |link| unreachable!(),
             &batch[..]
-        );
+        ).unwrap();
         i += 1;
     });
     println!("final tree size: {}", i * 10_000);

@@ -9,6 +9,8 @@ use std::cmp::max;
 use blake2_rfc::blake2b::Blake2b;
 use byteorder::{ByteOrder, BigEndian};
 
+use crate::error::*;
+
 const HASH_LENGTH: usize = 20;
 const NULL_HASH: Hash = [0; HASH_LENGTH];
 
@@ -74,11 +76,12 @@ impl Node {
         node
     }
 
-    pub fn decode(key: &[u8], bytes: &[u8]) -> bincode::Result<Node> {
-        bincode::deserialize(bytes).map(|mut node: Node| {
+    pub fn decode(key: &[u8], bytes: &[u8]) -> Result<Node> {
+        let node = bincode::deserialize(bytes).map(|mut node: Node| {
             set_vec(&mut node.key, key);
             node
-        })
+        })?;
+        Ok(node)
     }
 
     pub fn update_kv_hash (&mut self) {
@@ -165,8 +168,9 @@ impl Node {
         self.update_kv_hash();
     }
 
-    pub fn encode(&self) -> bincode::Result<Vec<u8>> {
-        bincode::serialize(&self)
+    pub fn encode(&self) -> Result<Vec<u8>> {
+        let bytes = bincode::serialize(&self)?;
+        Ok(bytes)
     }
 }
 

@@ -19,7 +19,7 @@ fn batch_put_insert() {
     tree.put_batch(
         &mut |link| unreachable!(),
         &batch
-    );
+    ).unwrap();
 
     assert_tree_valid(&tree);
 
@@ -54,7 +54,7 @@ fn batch_put_update() {
     tree.put_batch(
         &mut |link| unreachable!(),
         &batch
-    );
+    ).unwrap();
 
     assert_tree_valid(&tree);
 
@@ -70,7 +70,7 @@ fn batch_put_update() {
     tree.put_batch(
         &mut |link| unreachable!(),
         &batch
-    );
+    ).unwrap();
 
     assert_tree_valid(&tree);
 

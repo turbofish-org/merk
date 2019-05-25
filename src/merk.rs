@@ -2,9 +2,10 @@ extern crate rocksdb;
 extern crate num_cpus;
 
 use std::path::{Path, PathBuf};
-use rocksdb::Error;
 
-use crate::*;
+use crate::sparse_tree::*;
+use crate::node::*;
+use crate::error::*;
 
 /// A handle to a Merkle key/value store backed by RocksDB.
 pub struct Merk {
@@ -14,7 +15,7 @@ pub struct Merk {
 }
 
 impl Merk {
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<Merk, Error> {
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<Merk> {
         let db_opts = defaultDbOpts();
         let mut path_buf = PathBuf::new();
         path_buf.push(path);
@@ -25,18 +26,26 @@ impl Merk {
         })
     }
 
-    pub fn put_batch(&mut self, batch: &[(&[u8], &[u8])]) -> Result<(), Error> {
+    pub fn put_batch(&mut self, batch: &[(&[u8], &[u8])]) -> Result<()> {
+        // TODO: db shouldn't be option?
         let db = &self.db.as_ref().unwrap();
-        let mut get_node = |link: &Link| {
-            // TODO: Result instead of unwrap
-            let bytes = &db.get_pinned(&link.key).unwrap().unwrap()[..];
-            Node::decode(&link.key, bytes).unwrap()
+
+        let mut get_node = |link: &Link| -> Result<Node> {
+            // errors if there is a db issue
+            let bytes = db.get_pinned(&link.key)?;
+            if let Some(bytes) = bytes {
+                // errors if we can't decode the bytes
+                Node::decode(&link.key, &bytes)
+            } else {
+                // key not found error
+                bail!("key not found: '{:?}'", &link.key)
+            }
         };
 
         match &mut self.tree {
             Some(tree) => {
                 // tree is not empty, put under it
-                tree.put_batch(&mut get_node, batch);
+                tree.put_batch(&mut get_node, batch)?;
             },
             None => {
                 // empty tree, set middle key/value as root
@@ -47,10 +56,10 @@ impl Merk {
 
                 // put the rest of the batch under the tree
                 if batch.len() > 1 {
-                    tree.put_batch(&mut get_node, &batch[..mid]);
+                    tree.put_batch(&mut get_node, &batch[..mid])?;
                 }
                 if batch.len() > 2 {
-                    tree.put_batch(&mut get_node, &batch[mid+1..]);
+                    tree.put_batch(&mut get_node, &batch[mid+1..])?;
                 }
 
                 self.tree = Some(tree);
@@ -61,13 +70,14 @@ impl Merk {
         self.commit()
     }
 
-    pub fn delete(mut self) -> Result<(), Error> {
+    pub fn delete(mut self) -> Result<()> {
         let opts = defaultDbOpts();
         self.db.take();
-        rocksdb::DB::destroy(&opts, &self.path)
+        rocksdb::DB::destroy(&opts, &self.path)?;
+        Ok(())
     }
 
-    fn commit(&mut self) -> Result<(), Error> {
+    fn commit(&mut self) -> Result<()> {
         if let Some(tree) = &mut self.tree {
             let batch = tree.to_write_batch();
 
