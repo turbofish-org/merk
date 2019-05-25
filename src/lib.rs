@@ -1,6 +1,5 @@
 #![feature(trait_alias)]
 #![feature(test)]
-#![feature(try_trait)]
 
 #[macro_use]
 extern crate error_chain;
