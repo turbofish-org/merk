@@ -155,25 +155,18 @@ impl SparseTree {
         // update child node's parent_key to point to us
         let self_key = self.node.key.clone();
         let child_field = self.child_field_mut(left);
-        child_field.as_mut().map(|child| {
+        if let Some(child) = child_field.as_mut() {
             child.set_parent(Some(self_key));
-        });
+        }
     }
 
+    #[inline]
     pub fn child_tree(&self, left: bool) -> Option<&SparseTree> {
         let option = if left { &self.left } else { &self.right };
-        option.as_ref().map(|_box| _box.as_ref())
+        option.as_ref().map(|x| x.as_ref())
     }
 
-    fn child_tree_mut(&mut self, left: bool) -> Option<&mut SparseTree> {
-        let option = if left {
-            &mut self.left
-        } else {
-            &mut self.right
-        };
-        option.as_mut().map(|_box| _box.as_mut())
-    }
-
+    #[inline]
     fn child_field_mut(&mut self, left: bool) -> &mut Option<Box<SparseTree>> {
         if left {
             &mut self.left
@@ -186,18 +179,19 @@ impl SparseTree {
         &mut self,
         get_node: &mut GetNodeFn,
         left: bool,
-    ) -> Result<Option<&mut Box<SparseTree>>> {
+    ) -> Result<Option<&mut SparseTree>> {
         if let Some(link) = self.child_link(left) {
             // node has a link, get from memory or fetch from db
-            let child_field = self.child_field_mut(left);
 
-            if let None = child_field {
+            if self.child_tree(left).is_none() {
                 // fetch child from db and put it in child field
                 let node = get_node(&link)?;
+                let child_field = self.child_field_mut(left);
                 *child_field = Some(Box::new(SparseTree::new(node)));
             }
 
-            Ok(child_field.as_mut())
+            let child_field = self.child_field_mut(left);
+            Ok(child_field.as_mut().map(|x| x.as_mut()))
         } else {
             // node has no link, nothing to get
             Ok(None)
@@ -220,12 +214,7 @@ impl SparseTree {
         let child = self.maybe_get_child(get_node, left)?.unwrap();
 
         // maybe do a double rotation
-        let double = if left {
-            child.balance_factor() > 0
-        } else {
-            child.balance_factor() < 0
-        };
-        if double {
+        if left == (child.balance_factor() > 0) {
             // rotate child opposite direction, then update link
             child.rotate(get_node, !left)?;
             self.update_link(left);

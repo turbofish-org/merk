@@ -114,11 +114,12 @@ impl Node {
         hash
     }
 
-    pub fn child_link(&self, left: bool) -> Option<Link> {
+    #[inline]
+    pub fn child_link(&self, left: bool) -> &Option<Link> {
         if left {
-            self.left.clone()
+            &self.left
         } else {
-            self.right.clone()
+            &self.right
         }
     }
 
@@ -138,6 +139,7 @@ impl Node {
         self.child_height(false) as i8 - self.child_height(true) as i8
     }
 
+    #[inline]
     pub fn as_link(&self) -> Link {
         Link {
             key: self.key.to_vec(),
@@ -145,7 +147,8 @@ impl Node {
             height: self.height(),
         }
     }
-
+    
+    #[inline]
     pub fn set_child(&mut self, left: bool, link: Option<Link>) {
         if left {
             self.left = link;
@@ -154,10 +157,12 @@ impl Node {
         }
     }
 
+    #[inline]
     pub fn set_parent(&mut self, parent_key: Option<Vec<u8>>) {
         self.parent_key = parent_key;
     }
 
+    #[inline]
     pub fn set_value(&mut self, value: &[u8]) {
         set_vec(&mut self.value, value);
         self.update_kv_hash();
