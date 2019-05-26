@@ -90,26 +90,27 @@ fn batch_put_update() {
 
 /// Recursively asserts invariants for each node in the tree.
 fn assert_tree_valid(tree: &SparseTree) {
-    // ensure node is balanced
     assert!(
         tree.balance_factor().abs() <= 1,
-        format!("bf:{} {:?}", tree.balance_factor(), tree)
+        format!("node should be balanced. bf={}", tree.balance_factor())
     );
 
     let assert_child_valid = |child: &SparseTree, left: bool| {
-        // check key ordering
-        assert!((child.node().key < tree.node().key) == left);
-
-        // ensure child points to parent
-        assert_eq!(
-            child.node().parent_key.as_ref().unwrap(),
-            &tree.node().key
+        assert!(
+            (child.node().key < tree.node().key) == left,
+            "child should be ordered by key"
         );
 
-        // ensure parent link matches child
         assert_eq!(
-            tree.child_link(left).unwrap(),
-            child.as_link()
+            child.node().parent_key.as_ref().unwrap(),
+            &tree.node().key,
+            "child should point to parent"
+        );
+
+        assert_eq!(
+            tree.child_link(left).as_ref().unwrap(),
+            &child.as_link(),
+            "parent link should match child"
         );
 
         // recursive validity check
