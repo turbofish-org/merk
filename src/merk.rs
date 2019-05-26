@@ -13,7 +13,7 @@ pub struct Merk {
 
 impl Merk {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Merk> {
-        let db_opts = defaultDbOpts();
+        let db_opts = default_db_opts();
         let mut path_buf = PathBuf::new();
         path_buf.push(path);
         Ok(Merk {
@@ -66,7 +66,7 @@ impl Merk {
     }
 
     pub fn delete(mut self) -> Result<()> {
-        let opts = defaultDbOpts();
+        let opts = default_db_opts();
         self.db.take();
         rocksdb::DB::destroy(&opts, &self.path)?;
         Ok(())
@@ -94,7 +94,7 @@ impl Merk {
     }
 }
 
-fn defaultDbOpts() -> rocksdb::Options {
+fn default_db_opts() -> rocksdb::Options {
     let mut opts = rocksdb::Options::default();
     opts.create_if_missing(true);
     opts.increase_parallelism(num_cpus::get() as i32);

@@ -6,8 +6,8 @@ use byteorder::{BigEndian, ByteOrder};
 
 use crate::error::*;
 
-const HASH_LENGTH: usize = 20;
-const NULL_HASH: Hash = [0; HASH_LENGTH];
+pub const HASH_LENGTH: usize = 20;
+pub const NULL_HASH: Hash = [0; HASH_LENGTH];
 
 type Hash = [u8; HASH_LENGTH];
 

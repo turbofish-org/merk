@@ -10,10 +10,6 @@ use rand::prelude::*;
 fn bench_put_insert(b: &mut test::Bencher) {
     let mut merk = Merk::new("./test_merk_bench_put_insert.db").unwrap();
 
-    let mut rng = rand::thread_rng();
-
-    let mut tree = SparseTree::new(Node::new(b"0", b"x"));
-
     let mut i = 0;
     b.iter(|| {
         let mut keys = vec![];
@@ -25,8 +21,8 @@ fn bench_put_insert(b: &mut test::Bencher) {
         let value = [123 as u8; 40];
 
         let mut batch: Vec<(&[u8], &[u8])> = vec![];
-        for i in 0..10_000 {
-            batch.push((&keys[i], &value));
+        for key in keys.iter() {
+            batch.push((&key[..], &value));
         }
 
         merk.put_batch(&batch).unwrap();
@@ -44,9 +40,6 @@ fn bench_put_update(b: &mut test::Bencher) {
     let mut merk = Merk::new("./test_merk_bench_put_update.db").unwrap();
 
     let mut rng = rand::thread_rng();
-
-    let mut tree = SparseTree::new(Node::new(b"0", b"x"));
-
     let value = random_bytes(&mut rng, 40);
 
     let mut i = 0;
@@ -58,8 +51,8 @@ fn bench_put_update(b: &mut test::Bencher) {
         }
 
         let mut batch: Vec<(&[u8], &[u8])> = vec![];
-        for j in 0..10_000 {
-            batch.push((&keys[j], &value));
+        for key in keys.iter() {
+            batch.push((&key[..], &value));
         }
 
         merk.put_batch(&batch).unwrap();

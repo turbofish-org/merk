@@ -1,10 +1,10 @@
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
-use crate::error::*;
-use crate::node::*;
+use crate::error::Result;
+use crate::node::{Link, Node};
 
-trait GetNodeFn = FnMut(&Link) -> Result<Node>;
+pub trait GetNodeFn = FnMut(&Link) -> Result<Node>;
 
 /// A selection of connected nodes in a tree.
 ///
@@ -43,7 +43,7 @@ impl SparseTree {
 
             // TODO: Result
             let bytes = tree.node.encode().unwrap();
-            batch.put(&tree.node.key, bytes);
+            batch.put(&tree.node.key, bytes).unwrap();
 
             if let Some(child) = tree.child_tree(false) {
                 traverse(child, batch);
@@ -87,7 +87,7 @@ impl SparseTree {
             match self.maybe_get_child(get_node, left)? {
                 Some(child_tree) => {
                     // recursively put value under child
-                    child_tree.put_batch(get_node, batch);
+                    child_tree.put_batch(get_node, batch)?;
 
                     // update link since we know child hash changed
                     self.update_link(left);
@@ -113,10 +113,10 @@ impl SparseTree {
             };
             Ok(())
         };
-        if left_batch.len() > 0 {
+        if !left_batch.is_empty() {
             recurse(left_batch, true)?;
         }
-        if right_batch.len() > 0 {
+        if !right_batch.is_empty() {
             recurse(right_batch, false)?;
         }
 
@@ -234,7 +234,7 @@ impl SparseTree {
         self.rotate(get_node, left)?;
 
         // rebalance recursively if necessary
-        let mut child = self.maybe_get_child(get_node, !left)?.unwrap();
+        let child = self.maybe_get_child(get_node, !left)?.unwrap();
         child.maybe_rebalance(get_node)?;
         self.update_link(!left);
 
@@ -261,9 +261,7 @@ impl SparseTree {
     }
 
     fn swap(&mut self, other: &mut SparseTree) {
-        // XXX: this could be more efficient, we clone the whole node
-        //      including its key/value
-        // XXX: we wouldn't have to do this if we instead returned recursive children in rotate/put
+        // TODO: speed up by only cloning 1, and reassigning other
 
         let self_node = self.node.clone();
         let self_left = self.left.take();

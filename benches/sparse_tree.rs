@@ -15,18 +15,18 @@ fn bench_batch_put(b: &mut test::Bencher) {
     let mut i = 0;
     b.iter(|| {
         let mut keys = vec![];
-        for i in 0..10_000 {
+        for _ in 0..10_000 {
             keys.push(random_bytes(&mut rng, 4));
         }
 
         let mut batch: Vec<(&[u8], &[u8])> = vec![];
-        for i in 0..10_000 {
-            batch.push((&keys[i], b"x"));
+        for key in keys.iter() {
+            batch.push((&key[..], b"x"));
         }
 
         tree.put_batch(
             // we build from scratch in this test, so we never call get_node
-            &mut |link| unreachable!(),
+            &mut |_| unreachable!(),
             &batch[..],
         )
         .unwrap();
