@@ -1,8 +1,8 @@
-use std::fmt;
 use std::cmp::max;
+use std::fmt;
 
 use blake2_rfc::blake2b::Blake2b;
-use byteorder::{ByteOrder, BigEndian};
+use byteorder::{BigEndian, ByteOrder};
 
 use crate::error::*;
 
@@ -20,7 +20,7 @@ type Hash = [u8; HASH_LENGTH];
 pub struct Link {
     pub key: Vec<u8>,
     pub hash: Hash,
-    pub height: u8
+    pub height: u8,
 }
 
 impl fmt::Debug for Link {
@@ -45,7 +45,7 @@ pub struct Node {
     pub kv_hash: Hash,
     pub parent_key: Option<Vec<u8>>,
     pub left: Option<Link>,
-    pub right: Option<Link>
+    pub right: Option<Link>,
 }
 
 /// Replaces the value of a `Vec<T>` by cloning into it,
@@ -59,13 +59,13 @@ fn set_vec<T: Clone>(dest: &mut Vec<T>, src: &[T]) {
 impl Node {
     /// Creates a new node from a key and value.
     pub fn new(key: &[u8], value: &[u8]) -> Node {
-        let mut node = Node{
+        let mut node = Node {
             key: key.to_vec(),
             value: value.to_vec(),
             kv_hash: Default::default(),
             parent_key: None,
             left: None,
-            right: None
+            right: None,
         };
         node.update_kv_hash();
         node
@@ -79,11 +79,11 @@ impl Node {
         Ok(node)
     }
 
-    pub fn update_kv_hash (&mut self) {
+    pub fn update_kv_hash(&mut self) {
         // TODO: make generic to allow other hashers
         let mut hasher = Blake2b::new(HASH_LENGTH);
 
-        hasher.update(&[ self.key.len() as u8 ]);
+        hasher.update(&[self.key.len() as u8]);
         hasher.update(&self.key);
 
         let mut val_length = [0; 2];
@@ -96,17 +96,17 @@ impl Node {
         self.kv_hash.copy_from_slice(res.as_bytes());
     }
 
-    pub fn hash (&self) -> Hash {
+    pub fn hash(&self) -> Hash {
         // TODO: make generic to allow other hashers
         let mut hasher = Blake2b::new(HASH_LENGTH);
         hasher.update(&self.kv_hash);
         hasher.update(match &self.left {
             Some(left) => &(left.hash),
-            None => &NULL_HASH
+            None => &NULL_HASH,
         });
         hasher.update(match &self.right {
             Some(right) => &(right.hash),
-            None => &NULL_HASH
+            None => &NULL_HASH,
         });
         let res = hasher.finalize();
         let mut hash: Hash = Default::default();
@@ -115,34 +115,34 @@ impl Node {
     }
 
     pub fn child_link(&self, left: bool) -> Option<Link> {
-        if left { self.left.clone() } else { self.right.clone() }
+        if left {
+            self.left.clone()
+        } else {
+            self.right.clone()
+        }
     }
 
     pub fn child_height(&self, left: bool) -> u8 {
         let link = self.child_link(left);
         match link {
             Some(link) => link.height,
-            None => 0
+            None => 0,
         }
     }
 
     pub fn height(&self) -> u8 {
-        max(
-            self.child_height(true),
-            self.child_height(false)
-        ) + 1
+        max(self.child_height(true), self.child_height(false)) + 1
     }
 
     pub fn balance_factor(&self) -> i8 {
-        self.child_height(false) as i8 -
-        self.child_height(true) as i8
+        self.child_height(false) as i8 - self.child_height(true) as i8
     }
 
     pub fn as_link(&self) -> Link {
-        Link{
+        Link {
             key: self.key.to_vec(),
             hash: self.hash(),
-            height: self.height()
+            height: self.height(),
         }
     }
 

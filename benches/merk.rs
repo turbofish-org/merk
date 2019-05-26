@@ -1,10 +1,10 @@
 #![feature(test)]
 
-extern crate test;
 extern crate rand;
+extern crate test;
 
-use rand::prelude::*;
 use merk::*;
+use rand::prelude::*;
 
 #[bench]
 fn bench_put_insert(b: &mut test::Bencher) {
@@ -12,9 +12,7 @@ fn bench_put_insert(b: &mut test::Bencher) {
 
     let mut rng = rand::thread_rng();
 
-    let mut tree = SparseTree::new(
-        Node::new(b"0", b"x")
-    );
+    let mut tree = SparseTree::new(Node::new(b"0", b"x"));
 
     let mut i = 0;
     b.iter(|| {
@@ -47,9 +45,7 @@ fn bench_put_update(b: &mut test::Bencher) {
 
     let mut rng = rand::thread_rng();
 
-    let mut tree = SparseTree::new(
-        Node::new(b"0", b"x")
-    );
+    let mut tree = SparseTree::new(Node::new(b"0", b"x"));
 
     let value = random_bytes(&mut rng, 40);
 
@@ -77,7 +73,5 @@ fn bench_put_update(b: &mut test::Bencher) {
 }
 
 fn random_bytes(rng: &mut ThreadRng, length: usize) -> Vec<u8> {
-    (0..length)
-        .map(|_| -> u8 { rng.gen() })
-        .collect()
+    (0..length).map(|_| -> u8 { rng.gen() }).collect()
 }

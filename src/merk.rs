@@ -1,14 +1,14 @@
 use std::path::{Path, PathBuf};
 
-use crate::sparse_tree::*;
-use crate::node::*;
 use crate::error::*;
+use crate::node::*;
+use crate::sparse_tree::*;
 
 /// A handle to a Merkle key/value store backed by RocksDB.
 pub struct Merk {
     pub tree: Option<SparseTree>,
     db: Option<rocksdb::DB>,
-    path: PathBuf
+    path: PathBuf,
 }
 
 impl Merk {
@@ -16,10 +16,10 @@ impl Merk {
         let db_opts = defaultDbOpts();
         let mut path_buf = PathBuf::new();
         path_buf.push(path);
-        Ok(Merk{
+        Ok(Merk {
             tree: None,
             db: Some(rocksdb::DB::open(&db_opts, &path_buf)?),
-            path: path_buf
+            path: path_buf,
         })
     }
 
@@ -43,20 +43,18 @@ impl Merk {
             Some(tree) => {
                 // tree is not empty, put under it
                 tree.put_batch(&mut get_node, batch)?;
-            },
+            }
             None => {
                 // empty tree, set middle key/value as root
                 let mid = batch.len() / 2;
-                let mut tree = SparseTree::new(
-                    Node::new(batch[mid].0, batch[mid].1)
-                );
+                let mut tree = SparseTree::new(Node::new(batch[mid].0, batch[mid].1));
 
                 // put the rest of the batch under the tree
                 if batch.len() > 1 {
                     tree.put_batch(&mut get_node, &batch[..mid])?;
                 }
                 if batch.len() > 2 {
-                    tree.put_batch(&mut get_node, &batch[mid+1..])?;
+                    tree.put_batch(&mut get_node, &batch[mid + 1..])?;
                 }
 
                 self.tree = Some(tree);

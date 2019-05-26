@@ -1,10 +1,10 @@
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
-use crate::node::*;
 use crate::error::*;
+use crate::node::*;
 
-pub trait GetNodeFn = FnMut(&Link) -> Result<Node>;
+trait GetNodeFn = FnMut(&Link) -> Result<Node>;
 
 /// A selection of connected nodes in a tree.
 ///
@@ -20,7 +20,7 @@ pub trait GetNodeFn = FnMut(&Link) -> Result<Node>;
 pub struct SparseTree {
     node: Node,
     left: Option<Box<SparseTree>>,
-    right: Option<Box<SparseTree>>
+    right: Option<Box<SparseTree>>,
 }
 
 ///
@@ -28,18 +28,15 @@ impl SparseTree {
     /// Returns a new SparseTree which has the gien `Node` as its
     /// root, and no children.
     pub fn new(node: Node) -> SparseTree {
-        SparseTree{
+        SparseTree {
             node,
             left: None,
-            right: None
+            right: None,
         }
     }
 
     pub fn to_write_batch(&self) -> rocksdb::WriteBatch {
-        fn traverse(
-            tree: &SparseTree,
-            batch: &mut rocksdb::WriteBatch
-        ) {
+        fn traverse(tree: &SparseTree, batch: &mut rocksdb::WriteBatch) {
             if let Some(child) = tree.child_tree(true) {
                 traverse(child, batch);
             }
@@ -65,26 +62,20 @@ impl SparseTree {
     ///
     /// This method will fetch relevant missing nodes
     /// (if any) from the backing database.
-    pub fn put_batch(
-        &mut self,
-        get_node: &mut GetNodeFn,
-        batch: &[(&[u8], &[u8])]
-    ) -> Result<()> {
+    pub fn put_batch(&mut self, get_node: &mut GetNodeFn, batch: &[(&[u8], &[u8])]) -> Result<()> {
         // TODO: build and return db batch, and maybe prune as we ascend
 
         // binary search to see if this node's key is in the batch,
         // and to split into left_batch and right_batch
-        let search = batch.binary_search_by(|(key, _value)| {
-            key.cmp(&&self.node.key[..])
-        });
+        let search = batch.binary_search_by(|(key, _value)| key.cmp(&&self.node.key[..]));
         let (left_batch, right_batch) = match search {
             Ok(index) => {
                 // a key matches this node's key, update the value
                 self.set_value(batch[index].1);
                 // split batch into left and right batches for recursive puts,
                 // exluding matched value
-                (&batch[..index], &batch[index+1..])
-            },
+                (&batch[..index], &batch[index + 1..])
+            }
             Err(index) => {
                 // split batch into left and right batches for recursive puts
                 batch.split_at(index)
@@ -100,23 +91,20 @@ impl SparseTree {
 
                     // update link since we know child hash changed
                     self.update_link(left);
-                },
+                }
                 None => {
                     // no child here, create subtree set as child,
                     // with middle value as root (to minimize balances)
                     let mid = batch.len() / 2;
-                    let mut child_tree = Box::new(
-                        SparseTree::new(
-                            Node::new(batch[mid].0, batch[mid].1)
-                        )
-                    );
+                    let mut child_tree =
+                        Box::new(SparseTree::new(Node::new(batch[mid].0, batch[mid].1)));
 
                     // add the rest of the batch to the new subtree
                     if batch.len() > 1 {
                         child_tree.put_batch(get_node, &batch[..mid])?;
                     }
                     if batch.len() > 2 {
-                        child_tree.put_batch(get_node, &batch[mid+1..])?;
+                        child_tree.put_batch(get_node, &batch[mid + 1..])?;
                     }
 
                     // set child field, update link, and update child's parent_key
@@ -148,9 +136,7 @@ impl SparseTree {
 
     fn update_link(&mut self, left: bool) {
         // compute child link
-        let link = self.child_tree(left).map(|child| {
-            child.as_link()
-        });
+        let link = self.child_tree(left).map(|child| child.as_link());
 
         // set link on our Node
         self.node.set_child(left, link);
@@ -175,11 +161,7 @@ impl SparseTree {
     }
 
     pub fn child_tree(&self, left: bool) -> Option<&SparseTree> {
-        let option = if left {
-            &self.left
-        } else {
-            &self.right
-        };
+        let option = if left { &self.left } else { &self.right };
         option.as_ref().map(|_box| _box.as_ref())
     }
 
@@ -203,7 +185,7 @@ impl SparseTree {
     fn maybe_get_child(
         &mut self,
         get_node: &mut GetNodeFn,
-        left: bool
+        left: bool,
     ) -> Result<Option<&mut Box<SparseTree>>> {
         if let Some(link) = self.child_link(left) {
             // node has a link, get from memory or fetch from db
@@ -237,7 +219,7 @@ impl SparseTree {
         // there is a child)
         let child = self.maybe_get_child(get_node, left)?.unwrap();
 
-         // maybe do a double rotation
+        // maybe do a double rotation
         let double = if left {
             child.balance_factor() > 0
         } else {
@@ -319,23 +301,39 @@ impl fmt::Debug for SparseTree {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use colored::*;
 
-        fn traverse(f: &mut fmt::Formatter, cursor: &SparseTree, stack: &mut Vec<bool>, left: bool, has_sibling_after: bool) {
+        fn traverse(
+            f: &mut fmt::Formatter,
+            cursor: &SparseTree,
+            stack: &mut Vec<bool>,
+            left: bool,
+            has_sibling_after: bool,
+        ) {
             let depth = stack.len();
 
             if depth > 0 {
                 // draw ancestor's vertical lines
-                for i in 0..depth-1 {
-                    write!(f, "{}", match stack[i] {
-                        true => " │   ",
-                        false => "    "
-                    }.dimmed());
+                for i in 0..depth - 1 {
+                    write!(
+                        f,
+                        "{}",
+                        match stack[i] {
+                            true => " │   ",
+                            false => "    ",
+                        }
+                        .dimmed()
+                    );
                 }
 
                 // draw our connecting line to parent
-                write!(f, "{}", match has_sibling_after {
-                    true => " ├",
-                    false => " └"
-                }.dimmed());
+                write!(
+                    f,
+                    "{}",
+                    match has_sibling_after {
+                        true => " ├",
+                        false => " └",
+                    }
+                    .dimmed()
+                );
             }
 
             let prefix = if depth == 0 {

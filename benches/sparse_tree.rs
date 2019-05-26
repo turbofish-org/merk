@@ -1,18 +1,16 @@
 #![feature(test)]
 
-extern crate test;
 extern crate rand;
+extern crate test;
 
-use rand::prelude::*;
 use merk::*;
+use rand::prelude::*;
 
 #[bench]
 fn bench_batch_put(b: &mut test::Bencher) {
     let mut rng = rand::thread_rng();
 
-    let mut tree = SparseTree::new(
-        Node::new(b"0", b"x")
-    );
+    let mut tree = SparseTree::new(Node::new(b"0", b"x"));
 
     let mut i = 0;
     b.iter(|| {
@@ -29,15 +27,14 @@ fn bench_batch_put(b: &mut test::Bencher) {
         tree.put_batch(
             // we build from scratch in this test, so we never call get_node
             &mut |link| unreachable!(),
-            &batch[..]
-        ).unwrap();
+            &batch[..],
+        )
+        .unwrap();
         i += 1;
     });
     println!("final tree size: {}", i * 10_000);
 }
 
 fn random_bytes(rng: &mut ThreadRng, length: usize) -> Vec<u8> {
-    (0..length)
-        .map(|_| -> u8 { rng.gen() })
-        .collect()
+    (0..length).map(|_| -> u8 { rng.gen() }).collect()
 }

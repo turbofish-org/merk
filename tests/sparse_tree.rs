@@ -6,9 +6,7 @@ use merk::*;
 
 #[test]
 fn batch_put_insert() {
-    let mut tree = SparseTree::new(
-        Node::new(b"test", b"0")
-    );
+    let mut tree = SparseTree::new(Node::new(b"test", b"0"));
     assert_tree_valid(&tree);
 
     // put sequential keys
@@ -20,10 +18,7 @@ fn batch_put_insert() {
     for i in 0..10_000 {
         batch.push((&keys[i], b"x"));
     }
-    tree.put_batch(
-        &mut |link| unreachable!(),
-        &batch
-    ).unwrap();
+    tree.put_batch(&mut |link| unreachable!(), &batch).unwrap();
 
     assert_tree_valid(&tree);
 
@@ -40,9 +35,7 @@ fn batch_put_insert() {
 
 #[test]
 fn batch_put_update() {
-    let mut tree = SparseTree::new(
-        Node::new(&[63], b"0")
-    );
+    let mut tree = SparseTree::new(Node::new(&[63], b"0"));
     assert_tree_valid(&tree);
 
     // put sequential keys
@@ -55,10 +48,7 @@ fn batch_put_update() {
     for i in 0..10_000 {
         batch.push((&keys[i], b"x"));
     }
-    tree.put_batch(
-        &mut |link| unreachable!(),
-        &batch
-    ).unwrap();
+    tree.put_batch(&mut |link| unreachable!(), &batch).unwrap();
 
     assert_tree_valid(&tree);
 
@@ -71,10 +61,7 @@ fn batch_put_update() {
     for i in 0..10_000 {
         batch.push((&keys[i], b"x"));
     }
-    tree.put_batch(
-        &mut |link| unreachable!(),
-        &batch
-    ).unwrap();
+    tree.put_batch(&mut |link| unreachable!(), &batch).unwrap();
 
     assert_tree_valid(&tree);
 
@@ -92,23 +79,20 @@ fn batch_put_update() {
 /// Recursively asserts invariants for each node in the tree.
 fn assert_tree_valid(tree: &SparseTree) {
     // ensure node is balanced
-    assert!(tree.balance_factor().abs() <= 1, format!("bf:{} {:?}", tree.balance_factor(), tree));
+    assert!(
+        tree.balance_factor().abs() <= 1,
+        format!("bf:{} {:?}", tree.balance_factor(), tree)
+    );
 
     let assert_child_valid = |child: &SparseTree, left: bool| {
         // check key ordering
         assert!((child.node().key < tree.node().key) == left);
 
         // ensure child points to parent
-        assert_eq!(
-            child.node().parent_key.as_ref().unwrap(),
-            &tree.node().key
-        );
+        assert_eq!(child.node().parent_key.as_ref().unwrap(), &tree.node().key);
 
         // ensure parent link matches child
-        assert_eq!(
-            tree.child_link(left).unwrap(),
-            child.as_link()
-        );
+        assert_eq!(tree.child_link(left).unwrap(), child.as_link());
 
         // recursive validity check
         assert_tree_valid(child);
