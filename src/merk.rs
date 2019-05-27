@@ -7,7 +7,7 @@ use crate::sparse_tree::*;
 /// A handle to a Merkle key/value store backed by RocksDB.
 pub struct Merk {
     pub tree: Option<SparseTree>,
-    db: Option<rocksdb::DB>,
+    db: rocksdb::DB,
     path: PathBuf,
 }
 
@@ -18,14 +18,13 @@ impl Merk {
         path_buf.push(path);
         Ok(Merk {
             tree: None,
-            db: Some(rocksdb::DB::open(&db_opts, &path_buf)?),
+            db: rocksdb::DB::open(&db_opts, &path_buf)?,
             path: path_buf,
         })
     }
 
     pub fn put_batch(&mut self, batch: &[(&[u8], &[u8])]) -> Result<()> {
-        // TODO: db shouldn't be option?
-        let db = &self.db.as_ref().unwrap();
+        let db = &self.db;
 
         let mut get_node = |link: &Link| -> Result<Node> {
             // errors if there is a db issue
@@ -65,9 +64,9 @@ impl Merk {
         self.commit()
     }
 
-    pub fn delete(mut self) -> Result<()> {
+    pub fn delete(self) -> Result<()> {
         let opts = default_db_opts();
-        self.db.take();
+        drop(self.db);
         rocksdb::DB::destroy(&opts, &self.path)?;
         Ok(())
     }
@@ -81,7 +80,7 @@ impl Merk {
             let mut opts = rocksdb::WriteOptions::default();
             opts.set_sync(false);
 
-            self.db.as_ref().unwrap().write_opt(batch, &opts)?;
+            self.db.write_opt(batch, &opts)?;
 
             // clear tree so it only contains the root node
             // TODO: strategies for persisting nodes in memory
