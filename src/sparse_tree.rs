@@ -13,10 +13,7 @@ pub trait GetNodeFn = FnMut(&Link) -> Result<Node>;
 /// Operations fetch `Nodes` from the backing database lazily,
 /// and retain them in memory. Mutation operations only operate
 /// on the in-memory structure, but a consumer can flush the
-/// updated structure to a backing database by reading from
-/// [`entries`].
-///
-/// [`entries`]: #method.entries
+/// updated structure to a backing database.
 pub struct SparseTree {
     node: Node,
     left: Option<Box<SparseTree>>,
@@ -308,7 +305,7 @@ impl fmt::Debug for SparseTree {
                             false => "    ",
                         }
                         .dimmed()
-                    );
+                    ).unwrap();
                 }
 
                 // draw our connecting line to parent
@@ -320,7 +317,7 @@ impl fmt::Debug for SparseTree {
                         false => " └",
                     }
                     .dimmed()
-                );
+                ).unwrap();
             }
 
             let prefix = if depth == 0 {
@@ -330,7 +327,7 @@ impl fmt::Debug for SparseTree {
             } else {
                 "R─"
             };
-            write!(f, "{}{:?}\n", prefix.dimmed(), cursor.node);
+            write!(f, "{}{:?}\n", prefix.dimmed(), cursor.node).unwrap();
 
             if let Some(child) = &cursor.left {
                 stack.push(true);
