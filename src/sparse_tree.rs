@@ -216,7 +216,8 @@ impl SparseTree {
         if left == (child.balance_factor() > 0) {
             // rotate child opposite direction, then update link
             child.rotate(get_node, !left)?;
-            self.update_link(left);
+            child.maybe_rebalance(get_node)?;
+            self.update_link(!left);
         }
 
         self.rotate(get_node, left)?;
