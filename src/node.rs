@@ -178,10 +178,13 @@ impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({:?}: {:?}, hash={})",
-            &self.key, //String::from_utf8(self.key.to_vec()).unwrap(),
-            &self.key, //String::from_utf8(self.value.to_vec()).unwrap(),
-            hex::encode(&self.hash()[..])
+            "({:?}: {:?}, hash={}, height={})",
+            String::from_utf8(self.key.to_vec())
+                .unwrap_or(format!("{:?}", &self.key)),
+            String::from_utf8(self.value.to_vec())
+                .unwrap_or(format!("{:?}", &self.value)),
+            hex::encode(&self.hash()[..3]),
+            self.height()
         )
     }
 }

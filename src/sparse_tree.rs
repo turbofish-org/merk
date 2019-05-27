@@ -8,12 +8,14 @@ pub trait GetNodeFn = FnMut(&Link) -> Result<Node>;
 
 /// A selection of connected nodes in a tree.
 ///
-/// SparseTrees are acyclic, and have exactly one root node.
+/// SparseTrees are acyclic, and always have at least one node.
 ///
-/// Operations fetch `Nodes` from the backing database lazily,
+/// Operations fetch [`Node`s] from the backing database lazily,
 /// and retain them in memory. Mutation operations only operate
 /// on the in-memory structure, but a consumer can flush the
 /// updated structure to a backing database.
+///
+/// [`Node`s]: struct.Node.html
 pub struct SparseTree {
     node: Node,
     left: Option<Box<SparseTree>>,
@@ -283,7 +285,7 @@ impl DerefMut for SparseTree {
 
 impl fmt::Debug for SparseTree {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use colored::*;
+        use colored::Colorize;
 
         fn traverse(
             f: &mut fmt::Formatter,
