@@ -66,7 +66,9 @@ impl SparseTree {
 
         // binary search to see if this node's key is in the batch,
         // and to split into left_batch and right_batch
-        let search = batch.binary_search_by(|(key, _value)| key.cmp(&&self.node.key[..]));
+        let search = batch.binary_search_by(
+            |(key, _value)| key.cmp(&&self.node.key[..])
+        );
         let (left_batch, right_batch) = match search {
             Ok(index) => {
                 // a key matches this node's key, update the value
@@ -299,15 +301,12 @@ impl fmt::Debug for SparseTree {
 
             if depth > 0 {
                 // draw ancestor's vertical lines
-                for i in 0..depth - 1 {
+                for &line in stack.iter() {
                     write!(
                         f,
                         "{}",
-                        match stack[i] {
-                            true => " │   ",
-                            false => "    ",
-                        }
-                        .dimmed()
+                        if line { " │   " } else { "    " }
+                            .dimmed()
                     ).unwrap();
                 }
 
@@ -315,11 +314,8 @@ impl fmt::Debug for SparseTree {
                 write!(
                     f,
                     "{}",
-                    match has_sibling_after {
-                        true => " ├",
-                        false => " └",
-                    }
-                    .dimmed()
+                    if has_sibling_after { " ├" } else { " └" }
+                        .dimmed()
                 ).unwrap();
             }
 
@@ -330,7 +326,7 @@ impl fmt::Debug for SparseTree {
             } else {
                 "R─"
             };
-            write!(f, "{}{:?}\n", prefix.dimmed(), cursor.node).unwrap();
+            writeln!(f, "{}{:?}", prefix.dimmed(), cursor.node).unwrap();
 
             if let Some(child) = &cursor.left {
                 stack.push(true);
@@ -347,6 +343,6 @@ impl fmt::Debug for SparseTree {
 
         let mut stack = vec![];
         traverse(f, self, &mut stack, false, false);
-        write!(f, "\n")
+        writeln!(f)
     }
 }
