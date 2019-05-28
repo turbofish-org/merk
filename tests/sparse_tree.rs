@@ -6,20 +6,50 @@ extern crate merk;
 use merk::*;
 
 #[test]
+fn from_batch_single_put() {
+    let batch: Vec<TreeBatchEntry> = vec![
+        (b"0000", TreeOp::Put(b"0000"))
+    ];
+    let tree = SparseTree::from_batch(&batch)
+        .expect("should have succeeded")
+        .expect("should have tree");
+    assert_eq!(tree.node().key, b"0000", "should have expected key");
+    assert_eq!(tree.node().value, b"0000", "should have expected value");
+}
+
+#[test]
+fn from_batch_1k_put() {
+    let mut keys: Vec<[u8; 4]> = vec![];
+    for i in 0..1000 {
+        let key = (i as u32).to_be_bytes();
+        keys.push(key);
+    }
+
+    let mut batch: Vec<TreeBatchEntry> = vec![];
+    for key in keys.iter() {
+        batch.push((key, TreeOp::Put(key)));
+    }
+
+    SparseTree::from_batch(&batch)
+        .expect("should have succeeded")
+        .expect("should have tree");
+}
+
+#[test]
 fn batch_put_insert() {
     let mut tree = SparseTree::new(Node::new(b"test", b"0"));
     assert_tree_valid(&tree);
 
     // put sequential keys
     let mut keys = vec![];
-    let mut batch: Vec<(&[u8], &[u8])> = vec![];
+    let mut batch: Vec<TreeBatchEntry> = vec![];
     for i in 0..10_000 {
         keys.push((i as u128).to_be_bytes());
     }
     for key in keys.iter() {
-        batch.push((&key[..], b"x"));
+        batch.push((&key[..], TreeOp::Put(b"x")));
     }
-    tree.put_batch(
+    tree.apply(
         &mut |_| unreachable!(),
         &batch
     ).unwrap();
@@ -29,15 +59,15 @@ fn batch_put_insert() {
     // known final state for deterministic tree
     assert_eq!(
         hex::encode(tree.hash()),
-        "eebf7114a67b227c16b6bda662e1731d112f371f"
+        "ba2e3b6397061744c2dece97b12e212a292d3a1f"
     );
     assert_eq!(
         tree.node().key,
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 12]
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 216]
     );
     assert_eq!(tree.height(), 16);
     assert_eq!(tree.child_height(true), 15);
-    assert_eq!(tree.child_height(false), 14);
+    assert_eq!(tree.child_height(false), 15);
 }
 
 #[test]
@@ -47,14 +77,14 @@ fn batch_put_update() {
 
     // put sequential keys
     let mut keys = vec![];
-    let mut batch: Vec<(&[u8], &[u8])> = vec![];
+    let mut batch: Vec<TreeBatchEntry> = vec![];
     for i in 0..10_000 {
         keys.push((i as u128).to_be_bytes());
     }
     for key in keys.iter() {
-        batch.push((&key[..], b"x"));
+        batch.push((&key[..], TreeOp::Put(b"x")));
     }
-    tree.put_batch(
+    tree.apply(
         &mut |_| unreachable!(),
         &batch
     ).unwrap();
@@ -63,14 +93,14 @@ fn batch_put_update() {
 
     // put sequential keys again
     let mut keys = vec![];
-    let mut batch: Vec<(&[u8], &[u8])> = vec![];
+    let mut batch: Vec<TreeBatchEntry> = vec![];
     for i in 0..10_000 {
         keys.push((i as u128).to_be_bytes());
     }
     for key in keys.iter() {
-        batch.push((&key[..], b"x"));
+        batch.push((&key[..], TreeOp::Put(b"x")));
     }
-    tree.put_batch(
+    tree.apply(
         &mut |_| unreachable!(),
         &batch
     ).unwrap();

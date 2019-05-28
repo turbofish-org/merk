@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use crate::error::*;
-use crate::node::*;
-use crate::sparse_tree::*;
+use crate::error::Result;
+use crate::node::{Link, Node};
+use crate::sparse_tree::{SparseTree, TreeBatch};
 
 /// A handle to a Merkle key/value store backed by RocksDB.
 pub struct Merk {
@@ -23,9 +23,16 @@ impl Merk {
         })
     }
 
-    pub fn put_batch(&mut self, batch: &[(&[u8], &[u8])]) -> Result<()> {
-        let db = &self.db;
+    pub fn apply(&mut self, batch: &TreeBatch) -> Result<()> {
+        // ensure keys in batch are sorted and unique. this check is expensive,
+        // so we only do it in debug builds. in release builds, non-sorted or
+        // duplicate keys results in UB.
+        #[cfg(debug_assertions)]
+        {
+            // TODO:
+        }
 
+        let db = &self.db;
         let mut get_node = |link: &Link| -> Result<Node> {
             // errors if there is a db issue
             let bytes = db.get_pinned(&link.key)?;
@@ -40,23 +47,12 @@ impl Merk {
 
         match &mut self.tree {
             Some(tree) => {
-                // tree is not empty, put under it
-                tree.put_batch(&mut get_node, batch)?;
+                // tree exists, put under it
+                tree.apply(&mut get_node, batch)?;
             }
             None => {
-                // empty tree, set middle key/value as root
-                let mid = batch.len() / 2;
-                let mut tree = SparseTree::new(Node::new(batch[mid].0, batch[mid].1));
-
-                // put the rest of the batch under the tree
-                if batch.len() > 1 {
-                    tree.put_batch(&mut get_node, &batch[..mid])?;
-                }
-                if batch.len() > 2 {
-                    tree.put_batch(&mut get_node, &batch[mid + 1..])?;
-                }
-
-                self.tree = Some(tree);
+                // no tree, create a fresh one
+                self.tree = SparseTree::from_batch(batch)?;
             }
         }
 
@@ -64,7 +60,7 @@ impl Merk {
         self.commit()
     }
 
-    pub fn delete(self) -> Result<()> {
+    pub fn destroy(self) -> Result<()> {
         let opts = default_db_opts();
         drop(self.db);
         rocksdb::DB::destroy(&opts, &self.path)?;

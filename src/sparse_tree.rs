@@ -4,16 +4,17 @@ use std::ops::{Deref, DerefMut};
 use crate::error::Result;
 use crate::node::{Link, Node};
 
+use TreeOp::{Delete, Put};
+
 pub trait GetNodeFn = FnMut(&Link) -> Result<Node>;
 
 /// A selection of connected nodes in a tree.
 ///
 /// SparseTrees are acyclic, and always have at least one node.
 ///
-/// Operations fetch [`Node`s] from the backing database lazily,
-/// and retain them in memory. Mutation operations only operate
-/// on the in-memory structure, but a consumer can flush the
-/// updated structure to a backing database.
+/// Operations fetch [`Node`s] from the backing database lazily, and retain them
+/// in memory. Mutation operations only operate on the in-memory structure, but
+/// a consumer can flush the updated structure to a backing database.
 ///
 /// [`Node`s]: struct.Node.html
 pub struct SparseTree {
@@ -22,16 +23,78 @@ pub struct SparseTree {
     right: Option<Box<SparseTree>>,
 }
 
+pub enum TreeOp<'a> {
+    Put(&'a [u8]),
+    Delete
+}
+
+impl<'a> TreeOp<'a> {
+    pub fn is_put(&self) -> bool {
+        match self {
+            Put(_) => true,
+            Delete => false
+        }
+    }
+
+    pub fn is_delete(&self) -> bool {
+        !self.is_put()
+    }
+}
+
+pub type TreeBatchEntry<'a> = (&'a [u8], TreeOp<'a>);
+pub type TreeBatch<'a> = [TreeBatchEntry<'a>];
+
 ///
 impl SparseTree {
-    /// Returns a new SparseTree which has the gien `Node` as its
-    /// root, and no children.
+    /// Returns a new SparseTree which has the gien `Node` as its root, and no
+    /// children.
     pub fn new(node: Node) -> SparseTree {
         SparseTree {
             node,
             left: None,
             right: None,
         }
+    }
+
+    pub fn from_batch(batch: &TreeBatch) -> Result<Option<SparseTree>> {
+        // iterate to find first Put op
+        for i in 0..batch.len() {
+            let (key, op) = &batch[i];
+            match op {
+                Put(value) => {
+                    // found Put, use it as root of new tree
+                    let mut tree = SparseTree::new(
+                        Node::new(key, value)
+                    );
+
+                    // add the rest of the batch to the new tree, split into 2
+                    // batches
+                    let batch = &batch[i..];
+                    let (left_batch, right_batch) = batch.split_at(batch.len() / 2);
+                    if !left_batch.is_empty() {
+                        tree.apply(
+                            // this is a fresh tree so we never need to fetch nodes
+                            &mut |_| unreachable!("should not fetch"),
+                            left_batch
+                        )?;
+                    }
+                    if !right_batch.is_empty() {
+                        tree.apply(
+                            // this is a fresh tree so we never need to fetch nodes
+                            &mut |_| unreachable!("should not fetch"),
+                            right_batch
+                        )?;
+                    }
+
+                    return Ok(Some(tree));
+                },
+                // skip deletes since we know the keys don't exist
+                Delete => continue
+            }
+        }
+        
+        // no Put operations found in batch, empty tree
+        Ok(None)
     }
 
     pub fn to_write_batch(&self) -> rocksdb::WriteBatch {
@@ -54,26 +117,37 @@ impl SparseTree {
         batch
     }
 
-    /// Puts the batch of key/value pairs into the tree.
+    /// Applies the batch of operations (puts and deletes) to the tree.
     ///
-    /// The tree structure and relevant Merkle hashes
-    /// are updated in memory.
+    /// The tree structure and relevant Merkle hashes are updated in memory.
     ///
-    /// This method will fetch relevant missing nodes
-    /// (if any) from the backing database.
-    pub fn put_batch(&mut self, get_node: &mut GetNodeFn, batch: &[(&[u8], &[u8])]) -> Result<()> {
+    /// This method will fetch relevant missing nodes (if any) from the backing
+    /// database.
+    pub fn apply(
+        &mut self,
+        get_node: &mut GetNodeFn,
+        batch: &[(&[u8], TreeOp)]
+    ) -> Result<()> {
         // TODO: build and return db batch, and maybe prune as we ascend
 
-        // binary search to see if this node's key is in the batch,
-        // and to split into left_batch and right_batch
+        // binary search to see if this node's key is in the batch, and to split
+        // into left_batch and right_batch
         let search = batch.binary_search_by(
-            |(key, _value)| key.cmp(&&self.node.key[..])
+            |(key, _op)| key.cmp(&&self.node.key[..])
         );
         let (left_batch, right_batch) = match search {
             Ok(index) => {
-                // a key matches this node's key, update the value
-                self.set_value(batch[index].1);
-                // split batch into left and right batches for recursive puts,
+                // a key matches this node's key, apply op to this node
+                match batch[index].1 {
+                    Put(value) => self.set_value(value),
+                    Delete => {
+                        // TODO: delete by swapping with a child and updating
+                        // links
+                        panic!("not implemented");
+                    }
+                };
+
+                // split batch into left and right batches for recursive ops,
                 // exluding matched value
                 (&batch[..index], &batch[index + 1..])
             }
@@ -88,28 +162,17 @@ impl SparseTree {
             match self.maybe_get_child(get_node, left)? {
                 Some(child_tree) => {
                     // recursively put value under child
-                    child_tree.put_batch(get_node, batch)?;
+                    child_tree.apply(get_node, batch)?;
 
                     // update link since we know child hash changed
                     self.update_link(left);
                 }
                 None => {
-                    // no child here, create subtree set as child,
-                    // with middle value as root (to minimize balances)
-                    let mid = batch.len() / 2;
-                    let mut child_tree =
-                        Box::new(SparseTree::new(Node::new(batch[mid].0, batch[mid].1)));
-
-                    // add the rest of the batch to the new subtree
-                    if batch.len() > 1 {
-                        child_tree.put_batch(get_node, &batch[..mid])?;
-                    }
-                    if batch.len() > 2 {
-                        child_tree.put_batch(get_node, &batch[mid + 1..])?;
-                    }
-
-                    // set child field, update link, and update child's parent_key
-                    self.set_child(left, Some(child_tree));
+                    // no child here, create subtree and set as child. can be
+                    // None if the batch only consists of Deletes.
+                    let child_tree = SparseTree::from_batch(batch)?
+                        .map(|tree| Box::new(tree));
+                    self.set_child(left, child_tree);
                 }
             };
             Ok(())
@@ -131,6 +194,7 @@ impl SparseTree {
         self.right.take();
     }
 
+    #[inline]
     pub fn node(&self) -> &Node {
         &self.node
     }
@@ -209,9 +273,8 @@ impl SparseTree {
 
         // get child
         let left = balance_factor < 0;
-        // (this unwrap should never panic, if the tree
-        // is unbalanced in this direction then we know
-        // there is a child)
+        // (this unwrap should never panic, if the tree is unbalanced in this
+        // direction then we know there is a child)
         let child = self.maybe_get_child(get_node, left)?.unwrap();
 
         // maybe do a double rotation
