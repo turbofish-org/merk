@@ -1,8 +1,8 @@
 use std::cmp::max;
+use std::convert::TryFrom;
 use std::fmt;
 
 use blake2_rfc::blake2b::Blake2b;
-use byteorder::{BigEndian, ByteOrder};
 
 use crate::error::*;
 
@@ -35,8 +35,11 @@ impl fmt::Debug for Link {
     }
 }
 
+// TODO: enforce maximum key/value lengths, to prevent DoS (e.g. when verifying
+// a proof)
+
 /// Represents a tree node and its associated key/value pair.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Node {
     // don't serialize key since it's implied from the db
     #[serde(skip)]
@@ -81,13 +84,16 @@ impl Node {
         // TODO: make generic to allow other hashers
         let mut hasher = Blake2b::new(HASH_LENGTH);
 
-        hasher.update(&[self.key.len() as u8]);
+        // panics if key is longer than 255!
+        let key_length = u8::try_from(self.key.len())
+            .expect("key must be less than 256 bytes");
+        hasher.update(&key_length.to_be_bytes());
         hasher.update(&self.key);
 
-        let mut val_length = [0; 2];
-        BigEndian::write_u16(&mut val_length, self.value.len() as u16);
-        hasher.update(&val_length);
-
+        // panics if value is longer than 65535!
+        let val_length = u16::try_from(self.value.len())
+            .expect("value must be less than 65,536 bytes");
+        hasher.update(&val_length.to_be_bytes());
         hasher.update(&self.value);
 
         let res = hasher.finalize();

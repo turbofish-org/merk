@@ -1,4 +1,5 @@
 #![feature(trait_alias)]
+#![feature(try_from)]
 
 #[macro_use]
 extern crate error_chain;
@@ -6,7 +7,6 @@ extern crate error_chain;
 extern crate serde_derive;
 extern crate bincode;
 extern crate blake2_rfc;
-extern crate byteorder;
 extern crate colored;
 extern crate hex;
 extern crate num_cpus;
