@@ -13,4 +13,5 @@ fn simple_put() {
         (b"key3", TreeOp::Put(b"value3"))
     ];
     merk.apply(&batch).unwrap();
+    merk.destroy().unwrap();
 }
