@@ -171,11 +171,6 @@ impl Node {
         let bytes = bincode::serialize(&self)?;
         Ok(bytes)
     }
-
-    #[inline]
-    pub fn is_leaf(&self) -> bool {
-        self.height() > 1
-    }
 }
 
 impl fmt::Debug for Node {
