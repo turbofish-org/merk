@@ -6,7 +6,7 @@ use crate::sparse_tree::{SparseTree, TreeBatch};
 
 /// A handle to a Merkle key/value store backed by RocksDB.
 pub struct Merk {
-    pub tree: Option<SparseTree>,
+    pub tree: Option<Box<SparseTree>>,
     db: rocksdb::DB,
     path: PathBuf,
 }
@@ -45,16 +45,8 @@ impl Merk {
             }
         };
 
-        match &mut self.tree {
-            Some(tree) => {
-                // tree exists, put under it
-                tree.apply(&mut get_node, batch)?;
-            }
-            None => {
-                // no tree, create a fresh one
-                self.tree = SparseTree::from_batch(batch)?;
-            }
-        }
+        // apply tree operations, setting resulting root node in self.tree
+        SparseTree::apply(&mut self.tree, &mut get_node, batch)?;
 
         // commit changes to db
         self.commit()

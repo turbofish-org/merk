@@ -43,7 +43,6 @@ pub struct Node {
     pub key: Vec<u8>,
     pub value: Vec<u8>,
     pub kv_hash: Hash,
-    pub parent_key: Option<Vec<u8>>,
     pub left: Option<Link>,
     pub right: Option<Link>,
 }
@@ -63,7 +62,6 @@ impl Node {
             key: key.to_vec(),
             value: value.to_vec(),
             kv_hash: Default::default(),
-            parent_key: None,
             left: None,
             right: None,
         };
@@ -158,11 +156,6 @@ impl Node {
     }
 
     #[inline]
-    pub fn set_parent(&mut self, parent_key: Option<Vec<u8>>) {
-        self.parent_key = parent_key;
-    }
-
-    #[inline]
     pub fn set_value(&mut self, value: &[u8]) {
         set_vec(&mut self.value, value);
         self.update_kv_hash();
@@ -171,6 +164,11 @@ impl Node {
     pub fn encode(&self) -> Result<Vec<u8>> {
         let bytes = bincode::serialize(&self)?;
         Ok(bytes)
+    }
+
+    #[inline]
+    pub fn is_leaf(&self) -> bool {
+        self.height() > 1
     }
 }
 

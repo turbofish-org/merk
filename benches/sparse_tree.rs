@@ -10,7 +10,9 @@ use rand::prelude::*;
 fn bench_batch_put(b: &mut test::Bencher) {
     let mut rng = rand::thread_rng();
 
-    let mut tree = SparseTree::new(Node::new(b"0", b"x"));
+    let mut tree = Some(Box::new(
+        SparseTree::new(Node::new(b"0", b"x"))
+    ));
 
     let mut i = 0;
     b.iter(|| {
@@ -19,12 +21,13 @@ fn bench_batch_put(b: &mut test::Bencher) {
             keys.push(random_bytes(&mut rng, 4));
         }
 
-        let mut batch: Vec<(&[u8], &[u8])> = vec![];
+        let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], b"x"));
+            batch.push((&key[..], TreeOp::Put(b"x")));
         }
 
-        tree.put_batch(
+        SparseTree::apply(
+            &mut tree,
             // we build from scratch in this test, so we never call get_node
             &mut |_| unreachable!(),
             &batch[..],
