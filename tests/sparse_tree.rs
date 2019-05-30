@@ -273,9 +273,36 @@ fn update_100() {
     assert_eq!(tree_box.child_height(false), 6);
 }
 
-
 #[test]
 fn delete_100() {
+    let mut tree = None;
+    let keys = sequential_keys(0, 100);
+    let batch = puts(&keys);
+    SparseTree::apply(
+        &mut tree,
+        &mut |_| unreachable!(),
+        &batch
+    ).unwrap();
+    let tree_box = tree.as_ref().expect("tree should not be empty");
+    assert_tree_valid(&tree_box);
+    assert_tree_keys(&tree_box, &keys);
+
+    // delete sequential keys
+    let keys = sequential_keys(0, 100);
+    let mut batch: Vec<TreeBatchEntry> = vec![];
+    for i in 0..99 {
+        batch.push((&keys[i], TreeOp::Delete));
+    }
+    SparseTree::apply(&mut tree, &mut |_| unreachable!(), &batch).unwrap();
+
+    let tree = tree.as_ref().expect("tree should not be empty");
+    assert_tree_valid(&tree);
+    assert_eq!(tree.height(), 1);
+    assert_eq!(tree.key, &keys[99]);
+}
+
+#[test]
+fn delete_sequential() {
     let mut tree = None;
     let keys = sequential_keys(0, 100);
     let batch = puts(&keys);
@@ -302,7 +329,6 @@ fn delete_100() {
         assert_tree_keys(&tree_box, &keys[i+1..]);
     }
 }
-
 
 /// Recursively asserts invariants for each node in the tree.
 fn assert_tree_valid(tree: &SparseTree) {
