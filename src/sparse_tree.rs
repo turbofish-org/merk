@@ -28,6 +28,16 @@ pub enum TreeOp<'a> {
     Delete
 }
 
+impl<'a> fmt::Debug for TreeOp<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "{}", match self {
+            Put(value) => format!("Put({:?})", value),
+            Delete => "Delete".to_string()
+        })
+    }
+}
+
+
 pub type TreeBatchEntry<'a> = (&'a [u8], TreeOp<'a>);
 pub type TreeBatch<'a> = [TreeBatchEntry<'a>];
 
