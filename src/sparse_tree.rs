@@ -28,19 +28,6 @@ pub enum TreeOp<'a> {
     Delete
 }
 
-impl<'a> TreeOp<'a> {
-    pub fn is_put(&self) -> bool {
-        match self {
-            Put(_) => true,
-            Delete => false
-        }
-    }
-
-    pub fn is_delete(&self) -> bool {
-        !self.is_put()
-    }
-}
-
 pub type TreeBatchEntry<'a> = (&'a [u8], TreeOp<'a>);
 pub type TreeBatch<'a> = [TreeBatchEntry<'a>];
 
@@ -57,11 +44,15 @@ impl SparseTree {
     }
 
     pub fn from_batch(batch: &TreeBatch) -> Result<Option<Box<SparseTree>>> {
+        if batch.is_empty() {
+            return Ok(None);
+        }
+
         let mid = batch.len() / 2;
         let (mid_key, mid_op) = &batch[mid];
 
         let mid_value = match mid_op {
-            Delete => bail!("Op must not be Delete for empty tree"),
+            Delete => bail!("Tried to delete non-existent key"),
             Put(value) => value
         };
 
