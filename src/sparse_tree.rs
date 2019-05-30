@@ -64,7 +64,7 @@ impl SparseTree {
         let (mid_key, mid_op) = &batch[mid];
 
         let mid_value = match mid_op {
-            Delete => bail!("Tried to delete non-existent key"),
+            Delete => bail!("Tried to delete non-existent key: {:?}", mid_key),
             Put(value) => value
         };
 
