@@ -171,6 +171,11 @@ impl Node {
         let bytes = bincode::serialize(&self)?;
         Ok(bytes)
     }
+
+    #[inline]
+    pub fn is_leaf(&self) -> bool {
+        !(self.left.is_some() || self.right.is_some())
+    }
 }
 
 impl fmt::Debug for Node {
