@@ -3,6 +3,8 @@
 extern crate test;
 extern crate merk;
 
+mod util;
+
 use merk::*;
 
 #[test]
@@ -10,12 +12,10 @@ fn from_batch_single_put() {
     let batch: Vec<TreeBatchEntry> = vec![
         (b"0000", TreeOp::Put(b"0000"))
     ];
-    let tree = SparseTree::from_batch(&batch)
-        .expect("should have succeeded")
-        .expect("should have tree");
-    assert_eq!(tree.node().key, b"0000", "should have expected key");
-    assert_eq!(tree.node().value, b"0000", "should have expected value");
+    let tree = SparseTree::from_batch(&batch).unwrap().unwrap();
 
+    assert_eq!(tree.node().key, b"0000");
+    assert_eq!(tree.node().value, b"0000");
     assert_tree_valid(&tree);
 }
 
@@ -32,11 +32,39 @@ fn from_batch_1k_put() {
         batch.push((key, TreeOp::Put(key)));
     }
 
-    let tree = SparseTree::from_batch(&batch)
-        .expect("should have succeeded")
-        .expect("should have tree");
-
+    let tree = SparseTree::from_batch(&batch).unwrap().unwrap();
     assert_tree_valid(&tree);
+    assert_tree_keys(&tree, &keys);
+}
+
+#[test]
+fn from_batch_deletes_only() {
+    let batch: Vec<TreeBatchEntry> = vec![
+        (&[1, 2, 3], TreeOp::Delete),
+        (&[1, 2, 4], TreeOp::Delete),
+        (&[1, 2, 5], TreeOp::Delete)
+    ];
+    let result = SparseTree::from_batch(&batch);
+    assert_err!(result, "Tried to delete non-existent key");
+}
+
+#[test]
+fn from_batch_puts_and_deletes() {
+    let batch: Vec<TreeBatchEntry> = vec![
+        (&[1, 2, 3], TreeOp::Put(b"xyz")),
+        (&[1, 2, 4], TreeOp::Delete),
+        (&[1, 2, 5], TreeOp::Put(b"foo")),
+        (&[1, 2, 6], TreeOp::Put(b"bar"))
+    ];
+    let result = SparseTree::from_batch(&batch);
+    assert_err!(result, "Tried to delete non-existent key");
+}
+
+#[test]
+fn from_batch_empty() {
+    let batch: Vec<TreeBatchEntry> = vec![];
+    let tree = SparseTree::from_batch(&batch).unwrap();
+    assert!(tree.is_none());
 }
 
 #[test]
@@ -173,4 +201,26 @@ fn assert_tree_valid(tree: &SparseTree) {
     //     assert!(k > prev);
     //     prev = &k;
     // }
+}
+
+fn assert_tree_keys<K: AsRef<[u8]>>(tree: &SparseTree, expected_keys: &[K]) {
+    fn traverse<'a>(tree: &'a SparseTree, keys: Vec<&'a [u8]>) -> Vec<&'a [u8]> {
+        let mut keys = match tree.child_tree(true) {
+            None => keys,
+            Some(child) => traverse(child, keys)
+        };
+
+        keys.push(&tree.key);
+
+        match tree.child_tree(false) {
+            None => keys,
+            Some(child) => traverse(child, keys)
+        }
+    }
+
+    let actual_keys = traverse(tree, vec![]);
+    assert_eq!(actual_keys.len(), expected_keys.len());
+    for i in 0..actual_keys.len() {
+        assert_eq!(actual_keys[i], expected_keys[i].as_ref());
+    }
 }
