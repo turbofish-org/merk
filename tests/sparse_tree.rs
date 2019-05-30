@@ -45,7 +45,7 @@ fn from_batch_deletes_only() {
         (&[1, 2, 5], TreeOp::Delete)
     ];
     let result = SparseTree::from_batch(batch);
-    assert_err!(result, "Tried to delete non-existent key");
+    assert_err!(result, "Tried to delete non-existent key: [1, 2, 4]");
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn from_batch_puts_and_deletes() {
         (&[1, 2, 6], TreeOp::Put(b"bar"))
     ];
     let result = SparseTree::from_batch(batch);
-    assert_err!(result, "Tried to delete non-existent key");
+    assert_err!(result, "Tried to delete non-existent key: [1, 2, 4]");
 }
 
 #[test]
