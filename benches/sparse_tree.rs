@@ -17,7 +17,7 @@ fn bench_batch_put(b: &mut test::Bencher) {
     let mut i = 0;
     b.iter(|| {
         let mut keys = vec![];
-        for _ in 0..10_000 {
+        for _ in 0..2_000 {
             keys.push(random_bytes(&mut rng, 4));
         }
 
@@ -35,7 +35,7 @@ fn bench_batch_put(b: &mut test::Bencher) {
         .unwrap();
         i += 1;
     });
-    println!("final tree size: {}", i * 10_000);
+    println!("final tree size: {}", i * 2_000);
 }
 
 fn random_bytes(rng: &mut ThreadRng, length: usize) -> Vec<u8> {
