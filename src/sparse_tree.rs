@@ -66,24 +66,20 @@ impl SparseTree {
         // add the rest of the batch to the new tree, split into 2
         // batches
         let left_batch = &batch[..mid];
-        if !left_batch.is_empty() {
-            SparseTree::apply(
-                &mut tree,
-                // this is a fresh tree so we never need to fetch nodes
-                &mut |_| unreachable!("should not fetch"),
-                left_batch
-            )?;
-        }
+        SparseTree::apply(
+            &mut tree,
+            // this is a fresh tree so we never need to fetch nodes
+            &mut |_| unreachable!("should not fetch"),
+            left_batch
+        )?;
 
         let right_batch = &batch[mid+1..];
-        if !right_batch.is_empty() {
-            SparseTree::apply(
-                &mut tree,
-                // this is a fresh tree so we never need to fetch nodes
-                &mut |_| unreachable!("should not fetch"),
-                right_batch
-            )?;
-        }
+        SparseTree::apply(
+            &mut tree,
+            // this is a fresh tree so we never need to fetch nodes
+            &mut |_| unreachable!("should not fetch"),
+            right_batch
+        )?;
 
         Ok(tree)
     }
@@ -95,8 +91,8 @@ impl SparseTree {
             }
 
             // TODO: Result
-            let bytes = tree.node.encode().unwrap();
-            batch.put(&tree.node.key, bytes).unwrap();
+            let bytes = tree.encode().unwrap();
+            batch.put(&tree.key, bytes).unwrap();
 
             if let Some(child) = tree.child_tree(false) {
                 traverse(child, batch);
@@ -114,11 +110,26 @@ impl SparseTree {
     ///
     /// This method will fetch relevant missing nodes (if any) from the backing
     /// database.
+    ///
+    /// **NOTE:** The keys in the batch *MUST* be sorted and unique. This
+    /// condition is checked in debug builds, but for performance reasons it is
+    /// unchecked in release builds - unsorted or duplicate keys will result in
+    /// undefined behavior.
     pub fn apply(
         self_container: &mut Option<Box<SparseTree>>,
         get_node: &mut GetNodeFn,
         batch: &TreeBatch
     ) -> Result<()> {
+        // ensure keys in batch are sorted and unique. this check is expensive,
+        // so we only do it in debug builds. in release builds, non-sorted or
+        // duplicate keys results in UB!
+        for pair in batch.windows(2) {
+            debug_assert!(
+                pair[0].0 < pair[1].0,
+                "keys must be sorted and unique"
+            );
+        }
+
         // TODO: build and return db batch, and maybe prune as we ascend
 
         let tree = match self_container {
@@ -135,7 +146,7 @@ impl SparseTree {
         // binary search to see if this node's key is in the batch, and to split
         // into left and right batches
         let search = batch.binary_search_by(
-            |(key, _op)| key.cmp(&& tree.node.key[..])
+            |(key, _op)| key.cmp(&&tree.key[..])
         );
         let (left_batch, right_batch) = match search {
             Ok(index) => {

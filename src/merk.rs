@@ -24,14 +24,6 @@ impl Merk {
     }
 
     pub fn apply(&mut self, batch: &TreeBatch) -> Result<()> {
-        // ensure keys in batch are sorted and unique. this check is expensive,
-        // so we only do it in debug builds. in release builds, non-sorted or
-        // duplicate keys results in UB.
-        #[cfg(debug_assertions)]
-        {
-            // TODO:
-        }
-
         let db = &self.db;
         let mut get_node = |link: &Link| -> Result<Node> {
             // errors if there is a db issue
