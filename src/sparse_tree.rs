@@ -243,10 +243,10 @@ impl SparseTree {
             let mut tall_child = tree.child_container_mut(left).take();
             if let Some(_) = tall_child {
                 let edge = SparseTree::remove_edge(&mut tall_child, get_node, !left)?.unwrap();
-                tree.child_container_mut(left).replace(edge);
+                self_container.replace(edge);
 
                 let short_child = tree.child_container_mut(!left).take();
-                let edge = tree.child_container_mut(left).as_mut().unwrap();
+                let edge = self_container.as_mut().unwrap();
                 *edge.child_container_mut(left) = tall_child;
                 *edge.child_container_mut(!left) = short_child;
                 edge.update_link(true);
