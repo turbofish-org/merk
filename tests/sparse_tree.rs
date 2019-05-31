@@ -2,10 +2,12 @@
 
 extern crate test;
 extern crate merk;
+extern crate rand;
 
 mod util;
 
 use merk::*;
+use rand::prelude::*;
 
 #[test]
 fn from_batch_single_put() {
@@ -330,18 +332,141 @@ fn delete_sequential() {
     }
 }
 
+#[test]
+fn fuzz() {
+    use std::collections::HashSet;
+
+    let mut rng = rand::thread_rng();
+
+    let mut values = vec![];
+    for _ in 0..1_000 {
+        let length = (rng.gen::<u8>() as usize) % 5;
+        let value = random_bytes(&mut rng, length);
+        values.push(value);
+    }
+
+    for _ in 0..10 {
+        let mut tree = None;
+        
+        let mut keys: Vec<Vec<u8>> = vec![];
+        let mut key_set = HashSet::new();
+
+        for i in 0..100 {
+            println!("batch {}", i);
+
+            let modify_count = if keys.len() > 10 {
+                rng.gen::<usize>() % std::cmp::min(keys.len() / 10, 10)
+            } else {
+                0
+            };
+            let insert_count = rng.gen::<usize>() % 10;
+
+            let mut batch: Vec<TreeBatchEntry> = Vec::with_capacity(
+                modify_count + insert_count
+            );
+
+            // updates/deletes
+            let mut batch_keys = HashSet::new();
+            let mut delete_keys = HashSet::new();
+            for _ in 0..modify_count {
+                loop {
+                    let index = rng.gen::<usize>() % keys.len();
+                    let key = &keys[index];
+
+                    // don't allow duplicate keys
+                    let not_duplicate = batch_keys.insert(key);
+                    if !not_duplicate { continue }
+
+                    // add to batch
+                    let op = if rng.gen::<bool>() {
+                        let index = rng.gen::<usize>() % values.len();
+                        TreeOp::Put(&values[index])
+                    } else {
+                        delete_keys.insert(key.clone());
+                        TreeOp::Delete
+                    };
+                    batch.push((&key, op));
+
+                    break
+                }
+            }
+
+            // inserts
+            let mut insert_keys: Vec<Vec<u8>> = Vec::with_capacity(insert_count);
+            for _ in 0..insert_count {
+                loop {
+                    let length = rng.gen::<usize>() % 4;
+                    let key = random_bytes(&mut rng, length);
+                    let key2 = key.clone();
+
+                    // don't allow duplicate keys
+                    let not_duplicate = key_set.insert(key2);
+                    if !not_duplicate { continue }
+
+                    insert_keys.push(key);
+                    break
+                }
+            }
+
+            for key in insert_keys.iter() {
+                let index = rng.gen::<usize>() % values.len();
+                batch.push((&key, TreeOp::Put(&values[index])));
+            }
+
+            // sort batch
+            batch.sort_by(|a, b| a.0.cmp(&b.0));
+
+            // apply batch
+            println!("applying, batch size: {}, tree size: {}", batch.len(), keys.len());
+            SparseTree::apply(&mut tree, &mut |_| unreachable!(), &batch).unwrap();
+
+            // add newly inserted keys to keys vector
+            keys.append(&mut insert_keys);
+            // remove deleted keys from keys vector
+            let mut new_keys = Vec::with_capacity(
+                keys.len() - delete_keys.len()
+            );
+            for key in keys.iter() {
+                if !delete_keys.contains(key) {
+                    new_keys.push(key.clone());
+                }
+            }
+            keys = new_keys;
+            // sort keys
+            keys.sort_by(|a, b| a.cmp(&b));
+
+            // check tree
+            match tree.as_ref() {
+                Some(tree) => {
+                    assert_tree_valid(tree);
+                    assert_tree_keys(tree, &keys);
+                },
+                None => {
+                    assert_eq!(keys.len(), 0);
+                }
+            }
+        }
+    }
+}
+
+fn random_bytes(rng: &mut ThreadRng, length: usize) -> Vec<u8> {
+    (0..length).map(|_| -> u8 { rng.gen() }).collect()
+}
+
 /// Recursively asserts invariants for each node in the tree.
 fn assert_tree_valid(tree: &SparseTree) {
     assert!(
         tree.balance_factor().abs() <= 1,
-        format!("node should be balanced. bf={}", tree.balance_factor())
+        format!(
+            "node should be balanced. bf={}",
+            tree.balance_factor()
+        )
     );
 
     let assert_child_valid = |child: &SparseTree, left: bool| {
         assert!(
             (child.node().key < tree.node().key) == left,
-            "child should be ordered by key.\n{:?}",
-            tree
+            "child should be ordered by key"
         );
 
         assert_eq!(
