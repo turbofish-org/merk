@@ -96,24 +96,29 @@ impl SparseTree {
         Ok(tree)
     }
 
-    pub fn to_write_batch(&self) -> rocksdb::WriteBatch {
-        fn traverse(tree: &SparseTree, batch: &mut rocksdb::WriteBatch) {
-            if let Some(child) = tree.child_tree(true) {
-                traverse(child, batch);
-            }
+    pub fn modified<'a>(&'a self) -> Result<Vec<(&'a [u8], Vec<u8>)>> {
+        fn traverse<'a>(
+            tree: &'a SparseTree,
+            output: Vec<(&'a [u8], Vec<u8>)>
+        ) -> Result<Vec<(&'a [u8], Vec<u8>)>> {
+            let mut output = if let Some(child) = tree.child_tree(true) {
+                traverse(child, output)?
+            } else {
+                output
+            };
 
             // TODO: Result
-            let bytes = tree.encode().unwrap();
-            batch.put(&tree.key, bytes).unwrap();
+            let bytes = tree.encode()?;
+            output.push((&tree.key, bytes));
 
             if let Some(child) = tree.child_tree(false) {
-                traverse(child, batch);
+                traverse(child, output)
+            } else {
+                Ok(output)
             }
         }
 
-        let mut batch = rocksdb::WriteBatch::default();
-        traverse(self, &mut batch);
-        batch
+        traverse(self, vec![])
     }
 
     /// Applies the batch of operations (puts and deletes) to the tree.

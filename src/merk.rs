@@ -52,21 +52,32 @@ impl Merk {
     }
 
     fn commit(&mut self) -> Result<()> {
+        let mut batch = rocksdb::WriteBatch::default();
+
         if let Some(tree) = &mut self.tree {
-            let batch = tree.to_write_batch();
+            // get nodes to flush to disk
+            let modified = tree.modified()?;
+            for (key, value) in modified {
+                let key = concat(b".", key);
+                batch.put(key, value)?;
+            }
 
-            // TODO: store pointer to root node
+            // update pointer to root node
+            batch.put("root", &tree.key)?;
+        } else {
+            // empty tree, delete pointer to root
+            batch.delete("root")?;
+        }
 
-            let mut opts = rocksdb::WriteOptions::default();
-            opts.set_sync(false);
+        // write to db
+        let mut opts = rocksdb::WriteOptions::default();
+        opts.set_sync(false);
+        self.db.write_opt(batch, &opts)?;
 
-            self.db.write_opt(batch, &opts)?;
-
+        if let Some(tree) = &mut self.tree {
             // clear tree so it only contains the root node
             // TODO: strategies for persisting nodes in memory
             tree.prune();
-        } else {
-            // TODO: clear db
         }
 
         Ok(())
@@ -79,4 +90,11 @@ fn default_db_opts() -> rocksdb::Options {
     opts.increase_parallelism(num_cpus::get() as i32);
     // TODO: tune
     opts
+}
+
+fn concat(a: &[u8], b: &[u8]) -> Vec<u8> {
+    let mut result = Vec::with_capacity(a.len() + b.len());
+    result.extend_from_slice(a);
+    result.extend_from_slice(b);
+    result
 }
