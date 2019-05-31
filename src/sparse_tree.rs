@@ -262,6 +262,9 @@ impl SparseTree {
             *self_container = tree.right.take();
         }
 
+        // rebalance if necessary
+        SparseTree::maybe_rebalance(self_container, get_node)?;
+
         Ok(tree)
     }
 
@@ -292,6 +295,8 @@ impl SparseTree {
                 let child = tree.child_container_mut(left);
                 let result = SparseTree::remove_edge(child, get_node, left);
                 tree.update_link(left);
+                // rebalance if necessary
+                SparseTree::maybe_rebalance(self_container, get_node)?;
                 result
             }
         }
