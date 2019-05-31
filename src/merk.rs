@@ -4,6 +4,9 @@ use crate::error::Result;
 use crate::node::{Link, Node};
 use crate::sparse_tree::{SparseTree, TreeBatch};
 
+const KEY_PREFIX: [u8; 1] = *b".";
+const ROOT_KEY_KEY: [u8; 4] = *b"root";
+
 /// A handle to a Merkle key/value store backed by RocksDB.
 pub struct Merk {
     pub tree: Option<Box<SparseTree>>,
@@ -12,29 +15,28 @@ pub struct Merk {
 }
 
 impl Merk {
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<Merk> {
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Merk> {
         let db_opts = default_db_opts();
         let mut path_buf = PathBuf::new();
         path_buf.push(path);
-        Ok(Merk {
-            tree: None,
-            db: rocksdb::DB::open(&db_opts, &path_buf)?,
-            path: path_buf,
-        })
+        let db = rocksdb::DB::open(&db_opts, &path_buf)?;
+
+        // try to load root node
+        let tree = match db.get_pinned(ROOT_KEY_KEY)? {
+            Some(root_key) => {
+                let root_node = get_node(&db, &root_key)?;
+                Some(Box::new(SparseTree::new(root_node)))
+            },
+            None => None
+        };
+
+        Ok(Merk { tree, db, path: path_buf })
     }
 
     pub fn apply(&mut self, batch: &TreeBatch) -> Result<()> {
         let db = &self.db;
         let mut get_node = |link: &Link| -> Result<Node> {
-            // errors if there is a db issue
-            let bytes = db.get_pinned(&link.key)?;
-            if let Some(bytes) = bytes {
-                // errors if we can't decode the bytes
-                Node::decode(&link.key, &bytes)
-            } else {
-                // key not found error
-                bail!("key not found: '{:?}'", &link.key)
-            }
+            get_node(db, &link.key)
         };
 
         // apply tree operations, setting resulting root node in self.tree
@@ -58,15 +60,15 @@ impl Merk {
             // get nodes to flush to disk
             let modified = tree.modified()?;
             for (key, value) in modified {
-                let key = concat(b".", key);
+                let key = concat(&KEY_PREFIX, key);
                 batch.put(key, value)?;
             }
 
             // update pointer to root node
-            batch.put("root", &tree.key)?;
+            batch.put(ROOT_KEY_KEY, &tree.key)?;
         } else {
             // empty tree, delete pointer to root
-            batch.delete("root")?;
+            batch.delete(ROOT_KEY_KEY)?;
         }
 
         // write to db
@@ -81,6 +83,18 @@ impl Merk {
         }
 
         Ok(())
+    }
+}
+
+fn get_node(db: &rocksdb::DB, key: &[u8]) -> Result<Node> {
+    // errors if there is a db issue
+    let bytes = db.get_pinned(key)?;
+    if let Some(bytes) = bytes {
+        // errors if we can't decode the bytes
+        Node::decode(key, &bytes)
+    } else {
+        // key not found error
+        bail!("key not found: '{:?}'", key)
     }
 }
 
