@@ -292,8 +292,8 @@ fn delete_100() {
     // delete sequential keys
     let keys = sequential_keys(0, 100);
     let mut batch: Vec<TreeBatchEntry> = vec![];
-    for i in 0..99 {
-        batch.push((&keys[i], TreeOp::Delete));
+    for key in keys.iter().take(99) {
+        batch.push((key, TreeOp::Delete));
     }
     SparseTree::apply(&mut tree, &mut |_| unreachable!(), &batch).unwrap();
 
