@@ -5,8 +5,7 @@ use crate::error::Result;
 use crate::node::{Link, Node};
 use crate::sparse_tree::{SparseTree, TreeBatch};
 
-const KEY_PREFIX: [u8; 1] = *b".";
-const ROOT_KEY_KEY: [u8; 4] = *b"root";
+const ROOT_KEY_KEY: [u8; 6] = *b"\00root";
 
 /// A handle to a Merkle key/value store backed by RocksDB.
 pub struct Merk {
@@ -87,7 +86,6 @@ impl Merk {
             // get nodes to flush to disk
             let modified = tree.modified()?;
             for (key, value) in modified {
-                let key = concat(&KEY_PREFIX, key);
                 batch.put(key, value)?;
             }
 
@@ -133,9 +131,9 @@ fn default_db_opts() -> rocksdb::Options {
     opts
 }
 
-fn concat(a: &[u8], b: &[u8]) -> Vec<u8> {
-    let mut result = Vec::with_capacity(a.len() + b.len());
-    result.extend_from_slice(a);
-    result.extend_from_slice(b);
-    result
-}
+// fn concat(a: &[u8], b: &[u8]) -> Vec<u8> {
+//     let mut result = Vec::with_capacity(a.len() + b.len());
+//     result.extend_from_slice(a);
+//     result.extend_from_slice(b);
+//     result
+// }
