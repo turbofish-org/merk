@@ -33,6 +33,11 @@ impl Merk {
         Ok(Merk { tree, db, path: path_buf })
     }
 
+    pub fn get(&self, key: &[u8]) -> Result<Vec<u8>> {
+        let node = get_node(&self.db, key)?;
+        Ok(node.value)
+    }
+
     pub fn apply(&mut self, batch: &mut TreeBatch) -> Result<()> {
         let db = &self.db;
         let mut get_node = |link: &Link| -> Result<Node> {
