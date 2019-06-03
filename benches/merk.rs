@@ -7,7 +7,7 @@ use merk::*;
 use rand::prelude::*;
 
 #[bench]
-fn bench_put_insert(b: &mut test::Bencher) {
+fn bench_put_insert_unchecked(b: &mut test::Bencher) {
     let mut merk = Merk::open("./test_merk_bench_put_insert.db").unwrap();
 
     let mut i = 0;
@@ -36,7 +36,7 @@ fn bench_put_insert(b: &mut test::Bencher) {
 }
 
 #[bench]
-fn bench_put_update(b: &mut test::Bencher) {
+fn bench_put_update_unchecked(b: &mut test::Bencher) {
     let mut merk = Merk::open("./test_merk_bench_put_update.db").unwrap();
 
     let mut rng = rand::thread_rng();
@@ -55,7 +55,7 @@ fn bench_put_update(b: &mut test::Bencher) {
             batch.push((&key[..], TreeOp::Put(&value)));
         }
 
-        merk.apply(&batch).unwrap();
+        merk.apply_unchecked(&batch).unwrap();
 
         i += 1;
     });
