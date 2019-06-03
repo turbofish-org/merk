@@ -10,6 +10,8 @@ Merk is a crypto key/value store - more specifically, it's a Merkle AVL tree bui
 
 Its priorities are performance and reliability. While Merk was designed to be the state database for blockchains, it can also be used anywhere an auditable key/value store is needed.
 
+**NOTE:** This crate is still in early development and not fully implemented yet.
+
 ### FEATURES:
 - **Fast reads/writes** - Reads have no overhead compared to a normal RocksDB store, and writes are optimized for batch operations (e.g. blocks in a blockchain).
 - **Fast proof generation** - Since Merk implements an AVL tree rather than a trie, it is very efficient to create and verify proofs for ranges of keys.
