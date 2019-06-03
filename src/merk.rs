@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
@@ -33,7 +34,33 @@ impl Merk {
         Ok(Merk { tree, db, path: path_buf })
     }
 
-    pub fn apply(&mut self, batch: &TreeBatch) -> Result<()> {
+    pub fn apply(&mut self, batch: &mut TreeBatch) -> Result<()> {
+        let db = &self.db;
+        let mut get_node = |link: &Link| -> Result<Node> {
+            get_node(db, &link.key)
+        };
+
+        // sort batch and ensure there are no duplicate keys
+        let mut duplicate = false;
+        batch.sort_by(|a, b| {
+            let cmp = a.0.cmp(&b.0);
+            if let Ordering::Equal = cmp {
+                duplicate = true;
+            }
+            cmp
+        });
+        if duplicate {
+            bail!("Batch must not have duplicate keys");
+        }
+
+        // apply tree operations, setting resulting root node in self.tree
+        SparseTree::apply(&mut self.tree, &mut get_node, batch)?;
+
+        // commit changes to db
+        self.commit()
+    }
+
+    pub fn apply_unchecked(&mut self, batch: &TreeBatch) -> Result<()> {
         let db = &self.db;
         let mut get_node = |link: &Link| -> Result<Node> {
             get_node(db, &link.key)
