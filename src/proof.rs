@@ -2,6 +2,8 @@ use std::fmt;
 
 use crate::*;
 
+const MAX_STACK_SIZE: usize = 50;
+
 pub enum Op {
   Push(Node),
   Parent,
@@ -57,8 +59,8 @@ pub fn create(
     end: &[u8]
 ) -> Result<Vec<Op>> {
     // TODO: get bounds
-
     // TODO: remove prev_key, parent_stack (only for invariant assertion)
+    // TODO: can we do this without so many clones?
 
     let mut proof = vec![];
     let mut prev_key: Option<Vec<u8>> = None;
@@ -104,6 +106,73 @@ pub fn create(
     Ok(proof)
 }
 
+pub fn reconstruct(proof: &[Op]) -> Result<SparseTree> {
+    let mut stack: Vec<SparseTree> = vec![];
+    let mut prev_key = None;
+    for op in proof {
+        match op {
+            Op::Push(node) => match node {
+                Node::Data { key, value } => {
+                    if stack.len() >= MAX_STACK_SIZE {
+                        bail!("Stack exceeded maximum size");
+                    }
+                    if let Some(prev_key) = &prev_key {
+                        assert!(
+                            key > prev_key,
+                            "Invalid key ordering"
+                        );
+                    }
+                    prev_key = Some(key.clone());
+
+                    let tree = SparseTree::new(
+                        crate::Node::new(&key, &value)
+                    );
+                    stack.push(tree);
+                },
+                Node::Hash { left, child_hash, kv_hash } => {
+                    panic!("hash nodes not yet handled");
+                }
+            },
+            Op::Parent => {
+                let mut top = stack.pop()
+                    .expect("Expected node on stack");
+                if top.left.is_some() {
+                    bail!("Got PARENT op for node that already has left child");
+                }
+
+                let bottom = stack.pop()
+                    .expect("Expected node on stack");
+
+                // TODO: make SparseTree API cleaner
+                top.left = Some(Box::new(bottom));
+                top.update_link(true);
+
+                stack.push(top);
+            },
+            Op::Child => {
+                let bottom = stack.pop()
+                    .expect("Expected node on stack");
+                let mut top = stack.pop()
+                    .expect("Expected node on stack");
+                if top.right.is_some() {
+                    bail!("Got CHILD op for node that already has right child");
+                }
+
+                top.right = Some(Box::new(bottom));
+                top.update_link(false);
+
+                stack.push(top);
+            }
+        }
+    }
+
+    assert_eq!(
+        stack.len(), 1,
+        "Proof resulted in multiple disjoint trees"
+    );
+    Ok(stack.pop().unwrap())
+}
+
 #[test]
 fn proof_debug() {
     let debug = format!("{:?}", &[
@@ -125,4 +194,24 @@ fn proof_debug() {
         })
     ]);
     assert_eq!(debug, "[CHILD, PARENT, PUSH(\u{1}\u{2}\u{3}: \u{4}\u{5}\u{6}), PUSH(left=010101010101 kv=020202020202), PUSH(right=030303030303 kv=040404040404)]");
+}
+
+#[test]
+fn proof_reconstruct() {
+    let proof = [
+        Op::Push(Node::Data { key: vec![0], value: vec![123] }),
+        Op::Push(Node::Data { key: vec![1], value: vec![123] }),
+        Op::Parent,
+        Op::Push(Node::Data { key: vec![2], value: vec![123] }),
+        Op::Child,
+        Op::Push(Node::Data { key: vec![3], value: vec![123] }),
+        Op::Parent,
+        Op::Push(Node::Data { key: vec![4], value: vec![123] }),
+        Op::Push(Node::Data { key: vec![5], value: vec![123] }),
+        Op::Child,
+        Op::Parent
+    ];
+
+    let tree = reconstruct(&proof).unwrap();
+    println!("{:?}", tree);
 }

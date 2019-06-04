@@ -18,9 +18,9 @@ pub trait GetNodeFn = FnMut(&Link) -> Result<Node>;
 ///
 /// [`Node`s]: struct.Node.html
 pub struct SparseTree {
-    node: Node,
-    left: TreeContainer,
-    right: TreeContainer
+    pub node: Node,
+    pub left: TreeContainer,
+    pub right: TreeContainer
 }
 
 pub enum TreeOp<'a> {
@@ -319,7 +319,7 @@ impl SparseTree {
     }
 
     /// Compute child link and set on our node.
-    fn update_link(&mut self, left: bool) {
+    pub fn update_link(&mut self, left: bool) {
         let link = self.child_tree(left)
             .map(|child| child.as_link());
         self.node.set_child(left, link);
