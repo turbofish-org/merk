@@ -9,7 +9,7 @@ use crate::error::*;
 pub const HASH_LENGTH: usize = 20;
 pub const NULL_HASH: Hash = [0; HASH_LENGTH];
 
-type Hash = [u8; HASH_LENGTH];
+pub type Hash = [u8; HASH_LENGTH];
 
 /// Represents a reference to another tree node.
 ///
