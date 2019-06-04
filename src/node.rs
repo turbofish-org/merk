@@ -184,9 +184,9 @@ impl fmt::Debug for Node {
             f,
             "({:?}: {:?}, hash={}, height={})",
             String::from_utf8(self.key.to_vec())
-                .unwrap_or(format!("{:?}", &self.key)),
+                .unwrap_or_else(|_| format!("{:?}", &self.key)),
             String::from_utf8(self.value.to_vec())
-                .unwrap_or(format!("{:?}", &self.value)),
+                .unwrap_or_else(|_| format!("{:?}", &self.value)),
             hex::encode(&self.hash()[..3]),
             self.height()
         )

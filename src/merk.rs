@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use crate::error::Result;
 use crate::node::{Link, Node};
 use crate::sparse_tree::{SparseTree, TreeBatch};
+use crate::proof;
 
 const ROOT_KEY_KEY: [u8; 6] = *b"\00root";
 
@@ -113,6 +114,40 @@ impl Merk {
         }
 
         Ok(())
+    }
+
+    pub fn map_range<F: FnMut(Node)>(
+        &self,
+        start: &[u8],
+        end: &[u8],
+        f: &mut F
+    ) -> Result<()> {
+        let iter = self.db.iterator(
+            rocksdb::IteratorMode::From(
+                start,
+                rocksdb::Direction::Forward
+            )
+        );
+
+        for (key, value) in iter {
+            let node = Node::decode(&key, &value)?;
+            f(node);
+
+            if key[..] >= end[..] {
+                break;
+            }
+        }
+
+        Ok(())
+    }
+
+    #[inline]
+    pub fn proof(
+        &self,
+        start: &[u8],
+        end: &[u8]
+    ) -> Result<Vec<proof::Op>> {
+        proof::create(self, start, end)
     }
 }
 
