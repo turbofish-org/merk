@@ -15,10 +15,10 @@ macro_rules! bench_decode {
     };
 }
 
-bench_decode!(bench_decode_0B, 0);
-bench_decode!(bench_decode_50B, 50);
-bench_decode!(bench_decode_500B, 500);
-bench_decode!(bench_decode_5000B, 5000);
+bench_decode!(bench_decode_0_bytes, 0);
+bench_decode!(bench_decode_50_bytes, 50);
+bench_decode!(bench_decode_500_bytes, 500);
+bench_decode!(bench_decode_5000_bytes, 5000);
 
 macro_rules! bench_encode {
     ($name:ident, $length:expr) => {
@@ -30,7 +30,7 @@ macro_rules! bench_encode {
     };
 }
 
-bench_encode!(bench_encode_0B, 0);
-bench_encode!(bench_encode_50B, 50);
-bench_encode!(bench_encode_500B, 500);
-bench_encode!(bench_encode_5000B, 5000);
+bench_encode!(bench_encode_0_bytes, 0);
+bench_encode!(bench_encode_50_bytes, 50);
+bench_encode!(bench_encode_500_bytes, 500);
+bench_encode!(bench_encode_5000_bytes, 5000);

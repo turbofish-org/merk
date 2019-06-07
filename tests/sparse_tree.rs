@@ -342,7 +342,6 @@ fn insert_sparse() {
         &mut |_| unreachable!(),
         &batch
     ).unwrap();
-    tree.as_ref().unwrap().modified();
 
     let tree_box = tree.as_ref().expect("tree should not be empty");
     assert_tree_valid(&tree_box);
