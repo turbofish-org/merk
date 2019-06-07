@@ -59,7 +59,7 @@ Average performance on my 2017 Macbook Pro, on a store with at least 1M keys, wi
 - *Sequential inserts:* ~181,000 per second
 - *Sequential updates:* ~174,000 per second
 - *Sequential reads:* ~350,000 per second
-- *RAM usage:* ~30MB averge, ~60MB max
+- *RAM usage:* ~30MB average, ~60MB max
 
 This is just the first pass - we can do much better!
 
