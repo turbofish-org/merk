@@ -104,7 +104,7 @@ fn bench_delete_random(b: &mut test::Bencher) {
 
     let value = [123; 40];
 
-    for i in 0..500 {
+    for i in 0..400 {
         let mut keys = vec![];
 
         for j in 0..4_000 {
@@ -122,10 +122,9 @@ fn bench_delete_random(b: &mut test::Bencher) {
 
     let mut i = 0;
     b.iter(|| {
-        println!("{}", i);
         let mut keys = vec![];
         for j in 0..4_000 {
-            let n = (i % 500 as u128) + (j * 4000 as u128);
+            let n = (i % 400 as u128) + (j * 400 as u128);
             keys.push(n.to_be_bytes());
         }
 
@@ -308,12 +307,11 @@ fn bench_delete_sequential(b: &mut test::Bencher) {
 
     let value = [123; 1];
 
-    for i in 0..1000 {
+    for i in 0..400 {
         let mut keys = vec![];
 
-        for j in 0..10 {
-            let n = (i * 10 as u128) + (j as u128);
-            println!("key:{}", n);
+        for j in 0..4000 {
+            let n = (i * 4000 as u128) + (j as u128);
             keys.push(n.to_be_bytes());
         }
 
@@ -325,17 +323,12 @@ fn bench_delete_sequential(b: &mut test::Bencher) {
         merk.apply_unchecked(&batch).unwrap();
     }
 
-    println!("{}", "\n".repeat(40));
-    println!("{:?}", merk.tree.as_ref().unwrap());
-
     let mut i = 0;
     b.iter(|| {
-        println!("! {}", i);
         let mut keys = vec![];
-        for j in 0..10 {
-            let n = ((i % 500 as u128) * 10) + j as u128;
+        for j in 0..4000 {
+            let n = ((i % 400 as u128) * 4000) + j as u128;
             keys.push(n.to_be_bytes());
-            // println!("!! {} {:?}", j, n.to_be_bytes());
         }
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
