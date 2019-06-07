@@ -99,6 +99,52 @@ fn bench_put_update_random(b: &mut test::Bencher) {
 }
 
 #[bench]
+fn bench_delete_random(b: &mut test::Bencher) {
+    let mut merk = Merk::open("./test_merk_bench_delete_random.db").unwrap();
+
+    let value = [123; 40];
+
+    for i in 0..250 {
+        let mut keys = vec![];
+
+        for j in 0..4_000 {
+            let n = (i * 4_000 as u128) + (j as u128);
+            keys.push(n.to_be_bytes());
+        }
+
+        let mut batch: Vec<TreeBatchEntry> = vec![];
+        for key in keys.iter() {
+            batch.push((&key[..], TreeOp::Put(&value)));
+        }
+
+        merk.apply_unchecked(&batch).unwrap();
+    }
+
+    let mut i = 0;
+    b.iter(|| {
+        println!("{}", i);
+        let mut keys = vec![];
+        for j in 0..4_000 {
+            let n = (i % 250 as u128) + (j * 4000 as u128);
+            keys.push(n.to_be_bytes());
+        }
+
+        let mut batch: Vec<TreeBatchEntry> = vec![];
+        for key in keys.iter() {
+            batch.push((&key[..], TreeOp::Delete));
+        }
+
+        merk.apply_unchecked(&batch).unwrap();
+
+        i += 1;
+    });
+
+    println!("height: {}", merk.tree.as_ref().unwrap().height());
+
+    merk.destroy().unwrap();
+}
+
+#[bench]
 fn bench_get_random(b: &mut test::Bencher) {
     let mut merk = Merk::open("./test_merk_bench_get_random.db").unwrap();
     let mut rng = rand::thread_rng();
@@ -252,6 +298,56 @@ fn bench_get_sequential(b: &mut test::Bencher) {
         assert_eq!(&retrieved_value[..], &value[..]);
         i += 1;
     });
+
+    merk.destroy().unwrap();
+}
+
+#[bench]
+fn bench_delete_sequential(b: &mut test::Bencher) {
+    let mut merk = Merk::open("./test_merk_bench_delete_sequential.db").unwrap();
+
+    let value = [123; 1];
+
+    for i in 0..2000 {
+        let mut keys = vec![];
+
+        for j in 0..10 {
+            let n = (i * 10 as u128) + (j as u128);
+            keys.push(n.to_be_bytes());
+        }
+
+        let mut batch: Vec<TreeBatchEntry> = vec![];
+        for key in keys.iter() {
+            batch.push((&key[..], TreeOp::Put(&value)));
+        }
+
+        merk.apply_unchecked(&batch).unwrap();
+    }
+
+    println!("{}", "\n".repeat(40));
+    println!("{:?}", merk.tree.as_ref().unwrap());
+
+    let mut i = 0;
+    b.iter(|| {
+        println!("! {}", i);
+        let mut keys = vec![];
+        for j in 0..10 {
+            let n = ((i % 2000 as u128) * 10) + j as u128;
+            keys.push(n.to_be_bytes());
+            // println!("!! {} {:?}", j, n.to_be_bytes());
+        }
+
+        let mut batch: Vec<TreeBatchEntry> = vec![];
+        for key in keys.iter() {
+            batch.push((&key[..], TreeOp::Delete));
+        }
+
+        merk.apply_unchecked(&batch).unwrap();
+
+        i += 1;
+    });
+
+    println!("height: {}", merk.tree.as_ref().unwrap().height());
 
     merk.destroy().unwrap();
 }
