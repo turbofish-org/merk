@@ -335,45 +335,47 @@ fn delete_sequential() {
 #[test]
 fn insert_sparse() {
     let mut tree = None;
-    let keys = sequential_keys(0, 50);
+    let keys = sequential_keys(0, 5);
     let batch = puts(&keys);
     SparseTree::apply(
         &mut tree,
         &mut |_| unreachable!(),
         &batch
     ).unwrap();
+    tree.as_ref().unwrap().modified();
 
     let tree_box = tree.as_ref().expect("tree should not be empty");
     assert_tree_valid(&tree_box);
     assert_tree_keys(&tree_box, &keys);
 
-    // add keys 50 - 100
+    // add keys 5 - 10
     let mut cloned_tree = Some(Box::new(
         SparseTree::new(tree.as_ref().unwrap().node().clone())
     ));
-    let keys = sequential_keys(50, 100);
+    let keys = sequential_keys(5, 10);
     let batch = puts(&keys);
-    SparseTree::apply(
-        &mut cloned_tree,
+    let mut get_node = |link: &Link| {
         // get nodes from original tree (which is fully loaded in memory)
-        &mut |link| {
-            fn traverse (link: &Link, node: &SparseTree) -> Node {
-                if &node.key == &link.key {
-                    node.node().clone()
-                } else if &link.key < &node.key {
-                    traverse(link, node.left.as_ref().unwrap())
-                } else {
-                    traverse(link, node.right.as_ref().unwrap())
-                }
-            };
-            Ok(traverse(link, tree.as_ref().unwrap()))
-        },
-        &batch
-    ).unwrap();
+        println!("get node {:?}", &link.key);
+        fn traverse (link: &Link, node: &SparseTree) -> Node {
+            if &node.key == &link.key {
+                node.node().clone()
+            } else if &link.key < &node.key {
+                traverse(link, node.left.as_ref().unwrap())
+            } else {
+                traverse(link, node.right.as_ref().unwrap())
+            }
+        };
+        Ok(traverse(link, tree.as_ref().unwrap()))
+    };
+    SparseTree::apply(&mut cloned_tree, &mut get_node, &batch).unwrap();
+
+    cloned_tree.as_mut().unwrap().load_all(&mut get_node).unwrap();
+    println!("{:?}", cloned_tree.as_ref().unwrap());
 
     let tree_box = cloned_tree.as_ref().expect("tree should not be empty");
     assert_tree_valid(&tree_box);
-    assert_tree_keys(&tree_box, &sequential_keys(0, 100));
+    assert_tree_keys(&tree_box, &sequential_keys(0, 10));
 }
 
 #[test]
@@ -611,6 +613,7 @@ fn tree_keys<'a>(tree: &'a SparseTree) -> Vec<&'a [u8]> {
 
 fn assert_tree_keys<K: AsRef<[u8]>>(tree: &SparseTree, expected_keys: &[K]) {
     let actual_keys = tree_keys(tree);
+    println!("keys {:?}", actual_keys);
     assert_eq!(actual_keys.len(), expected_keys.len());
     for i in 0..actual_keys.len() {
         assert_eq!(actual_keys[i], expected_keys[i].as_ref());

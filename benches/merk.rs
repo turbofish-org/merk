@@ -104,7 +104,7 @@ fn bench_delete_random(b: &mut test::Bencher) {
 
     let value = [123; 40];
 
-    for i in 0..250 {
+    for i in 0..500 {
         let mut keys = vec![];
 
         for j in 0..4_000 {
@@ -125,7 +125,7 @@ fn bench_delete_random(b: &mut test::Bencher) {
         println!("{}", i);
         let mut keys = vec![];
         for j in 0..4_000 {
-            let n = (i % 250 as u128) + (j * 4000 as u128);
+            let n = (i % 500 as u128) + (j * 4000 as u128);
             keys.push(n.to_be_bytes());
         }
 
@@ -308,11 +308,12 @@ fn bench_delete_sequential(b: &mut test::Bencher) {
 
     let value = [123; 1];
 
-    for i in 0..2000 {
+    for i in 0..1000 {
         let mut keys = vec![];
 
         for j in 0..10 {
             let n = (i * 10 as u128) + (j as u128);
+            println!("key:{}", n);
             keys.push(n.to_be_bytes());
         }
 
@@ -332,7 +333,7 @@ fn bench_delete_sequential(b: &mut test::Bencher) {
         println!("! {}", i);
         let mut keys = vec![];
         for j in 0..10 {
-            let n = ((i % 2000 as u128) * 10) + j as u128;
+            let n = ((i % 500 as u128) * 10) + j as u128;
             keys.push(n.to_be_bytes());
             // println!("!! {} {:?}", j, n.to_be_bytes());
         }
