@@ -81,3 +81,31 @@ fn merk_delete_1k() {
 
     merk.destroy().unwrap();
 }
+
+#[test]
+fn merk_load() {
+    let mut keys: Vec<[u8; 4]> = Vec::with_capacity(100);
+    for i in 0..100 {
+        keys.push((i as u32).to_be_bytes());
+    }
+
+    {
+        let mut merk = Merk::open("./test_merk_load.db").unwrap();
+
+        let mut batch: Vec<TreeBatchEntry> = Vec::with_capacity(100);
+        for i in 0..100 {
+            batch.push((&keys[i], TreeOp::Put(b"xyz")));
+        }
+        merk.apply(&mut batch).unwrap();
+    }
+
+    {
+        let merk = Merk::open("./test_merk_load.db").unwrap();
+
+        for key in keys.iter() {
+            assert_eq!(merk.get(key).unwrap(), b"xyz");
+        }
+
+        merk.destroy().unwrap();
+    }
+}
