@@ -313,6 +313,19 @@ impl SparseTree {
         self.right.take();
     }
 
+    pub fn load_all(&mut self, get_node: &mut GetNodeFn) -> Result<()> {
+        self.maybe_get_child(get_node, true)?;
+        self.maybe_get_child(get_node, false)?;
+
+        if let Some(left) = &mut self.left {
+            left.load_all(get_node)?;
+        }
+        if let Some(right) = &mut self.right {
+            right.load_all(get_node)?;
+        }
+        Ok(())
+    }
+
     #[inline]
     pub fn node(&self) -> &Node {
         &self.node
@@ -394,7 +407,7 @@ impl SparseTree {
             // rotate child opposite direction, then update link
             SparseTree::rotate(child_container, get_node, !left)?;
             SparseTree::maybe_rebalance(child_container, get_node)?;
-            tree.update_link(!left);
+            tree.update_link(left);
         }
 
         // do the rotation
@@ -421,8 +434,7 @@ impl SparseTree {
         let mut tree = self_container.take()
             .expect("container must not be empty");
 
-        // take ownership of child. just like when Karen took the fucking kids
-        // and moved to her sister's place :(
+        // take ownership of child
         tree.maybe_get_child(get_node, left)?;
         let child_container = tree.child_container_mut(left);
         let mut child = child_container.take()
@@ -467,6 +479,8 @@ impl DerefMut for SparseTree {
 impl fmt::Debug for SparseTree {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use colored::Colorize;
+
+        // TODO: show sparse links
 
         fn traverse(
             f: &mut fmt::Formatter,
