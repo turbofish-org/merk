@@ -56,9 +56,11 @@ Average performance on my 2017 Macbook Pro, on a store with at least 1M keys, wi
 - *Random inserts:* ~22,000 per second
 - *Random updates:* ~19,000 per second
 - *Random reads:* ~117,000 per second
+- *Random deletes:* ~15,000 per second
 - *Sequential inserts:* ~181,000 per second
 - *Sequential updates:* ~174,000 per second
 - *Sequential reads:* ~350,000 per second
+- *Sequential deletes:* ~148,000 per second
 - *RAM usage:* ~30MB average, ~60MB max
 
 This is just the first pass - we can do much better!
