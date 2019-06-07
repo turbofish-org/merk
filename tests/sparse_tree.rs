@@ -333,6 +333,53 @@ fn delete_sequential() {
 }
 
 #[test]
+fn delete_sparse() {
+    let mut tree = None;
+    let keys = sequential_keys(0, 100);
+    let batch = puts(&keys);
+    SparseTree::apply(
+        &mut tree,
+        &mut |_| unreachable!(),
+        &batch
+    ).unwrap();
+
+    let tree_box = tree.as_ref().expect("tree should not be empty");
+    assert_tree_valid(&tree_box);
+    assert_tree_keys(&tree_box, &keys);
+
+    // delete sequential keys
+    let mut cloned_tree = Some(Box::new(
+        SparseTree::new(tree.as_ref().unwrap().node().clone())
+    ));
+    let keys = sequential_keys(0, 100);
+    let mut batch: Vec<TreeBatchEntry> = Vec::with_capacity(100);
+    for i in 0..99 {
+        batch.push((&keys[i], TreeOp::Delete));
+    }
+    SparseTree::apply(
+        &mut cloned_tree,
+        // get nodes from original tree (which is fully loaded in memory)
+        &mut |link| {
+            fn traverse (link: &Link, node: &SparseTree) -> Node {
+                if &node.key == &link.key {
+                    node.node().clone()
+                } else if &link.key < &node.key {
+                    traverse(link, node.left.as_ref().unwrap())
+                } else {
+                    traverse(link, node.right.as_ref().unwrap())
+                }
+            };
+            Ok(traverse(link, tree.as_ref().unwrap()))
+        },
+        &batch
+    ).unwrap();
+
+    let tree_box = cloned_tree.as_ref().expect("tree should not be empty");
+    assert_tree_valid(&tree_box);
+    assert_tree_keys(&tree_box, &[ keys.last().unwrap() ]);
+}
+
+#[test]
 fn fuzz() {
     use std::collections::HashSet;
 
