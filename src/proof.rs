@@ -1,6 +1,7 @@
 use std::fmt;
 
 use crate::*;
+use crate::node;
 
 const MAX_STACK_SIZE: usize = 50;
 
@@ -23,7 +24,7 @@ impl fmt::Debug for Op {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Node {
     Hash(Hash),
     KVHash(Hash),
@@ -62,9 +63,51 @@ pub struct Tree {
 }
 
 impl Tree {
-    // pub fn new(node: Node) -> Tree {
-        
-    // }
+    pub fn new(node: Node) -> Tree {
+        Tree {
+            node,
+            left: None,
+            right: None
+        }
+    }
+
+    pub fn hash(self) -> Hash {
+        match self.node {
+            Node::Hash(hash) => hash,
+            Node::KVHash(kv_hash) => node::hash(
+                &kv_hash,
+                self.left.map(|l| l.hash()).as_ref(),
+                self.right.map(|r| r.hash()).as_ref()
+            ),
+            Node::KV(key, value) => node::hash(
+                &node::kv_hash(&key, &value),
+                self.left.map(|l| l.hash()).as_ref(),
+                self.right.map(|r| r.hash()).as_ref()
+            )
+        }
+    }
+
+    pub fn with_left(mut self, child: Tree) -> Result<Tree> {
+        if self.left.is_some() {
+            bail!("Node already has left child");
+        }
+        if let Node::Hash(_) = self.node {
+            bail!("Cannot add child to hash-only node");
+        }
+        self.left = Some(Box::new(child));
+        Ok(self)
+    }
+
+    pub fn with_right(mut self, child: Tree) -> Result<Tree> {
+        if self.right.is_some() {
+            bail!("Node already has right child");
+        }
+        if let Node::Hash(_) = self.node {
+            bail!("Cannot add child to hash-only node");
+        }
+        self.right = Some(Box::new(child));
+        Ok(self)
+    }
 }
 
 pub fn create(
@@ -120,74 +163,136 @@ pub fn create(
     Ok(proof)
 }
 
-pub fn reconstruct(proof: &[Op]) -> Result<SparseTree> {
-    let mut stack: Vec<SparseTree> = vec![];
+pub fn verify(expected_hash: &Hash, proof: &[Op]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+    // TODO: verify recursively instead of with vector stack (probably better
+    //       for CPU cache locality)
+    let mut stack: Vec<Tree> =
+        Vec::with_capacity(MAX_STACK_SIZE / 2);
+    let mut entries: Vec<(Vec<u8>, Vec<u8>)> =
+        Vec::with_capacity(proof.len() / 2);
     let mut prev_key = None;
+
     for op in proof {
         match op {
-            Op::Push(node) => match node {
-                Node::Hash(hash) => {
-                    panic!("hash nodes not yet handled");
-                },
-                Node::KVHash(kv_hash) => {
-                    panic!("kv_hash nodes not yet handled");
-                },
-                Node::KV(key, value) => {
-                    if stack.len() >= MAX_STACK_SIZE {
-                        bail!("Stack exceeded maximum size");
-                    }
+            Op::Push(node) => {
+                if stack.len() >= MAX_STACK_SIZE {
+                    bail!("Stack exceeded maximum size");
+                }
+
+                if let Node::KV(key, value) = &node {
                     if let Some(prev_key) = &prev_key {
-                        assert!(
-                            key > prev_key,
-                            "Invalid key ordering"
-                        );
+                        if key <= prev_key {
+                            bail!("Invalid key ordering");
+                        }
                     }
                     prev_key = Some(key.clone());
-
-                    let tree = SparseTree::new(
-                        crate::Node::new(&key, &value)
-                    );
-                    stack.push(tree);
+                    entries.push((key.clone(), value.clone()));
                 }
+
+                let tree = Tree::new((*node).clone());
+                stack.push(tree);
             },
             Op::Parent => {
-                let mut top = stack.pop()
-                    .expect("Expected node on stack");
-                if top.left.is_some() {
-                    bail!("Got PARENT op for node that already has left child");
-                }
-                let bottom = stack.pop()
-                    .expect("Expected node on stack");
-
-                // TODO: make SparseTree API cleaner
-                top.left = Some(Box::new(bottom));
-                top.update_link(true);
-
-                stack.push(top);
+                let mut pop = || stack.pop().expect("Expected node on stack");
+                let top = pop();
+                let bottom = pop();
+                stack.push(top.with_left(bottom)?);
             },
             Op::Child => {
-                let bottom = stack.pop()
-                    .expect("Expected node on stack");
-                let mut top = stack.pop()
-                    .expect("Expected node on stack");
-                if top.right.is_some() {
-                    bail!("Got CHILD op for node that already has right child");
-                }
-
-                top.right = Some(Box::new(bottom));
-                top.update_link(false);
-
-                stack.push(top);
+                let mut pop = || stack.pop().expect("Expected node on stack");
+                let bottom = pop();
+                let top = pop().with_right(bottom)?;
+                // now this node is complete, just keep the hash
+                let hash = top.hash();
+                stack.push(Tree::new(Node::Hash(hash)));
             }
         }
     }
 
-    assert_eq!(
-        stack.len(), 1,
-        "Proof must end with exactly one tree"
-    );
-    Ok(stack.pop().unwrap())
+    if stack.len() != 1 {
+        bail!("Proof must end with exactly one tree");
+    }
+    let tree = stack.pop().unwrap();
+    if tree.hash() != *expected_hash {
+        bail!("Computed root hash does not match expected hash");
+    }
+
+    Ok(entries)
 }
+
+// pub fn reconstruct(expected_hash: &Hash, proof: &[Op]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+//     // TODO: verify recursively instead of with vector stack (probably better
+//     //       for CPU cache locality)
+//     let mut stack: Vec<SparseTree> =
+//         Vec::with_capacity(MAX_STACK_SIZE);
+//     let mut entries: Vec<(Vec<u8>, Vec<u8>)> =
+//         Vec::with_capacity(proof.len() / 2);
+//     let mut prev_key = None;
+//     for op in proof {
+//         match op {
+//             Op::Push(node) => match node {
+//                 Node::Hash(hash) => {
+//                     panic!("hash nodes not yet handled");
+//                 },
+//                 Node::KVHash(kv_hash) => {
+//                     panic!("kv_hash nodes not yet handled");
+//                 },
+//                 Node::KV(key, value) => {
+//                     if stack.len() >= MAX_STACK_SIZE {
+//                         bail!("Stack exceeded maximum size");
+//                     }
+//                     if let Some(prev_key) = &prev_key {
+//                         assert!(
+//                             key > prev_key,
+//                             "Invalid key ordering"
+//                         );
+//                     }
+//                     prev_key = Some(key.clone());
+
+//                     let tree = SparseTree::new(
+//                         crate::Node::new(&key, &value)
+//                     );
+//                     stack.push(tree);
+//                 }
+//             },
+//             Op::Parent => {
+//                 let mut top = stack.pop()
+//                     .expect("Expected node on stack");
+//                 if top.left.is_some() {
+//                     bail!("Got PARENT op for node that already has left child");
+//                 }
+//                 let bottom = stack.pop()
+//                     .expect("Expected node on stack");
+
+//                 // TODO: make SparseTree API cleaner
+//                 top.left = Some(Box::new(bottom));
+//                 top.update_link(true);
+
+//                 stack.push(top);
+//             },
+//             Op::Child => {
+//                 let bottom = stack.pop()
+//                     .expect("Expected node on stack");
+//                 let mut top = stack.pop()
+//                     .expect("Expected node on stack");
+//                 if top.right.is_some() {
+//                     bail!("Got CHILD op for node that already has right child");
+//                 }
+
+//                 top.right = Some(Box::new(bottom));
+//                 top.update_link(false);
+
+//                 stack.push(top);
+//             }
+//         }
+//     }
+
+//     assert_eq!(
+//         stack.len(), 1,
+//         "Proof must end with exactly one tree"
+//     );
+//     Ok(stack.pop().unwrap())
+// }
 
 pub fn encode(proof: &[Op]) -> Result<Vec<u8>> {
     let bytes = bincode::serialize(proof)?;
@@ -209,8 +314,28 @@ fn proof_debug() {
     assert_eq!(debug, "[CHILD, PARENT, PUSH(\u{1}\u{2}\u{3}: \u{4}\u{5}\u{6}), PUSH(hash=010101010101), PUSH(kv_hash=020202020202)]");
 }
 
+// #[test]
+// fn proof_reconstruct() {
+//     let proof = [
+//         Op::Push(Node::KV(vec![0], vec![123])),
+//         Op::Push(Node::KV(vec![1], vec![123])),
+//         Op::Parent,
+//         Op::Push(Node::KV(vec![2], vec![123])),
+//         Op::Child,
+//         Op::Push(Node::KV(vec![3], vec![123])),
+//         Op::Parent,
+//         Op::Push(Node::KV(vec![4], vec![123])),
+//         Op::Push(Node::KV(vec![5], vec![123])),
+//         Op::Child,
+//         Op::Parent
+//     ];
+
+//     let tree = reconstruct(&proof).unwrap();
+//     println!("{:?}", tree);
+// }
+
 #[test]
-fn proof_reconstruct() {
+fn proof_verify_simple() {
     let proof = [
         Op::Push(Node::KV(vec![0], vec![123])),
         Op::Push(Node::KV(vec![1], vec![123])),
@@ -222,11 +347,21 @@ fn proof_reconstruct() {
         Op::Push(Node::KV(vec![4], vec![123])),
         Op::Push(Node::KV(vec![5], vec![123])),
         Op::Child,
-        Op::Parent
+        Op::Child
     ];
 
-    let tree = reconstruct(&proof).unwrap();
-    println!("{:?}", tree);
+    let entries = verify(
+        &[41, 29, 90, 208, 171, 38, 227, 53, 179, 107, 233, 53, 159, 150, 22, 13, 108, 150, 150, 215],
+        &proof
+    ).unwrap();
+    assert_eq!(entries, vec![
+        (vec![0], vec![123]),
+        (vec![1], vec![123]),
+        (vec![2], vec![123]),
+        (vec![3], vec![123]),
+        (vec![4], vec![123]),
+        (vec![5], vec![123])
+    ]);
 }
 
 #[test]
