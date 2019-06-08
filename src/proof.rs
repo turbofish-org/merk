@@ -4,6 +4,7 @@ use crate::*;
 
 const MAX_STACK_SIZE: usize = 50;
 
+#[derive(Serialize, Deserialize)]
 pub enum Op {
   Push(Node),
   Parent,
@@ -22,35 +23,48 @@ impl fmt::Debug for Op {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum Node {
-  Data { key: Vec<u8>, value: Vec<u8> },
-  Hash { left: bool, child_hash: Hash, kv_hash: Hash }
+    Hash(Hash),
+    KVHash(Hash),
+    KV(Vec<u8>, Vec<u8>)
+    // TODO: fourth variant: (key, hash of value)
+    //       requires changing hashing scheme to kv_hash = H(key, H(value)),
+    //       to prevent sending long values in boundary nodes
 }
 
 impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Node::Data {key, value} => {
+            Node::Hash(hash) => {
+                write!(f, "(hash={})", hex::encode(&hash[..6]))
+            },
+            Node::KVHash(kv_hash) => {
+                write!(f, "(kv_hash={})", hex::encode(&kv_hash[..6]))
+            },
+            Node::KV(key, value) => {
                 write!(
-                    f,
-                    "({}: {})",
+                    f, "({}: {})",
                     String::from_utf8(key.to_vec())
                         .unwrap_or_else(|_| format!("{:?}", key)),
                     String::from_utf8(value.to_vec())
                         .unwrap_or_else(|_| format!("{:?}", value))
                 )
-            },
-            Node::Hash {left, child_hash, kv_hash} => {
-                write!(
-                    f,
-                    "({}={} kv={})",
-                    if *left { "left" } else { "right" },
-                    hex::encode(&child_hash[..6]),
-                    hex::encode(&kv_hash[..6])
-                )
             }
         }
     }
+}
+
+pub struct Tree {
+    pub node: Node,
+    pub left: Option<Box<Tree>>,
+    pub right: Option<Box<Tree>>
+}
+
+impl Tree {
+    // pub fn new(node: Node) -> Tree {
+        
+    // }
 }
 
 pub fn create(
@@ -67,10 +81,10 @@ pub fn create(
     let mut child_stack: Vec<Vec<u8>> = vec![];
     let mut parent_stack = vec![];
     store.map_range(start, end, &mut |node| {
-        let op = Op::Push(Node::Data {
-            key: node.key.clone(),
-            value: node.value.clone()
-        });
+        let op = Op::Push(Node::KV(
+            node.key.clone(),
+            node.value.clone()
+        ));
         proof.push(op);
 
         let mut key = node.key.clone();
@@ -112,7 +126,13 @@ pub fn reconstruct(proof: &[Op]) -> Result<SparseTree> {
     for op in proof {
         match op {
             Op::Push(node) => match node {
-                Node::Data { key, value } => {
+                Node::Hash(hash) => {
+                    panic!("hash nodes not yet handled");
+                },
+                Node::KVHash(kv_hash) => {
+                    panic!("kv_hash nodes not yet handled");
+                },
+                Node::KV(key, value) => {
                     if stack.len() >= MAX_STACK_SIZE {
                         bail!("Stack exceeded maximum size");
                     }
@@ -128,9 +148,6 @@ pub fn reconstruct(proof: &[Op]) -> Result<SparseTree> {
                         crate::Node::new(&key, &value)
                     );
                     stack.push(tree);
-                },
-                Node::Hash { left, child_hash, kv_hash } => {
-                    panic!("hash nodes not yet handled");
                 }
             },
             Op::Parent => {
@@ -139,7 +156,6 @@ pub fn reconstruct(proof: &[Op]) -> Result<SparseTree> {
                 if top.left.is_some() {
                     bail!("Got PARENT op for node that already has left child");
                 }
-
                 let bottom = stack.pop()
                     .expect("Expected node on stack");
 
@@ -168,9 +184,14 @@ pub fn reconstruct(proof: &[Op]) -> Result<SparseTree> {
 
     assert_eq!(
         stack.len(), 1,
-        "Proof resulted in multiple disjoint trees"
+        "Proof must end with exactly one tree"
     );
     Ok(stack.pop().unwrap())
+}
+
+pub fn encode(proof: &[Op]) -> Result<Vec<u8>> {
+    let bytes = bincode::serialize(proof)?;
+    Ok(bytes)
 }
 
 #[test]
@@ -178,40 +199,52 @@ fn proof_debug() {
     let debug = format!("{:?}", &[
         Op::Child,
         Op::Parent,
-        Op::Push(Node::Data{
-            key: vec![1,2,3],
-            value: vec![4,5,6]
-        }),
-        Op::Push(Node::Hash{
-            left: true,
-            child_hash: [1; HASH_LENGTH],
-            kv_hash: [2; HASH_LENGTH]
-        }),
-        Op::Push(Node::Hash{
-            left: false,
-            child_hash: [3; HASH_LENGTH],
-            kv_hash: [4; HASH_LENGTH]
-        })
+        Op::Push(Node::KV(
+            vec![1,2,3],
+            vec![4,5,6]
+        )),
+        Op::Push(Node::Hash([1; HASH_LENGTH])),
+        Op::Push(Node::KVHash([2; HASH_LENGTH]))
     ]);
-    assert_eq!(debug, "[CHILD, PARENT, PUSH(\u{1}\u{2}\u{3}: \u{4}\u{5}\u{6}), PUSH(left=010101010101 kv=020202020202), PUSH(right=030303030303 kv=040404040404)]");
+    assert_eq!(debug, "[CHILD, PARENT, PUSH(\u{1}\u{2}\u{3}: \u{4}\u{5}\u{6}), PUSH(hash=010101010101), PUSH(kv_hash=020202020202)]");
 }
 
 #[test]
 fn proof_reconstruct() {
     let proof = [
-        Op::Push(Node::Data { key: vec![0], value: vec![123] }),
-        Op::Push(Node::Data { key: vec![1], value: vec![123] }),
+        Op::Push(Node::KV(vec![0], vec![123])),
+        Op::Push(Node::KV(vec![1], vec![123])),
         Op::Parent,
-        Op::Push(Node::Data { key: vec![2], value: vec![123] }),
+        Op::Push(Node::KV(vec![2], vec![123])),
         Op::Child,
-        Op::Push(Node::Data { key: vec![3], value: vec![123] }),
+        Op::Push(Node::KV(vec![3], vec![123])),
         Op::Parent,
-        Op::Push(Node::Data { key: vec![4], value: vec![123] }),
-        Op::Push(Node::Data { key: vec![5], value: vec![123] }),
+        Op::Push(Node::KV(vec![4], vec![123])),
+        Op::Push(Node::KV(vec![5], vec![123])),
         Op::Child,
         Op::Parent
     ];
 
     let tree = reconstruct(&proof).unwrap();
     println!("{:?}", tree);
+}
+
+#[test]
+fn proof_encode() {
+    let proof = [
+        Op::Push(Node::KV(vec![0], vec![123])),
+        Op::Push(Node::KV(vec![1], vec![123])),
+        Op::Parent,
+        Op::Push(Node::KV(vec![2], vec![123])),
+        Op::Child,
+        Op::Push(Node::KV(vec![3], vec![123])),
+        Op::Parent,
+        Op::Push(Node::KV(vec![4], vec![123])),
+        Op::Push(Node::KV(vec![5], vec![123])),
+        Op::Child,
+        Op::Parent
+    ];
+
+    let bytes = encode(&proof).unwrap();
+    println!("{}", hex::encode(bytes));
 }
