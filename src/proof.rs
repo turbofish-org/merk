@@ -130,17 +130,6 @@ pub fn create(
         ));
         proof.push(op);
 
-        let mut key = node.key.clone();
-        while let Some(pop_key) = child_stack.last() {
-            if &key == pop_key {
-                proof.push(Op::Child);
-                child_stack.pop();
-                key = parent_stack.pop().unwrap();
-            } else {
-                break;
-            }
-        }
-
         if let Some(prev_key) = &prev_key {
             // TODO: only emit Parent op if child is in range
             if let Some(left_child) = &node.left {
@@ -149,6 +138,17 @@ pub fn create(
                     "Expected left child to be previous node"
                 );
                 proof.push(Op::Parent);
+            }
+        }
+
+        let mut key = node.key.clone();
+        while let Some(pop_key) = child_stack.last() {
+            if key == *pop_key {
+                proof.push(Op::Child);
+                child_stack.pop();
+                key = parent_stack.pop().unwrap();
+            } else {
+                break;
             }
         }
 
@@ -170,7 +170,6 @@ pub fn verify(expected_hash: &Hash, proof: &[Op]) -> Result<Vec<(Vec<u8>, Vec<u8
         Vec::with_capacity(MAX_STACK_SIZE / 2);
     let mut entries: Vec<(Vec<u8>, Vec<u8>)> =
         Vec::with_capacity(proof.len() / 2);
-    let mut prev_key = None;
 
     for op in proof {
         match op {
@@ -180,12 +179,11 @@ pub fn verify(expected_hash: &Hash, proof: &[Op]) -> Result<Vec<(Vec<u8>, Vec<u8
                 }
 
                 if let Node::KV(key, value) = &node {
-                    if let Some(prev_key) = &prev_key {
+                    if let Some((prev_key, _)) = entries.last() {
                         if key <= prev_key {
                             bail!("Invalid key ordering");
                         }
                     }
-                    prev_key = Some(key.clone());
                     entries.push((key.clone(), value.clone()));
                 }
 
