@@ -11,6 +11,51 @@ pub const NULL_HASH: Hash = [0; HASH_LENGTH];
 
 pub type Hash = [u8; HASH_LENGTH];
 
+pub fn kv_hash(key: &[u8], value: &[u8]) -> Hash {
+    // TODO: result instead of panic
+    // TODO: make generic to allow other hashers
+    let mut hasher = Blake2b::new(HASH_LENGTH);
+
+    // panics if key is longer than 255!
+    let key_length = u8::try_from(key.len())
+        .expect("key must be less than 256 bytes");
+    hasher.update(&key_length.to_be_bytes());
+    hasher.update(&key);
+
+    // panics if value is longer than 65535!
+    let val_length = u16::try_from(value.len())
+        .expect("value must be less than 65,536 bytes");
+    hasher.update(&val_length.to_be_bytes());
+    hasher.update(&value);
+
+    let res = hasher.finalize();
+    let mut hash: Hash = Default::default();
+    // TODO: if blake2 lib returned an array we wouldn't need this copy
+    hash.copy_from_slice(res.as_bytes());
+    hash
+}
+
+pub fn hash(kv: &Hash, left: Option<&Hash>, right: Option<&Hash>) -> Hash {
+    // TODO: make generic to allow other hashers
+    let mut hasher = Blake2b::new(HASH_LENGTH);
+
+    hasher.update(kv);
+    hasher.update(match left {
+        Some(left) => left,
+        None => &NULL_HASH,
+    });
+    hasher.update(match right {
+        Some(right) => right,
+        None => &NULL_HASH,
+    });
+
+    let res = hasher.finalize();
+    let mut hash: Hash = Default::default();
+    // TODO: if blake2 lib returned an array we wouldn't need this copy
+    hash.copy_from_slice(res.as_bytes());
+    hash
+}
+
 /// Represents a reference to another tree node.
 ///
 /// Note that the referenced node is not necessarily
@@ -47,7 +92,7 @@ pub struct Node {
     pub value: Vec<u8>,
     pub kv_hash: Hash,
     pub left: Option<Link>,
-    pub right: Option<Link>,
+    pub right: Option<Link>
 }
 
 /// Replaces the value of a `Vec<T>` by cloning into it,
@@ -81,41 +126,15 @@ impl Node {
     }
 
     pub fn update_kv_hash(&mut self) {
-        // TODO: make generic to allow other hashers
-        let mut hasher = Blake2b::new(HASH_LENGTH);
-
-        // panics if key is longer than 255!
-        let key_length = u8::try_from(self.key.len())
-            .expect("key must be less than 256 bytes");
-        hasher.update(&key_length.to_be_bytes());
-        hasher.update(&self.key);
-
-        // panics if value is longer than 65535!
-        let val_length = u16::try_from(self.value.len())
-            .expect("value must be less than 65,536 bytes");
-        hasher.update(&val_length.to_be_bytes());
-        hasher.update(&self.value);
-
-        let res = hasher.finalize();
-        self.kv_hash.copy_from_slice(res.as_bytes());
+        self.kv_hash = kv_hash(&self.key, &self.value);
     }
 
     pub fn hash(&self) -> Hash {
-        // TODO: make generic to allow other hashers
-        let mut hasher = Blake2b::new(HASH_LENGTH);
-        hasher.update(&self.kv_hash);
-        hasher.update(match &self.left {
-            Some(left) => &(left.hash),
-            None => &NULL_HASH,
-        });
-        hasher.update(match &self.right {
-            Some(right) => &(right.hash),
-            None => &NULL_HASH,
-        });
-        let res = hasher.finalize();
-        let mut hash: Hash = Default::default();
-        hash.copy_from_slice(res.as_bytes());
-        hash
+       hash(
+           &self.kv_hash,
+           self.left.as_ref().map(|l| &l.hash),
+           self.right.as_ref().map(|r| &r.hash)
+        ) 
     }
 
     #[inline]
