@@ -141,9 +141,24 @@ impl Merk {
         Ok(())
     }
 
+    pub fn map_branch<F: FnMut(&Node)>(
+        &mut self,
+        key: &[u8],
+        f: &mut F
+    ) -> Result<()> {
+        let tree_mut = self.tree.as_mut().map(|b| b.as_mut());
+
+        let db = &self.db;
+        let mut get_node = |link: &Link| -> Result<Node> {
+            get_node(db, &link.key)
+        };
+
+        SparseTree::map_branch(tree_mut, &mut get_node, key, f)
+    }
+
     #[inline]
     pub fn proof(
-        &self,
+        &mut self,
         start: &[u8],
         end: &[u8]
     ) -> Result<Vec<proof::Op>> {
