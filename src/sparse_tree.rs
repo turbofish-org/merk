@@ -246,7 +246,7 @@ impl SparseTree {
             // promote edge of taller child
             let left = tree.child_height(true) > tree.child_height(false);
             let mut tall_child = tree.child_container_mut(left).take();
-            if let Some(_) = tall_child {
+            if tall_child.is_some() {
                 let edge = SparseTree::remove_edge(&mut tall_child, get_node, !left)?.unwrap();
                 self_container.replace(edge);
 
@@ -289,7 +289,7 @@ impl SparseTree {
 
                 // promote edge's child if it exists
                 let tree = tree_container.as_mut().unwrap(); 
-                if let Some(_) = tree.maybe_get_child(get_node, !left)? {
+                if tree.maybe_get_child(get_node, !left)?.is_some() {
                     *self_container = tree.child_container_mut(!left).take();
                     tree.update_link(!left);
                 }
@@ -324,6 +324,42 @@ impl SparseTree {
             right.load_all(get_node)?;
         }
         Ok(())
+    }
+
+    pub fn map_branch<F: FnMut(&Node)>(
+        tree: Option<&mut SparseTree>,
+        get_node: &mut dyn GetNodeFn,
+        key: &[u8],
+        f: &mut F
+    ) -> Result<()> {
+        fn traverse<F: FnMut(&Node)>(
+            tree: Option<&mut SparseTree>,
+            get_node: &mut dyn GetNodeFn,
+            key: &[u8],
+            f: &mut F
+        ) -> Result<()> {
+            let tree = match tree {
+                None => return Ok(()),
+                Some(tree) => tree
+            };
+
+            f(tree.node());
+
+            if tree.key == key {
+                // found target, return
+                Ok(())
+            } else if &tree.key[..] < key {
+                // try to descend to right child
+                tree.maybe_get_child(get_node, false)?;
+                Ok(())
+            } else {
+                // try to descend to left child
+                tree.maybe_get_child(get_node, true)?;
+                Ok(())
+            }
+        }
+
+        traverse(tree, get_node, key, f)
     }
 
     #[inline]
