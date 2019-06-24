@@ -14,12 +14,12 @@ pub struct Worker {
     output: Receiver<Response>
 }
 
-enum Request {
+pub enum Request {
     Apply,
     Kill
 }
 
-enum Response {
+pub enum Response {
     Apply
 }
 
@@ -37,7 +37,7 @@ impl Worker {
 
             loop {
                 // block until we have work to do
-                let req = input.recv().expect("abc");
+                let req = input.recv().unwrap();
                 
                 match req {
                     Request::Apply => {
@@ -57,9 +57,9 @@ impl Worker {
         }
     }
 
-    pub fn exec(&self) -> Response {
-        self.input.send(Request::Apply).unwrap();
-        self.output.recv().unwrap()
+    pub fn exec(&self) -> Result<Response> {
+        self.input.send(Request::Apply)?;
+        Ok(self.output.recv()?)
     }
 }
 
