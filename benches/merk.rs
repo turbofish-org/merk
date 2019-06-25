@@ -22,7 +22,7 @@ fn bench_put_insert_random(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(&value)));
+            batch.push((&key[..], Op::Put(&value)));
         }
 
         merk.apply_unchecked(&batch).unwrap();
@@ -40,7 +40,7 @@ fn bench_put_insert_random(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(&value)));
+            batch.push((&key[..], Op::Put(&value)));
         }
 
         merk.apply_unchecked(&batch).unwrap();
@@ -69,7 +69,7 @@ fn bench_put_update_random(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(&value)));
+            batch.push((&key[..], Op::Put(&value)));
         }
 
         merk.apply_unchecked(&batch).unwrap();
@@ -85,7 +85,7 @@ fn bench_put_update_random(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(&value)));
+            batch.push((&key[..], Op::Put(&value)));
         }
 
         merk.apply_unchecked(&batch).unwrap();
@@ -114,7 +114,7 @@ fn bench_delete_random(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(&value)));
+            batch.push((&key[..], Op::Put(&value)));
         }
 
         merk.apply_unchecked(&batch).unwrap();
@@ -130,7 +130,7 @@ fn bench_delete_random(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Delete));
+            batch.push((&key[..], Op::Delete));
         }
 
         merk.apply_unchecked(&batch).unwrap();
@@ -160,7 +160,7 @@ fn bench_get_random(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(&value)));
+            batch.push((&key[..], Op::Put(&value)));
         }
 
         merk.apply_unchecked(&batch).unwrap();
@@ -192,7 +192,7 @@ fn bench_put_insert_sequential(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(&value)));
+            batch.push((&key[..], Op::Put(&value)));
         }
 
         merk.apply_unchecked(&batch).unwrap();
@@ -210,7 +210,7 @@ fn bench_put_insert_sequential(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(&value)));
+            batch.push((&key[..], Op::Put(&value)));
         }
 
         merk.apply_unchecked(&batch).unwrap();
@@ -239,7 +239,7 @@ fn bench_put_update_sequential(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(&value)));
+            batch.push((&key[..], Op::Put(&value)));
         }
 
         merk.apply_unchecked(&batch).unwrap();
@@ -255,7 +255,7 @@ fn bench_put_update_sequential(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(&value)));
+            batch.push((&key[..], Op::Put(&value)));
         }
 
         merk.apply_unchecked(&batch).unwrap();
@@ -284,7 +284,7 @@ fn bench_get_sequential(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(&value)));
+            batch.push((&key[..], Op::Put(&value)));
         }
 
         merk.apply_unchecked(&batch).unwrap();
@@ -317,7 +317,7 @@ fn bench_delete_sequential(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(&value)));
+            batch.push((&key[..], Op::Put(&value)));
         }
 
         merk.apply_unchecked(&batch).unwrap();
@@ -333,7 +333,7 @@ fn bench_delete_sequential(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Delete));
+            batch.push((&key[..], Op::Delete));
         }
 
         merk.apply_unchecked(&batch).unwrap();

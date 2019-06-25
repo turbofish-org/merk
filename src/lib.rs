@@ -1,5 +1,4 @@
 #![feature(trait_alias)]
-#![feature(try_from)]
 
 #[macro_use]
 extern crate error_chain;
@@ -13,16 +12,15 @@ extern crate num_cpus;
 extern crate rocksdb;
 extern crate serde;
 
+mod test_util;
+mod ops;
+mod proof;
+mod tree;
 mod error;
 mod merk;
-mod node;
-mod sparse_tree;
-mod context;
-mod worker;
-pub mod proof;
 
 // collect all internal module exports and re-export as root module
 pub use crate::error::*;
 pub use crate::merk::*;
-pub use crate::node::*;
-pub use crate::sparse_tree::*;
+pub use crate::tree::*;
+pub use crate::proof::*;

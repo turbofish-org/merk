@@ -7,7 +7,7 @@ use merk::*;
 #[bench]
 fn bench_batch_insert_2k(b: &mut test::Bencher) {
     let mut tree = Some(Box::new(
-        SparseTree::new(Node::new(b"0", b"x"))
+        Tree::new(Node::new(b"0", b"x"))
     ));
 
     let mut i = 0;
@@ -19,10 +19,10 @@ fn bench_batch_insert_2k(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(b"x")));
+            batch.push((&key[..], Op::Put(b"x")));
         }
 
-        SparseTree::apply(
+        Tree::apply(
             &mut tree,
             // we build from scratch in this test, so we never call get_node
             &mut |_| unreachable!(),
@@ -37,7 +37,7 @@ fn bench_batch_insert_2k(b: &mut test::Bencher) {
 #[bench]
 fn bench_batch_update_2k(b: &mut test::Bencher) {
     let mut tree = Some(Box::new(
-        SparseTree::new(Node::new(b"0", b"x"))
+        Tree::new(Node::new(b"0", b"x"))
     ));
 
     for i in 0..100 {
@@ -48,10 +48,10 @@ fn bench_batch_update_2k(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(b"x")));
+            batch.push((&key[..], Op::Put(b"x")));
         }
 
-        SparseTree::apply(
+        Tree::apply(
             &mut tree,
             // we build from scratch in this test, so we never call get_node
             &mut |_| unreachable!(),
@@ -69,10 +69,10 @@ fn bench_batch_update_2k(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(b"x")));
+            batch.push((&key[..], Op::Put(b"x")));
         }
 
-        SparseTree::apply(
+        Tree::apply(
             &mut tree,
             // we build from scratch in this test, so we never call get_node
             &mut |_| unreachable!(),
@@ -87,7 +87,7 @@ fn bench_batch_update_2k(b: &mut test::Bencher) {
 #[bench]
 fn bench_batch_delete_2k(b: &mut test::Bencher) {
     let mut tree = Some(Box::new(
-        SparseTree::new(Node::new(b"0", b"x"))
+        Tree::new(Node::new(b"0", b"x"))
     ));
 
     for i in 0..1_000 {
@@ -98,10 +98,10 @@ fn bench_batch_delete_2k(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Put(b"x")));
+            batch.push((&key[..], Op::Put(b"x")));
         }
 
-        SparseTree::apply(
+        Tree::apply(
             &mut tree,
             // we build from scratch in this test, so we never call get_node
             &mut |_| unreachable!(),
@@ -119,10 +119,10 @@ fn bench_batch_delete_2k(b: &mut test::Bencher) {
 
         let mut batch: Vec<TreeBatchEntry> = vec![];
         for key in keys.iter() {
-            batch.push((&key[..], TreeOp::Delete));
+            batch.push((&key[..], Op::Delete));
         }
 
-        SparseTree::apply(
+        Tree::apply(
             &mut tree,
             // we build from scratch in this test, so we never call get_node
             &mut |_| unreachable!(),

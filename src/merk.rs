@@ -2,15 +2,15 @@ use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
-use crate::node::{Link, Node};
-use crate::sparse_tree::{SparseTree, TreeBatch};
-use crate::proof;
+use crate::tree::*;
+// use crate::proof;
+use crate::ops;
 
 const ROOT_KEY_KEY: [u8; 6] = *b"\00root";
 
 /// A handle to a Merkle key/value store backed by RocksDB.
 pub struct Merk {
-    pub tree: Option<Box<SparseTree>>,
+    pub tree: Option<Box<Tree>>,
     db: rocksdb::DB,
     path: PathBuf,
 }
@@ -26,7 +26,7 @@ impl Merk {
         let tree = match db.get_pinned(ROOT_KEY_KEY)? {
             Some(root_key) => {
                 let root_node = get_node(&db, &root_key)?;
-                Some(Box::new(SparseTree::new(root_node)))
+                Some(Box::new(Tree::new(root_node)))
             },
             None => None
         };
@@ -39,7 +39,7 @@ impl Merk {
         Ok(node.value)
     }
 
-    pub fn apply(&mut self, batch: &mut TreeBatch) -> Result<()> {
+    pub fn apply(&mut self, batch: &mut ops::Batch) -> Result<()> {
         let db = &self.db;
         let mut get_node = |link: &Link| -> Result<Node> {
             get_node(db, &link.key)
@@ -59,20 +59,20 @@ impl Merk {
         }
 
         // apply tree operations, setting resulting root node in self.tree
-        SparseTree::apply(&mut self.tree, &mut get_node, batch)?;
+        // Tree::apply(&mut self.tree, &mut get_node, batch)?;
 
         // commit changes to db
         self.commit()
     }
 
-    pub fn apply_unchecked(&mut self, batch: &TreeBatch) -> Result<()> {
+    pub fn apply_unchecked(&mut self, batch: &ops::Batch) -> Result<()> {
         let db = &self.db;
         let mut get_node = |link: &Link| -> Result<Node> {
             get_node(db, &link.key)
         };
 
         // apply tree operations, setting resulting root node in self.tree
-        SparseTree::apply(&mut self.tree, &mut get_node, batch)?;
+        // Tree::apply(&mut self.tree, &mut get_node, batch)?;
 
         // commit changes to db
         self.commit()
@@ -90,10 +90,10 @@ impl Merk {
 
         if let Some(tree) = &mut self.tree {
             // get nodes to flush to disk
-            let modified = tree.modified()?;
-            for (key, value) in modified {
-                batch.put(key, value)?;
-            }
+            // let modified = tree.modified()?;
+            // for (key, value) in modified {
+            //     batch.put(key, value)?;
+            // }
 
             // update pointer to root node
             batch.put(ROOT_KEY_KEY, &tree.key)?;
@@ -153,17 +153,17 @@ impl Merk {
             get_node(db, &link.key)
         };
 
-        SparseTree::map_branch(tree_mut, &mut get_node, key, f)
+        Tree::map_branch(tree_mut, &mut get_node, key, f)
     }
 
-    #[inline]
-    pub fn proof(
-        &mut self,
-        start: &[u8],
-        end: &[u8]
-    ) -> Result<Vec<proof::Op>> {
-        proof::create(self, start, end)
-    }
+    // #[inline]
+    // pub fn proof(
+    //     &mut self,
+    //     start: &[u8],
+    //     end: &[u8]
+    // ) -> Result<Vec<proof::Op>> {
+    //     proof::create(self, start, end)
+    // }
 }
 
 fn get_node(db: &rocksdb::DB, key: &[u8]) -> Result<Node> {

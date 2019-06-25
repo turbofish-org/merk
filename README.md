@@ -38,10 +38,10 @@ let mut merk = Merk::open("./merk.db").unwrap();
 
 // apply some operations
 let mut batch: Vec<TreeBatchEntry> = vec![
-    (b"key", TreeOp::Put(b"value")),
-    (b"key2", TreeOp::Put(b"value2")),
-    (b"key3", TreeOp::Put(b"value3")),
-    (b"key4", TreeOp::Delete)
+    (b"key", Op::Put(b"value")),
+    (b"key2", Op::Put(b"value2")),
+    (b"key3", Op::Put(b"value3")),
+    (b"key4", Op::Delete)
 ];
 merk.apply(&mut batch).unwrap();
 ```

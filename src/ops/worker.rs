@@ -29,8 +29,7 @@ impl Worker {
         let (output_tx, output_rx) = sync_channel::<Response>(0);
 
         let handle = thread::spawn(move || {
-            // TODO: open db
-            // TODO: make GetNodeFn
+            // TODO: call a setup function, which gives us a GetNodeFn
 
             let input = input_rx;
             let output = output_tx;
