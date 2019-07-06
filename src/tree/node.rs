@@ -14,7 +14,7 @@ use super::hash::*;
 pub struct Link {
     pub key: Vec<u8>,
     pub hash: Hash,
-    pub height: u8,
+    pub height: u8
 }
 
 impl fmt::Debug for Link {

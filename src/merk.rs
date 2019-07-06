@@ -107,12 +107,6 @@ impl Merk {
         opts.set_sync(false);
         self.db.write_opt(batch, &opts)?;
 
-        if let Some(tree) = &mut self.tree {
-            // clear tree so it only contains the root node
-            // TODO: strategies for persisting nodes in memory
-            tree.prune();
-        }
-
         Ok(())
     }
 
@@ -141,20 +135,20 @@ impl Merk {
         Ok(())
     }
 
-    pub fn map_branch<F: FnMut(&Node)>(
-        &mut self,
-        key: &[u8],
-        f: &mut F
-    ) -> Result<()> {
-        let tree_mut = self.tree.as_mut().map(|b| b.as_mut());
+    // pub fn map_branch<F: FnMut(&Node)>(
+    //     &mut self,
+    //     key: &[u8],
+    //     f: &mut F
+    // ) -> Result<()> {
+    //     let tree_mut = self.tree.as_mut().map(|b| b.as_mut());
 
-        let db = &self.db;
-        let mut get_node = |link: &Link| -> Result<Node> {
-            get_node(db, &link.key)
-        };
+    //     let db = &self.db;
+    //     let mut get_node = |link: &Link| -> Result<Node> {
+    //         get_node(db, &link.key)
+    //     };
 
-        Tree::map_branch(tree_mut, &mut get_node, key, f)
-    }
+    //     Tree::map_branch(tree_mut, &mut get_node, key, f)
+    // }
 
     // #[inline]
     // pub fn proof(
