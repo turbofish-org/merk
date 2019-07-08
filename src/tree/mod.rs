@@ -28,7 +28,7 @@ pub struct TreeInner {
     node: Node,
     left: Option<Tree>,
     right: Option<Tree>,
-    updated: bool
+    pending_writes: u64
 }
 deref!(TreeInner, Node, node);
 
@@ -46,7 +46,7 @@ impl Tree {
                 node,
                 left: None,
                 right: None,
-                updated: false
+                pending_writes: 1
             })
         }
     }
@@ -61,27 +61,47 @@ impl Tree {
         let link = child.as_ref().map(|c| c.as_link());
         self.node.set_child(left, link);
 
-        self.updated = true;
+        self.update_pending_writes();
 
         self
     }
 
     pub fn detach(mut self, left: bool) -> (Tree, Option<Tree>) {
         let slot = self.child_slot_mut(left);
-        if slot.is_some() {
-            self.updated = true;
-        }
         self.node.set_child(left, None);
+        self.update_pending_writes();
         (self, slot.take())
     }
 
+    fn update_pending_writes(&mut self) {
+        self.pending_writes = 1;
+
+        if let Some(left) = self.left {
+            self.pending_writes += left.pending_writes;
+        }
+
+        if let Some(right) = self.right {
+            self.pending_writes += right.pending_writes;
+        }
+    }
+
     #[inline]
-    fn child_slot_mut(&mut self, left: bool) -> &mut Option<Tree> {
+    pub fn child_slot_mut(&mut self, left: bool) -> &mut Option<Tree> {
         if left {
             &mut self.left
         } else {
             &mut self.right
         }
+    }
+
+    #[inline]
+    pub fn node(&self) -> &Node {
+        &self.node
+    }
+
+    #[inline]
+    pub fn node_mut(&mut self) -> &mut Node {
+        &mut self.node
     }
 }
 
