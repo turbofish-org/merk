@@ -169,42 +169,40 @@ impl Tree {
         self,
         get_node: &Box<dyn Fn(&[u8]) -> Result<Node>>
     ) -> Result<Tree> {
-        // return early if we don't need to balance
         let balance_factor = self.balance_factor();
         if balance_factor.abs() <= 1 {
             return Ok(self);
         }
 
-        // get child. (this child should always be Some: if the tree is
-        // unbalanced in this direction then a child must exist)
         let left = balance_factor < 0;
-        let child_balance_factor = match self.child(left, get_node)? {
-            None => unreachable!("child must exist"),
-            Some(child) => child.balance_factor()
-        };
+        let (parent, child) = self.walk_expect(left, get_node)?;
 
         // maybe do a double rotation
-        if left == (child_balance_factor > 0) {
-            // rotate child opposite direction, then update link
-            let child = child
-                .rotate(!left, get_node)?
-                .maybe_balance(get_node)?;
-            tree = tree.attach(left, child);
-        }
+        let child = match left == (child.balance_factor() > 0) {
+            true => child.rotate(!left, get_node)?,
+            false => child
+        };
 
-        // do the rotation
-        SparseTree::rotate(self_container, get_node, left)?;
-        let tree = self_container.as_mut()
-            .expect("container must not be empty");
+        parent.rotate(left, get_node)
+    }
 
-        // rebalance recursively if necessary
-        tree.maybe_get_child(get_node, !left)?;
-        let child_container = tree.child_container_mut(!left);
-        SparseTree::maybe_rebalance(child_container, get_node)?;
-        tree.update_link(!left);
+    fn rotate(
+        self,
+        left: bool,
+        get_node: &Box<dyn Fn(&[u8]) -> Result<Node>>
+    ) -> Result<Tree> {
+        let (tree, child) = self.walk_expect(left, get_node)?;
+        let (child, maybe_grandchild) = child.walk(!left, get_node)?;
 
-        // continue if still unbalanced
-        self.maybe_balance(get_node)
+        // attach grandchild to self
+        let tree = self
+            .attach(left, maybe_grandchild)
+            .maybe_balance(get_node)?;
+
+        // attach self to child, return child
+        child
+            .attach(!left, Some(tree))
+            .maybe_balance(get_node)
     }
 
     fn build(ctx: Context) -> Result<Option<Tree>> {
