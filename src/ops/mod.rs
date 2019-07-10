@@ -99,7 +99,7 @@ impl Tree {
     }
 
     fn recurse(
-        self,
+        mut self,
         ctx: Context,
         mid: usize,
         exclusive: bool
@@ -112,22 +112,13 @@ impl Tree {
 
         let tree = match (left_batch.is_empty(), right_batch.is_empty()) {
             // batches are empty, don't recurse
-            (true, true) => self,
+            (true, true) => self.unwrap(),
             
-            // only left batch is not empty
-            (false, true) => {
-                self.child(true, &ctx.get_node)?;
-                let (tree, left) = self.detach(true);
-                let left = apply_or_build(left, ctx.with_batch(left_batch))?;
-                tree.attach(true, left)
-            },
-
-            // only right batch is not empty
-            (true, false) => {
-                self.child(false, &ctx.get_node)?;
-                let (tree, right) = self.detach(false);
-                let right = apply_or_build(right, ctx.with_batch(right_batch))?;
-                tree.attach(false, right)
+            // a single side is not empty
+            (left_ne, right_ne) if left_ne != right_ne => {
+                let maybe_child = self.walk_mut(right_ne)?;
+                let left = apply_or_build(maybe_child, ctx.with_batch(left_batch))?;
+                self.unwrap().attach(true, right_ne)
             },
 
             // both contexts are not empty
@@ -140,14 +131,12 @@ impl Tree {
                 let (left_pool, right_pool) = ctx.pool.split_at(left_pool_len);
 
                 // start working on right side in parallel
-                self.child(false, &ctx.get_node)?;
-                let (tree, right_tree) = self.detach(false);
-                let right_join = right_pool.apply(right_batch, right_tree);
+                let maybe_right = self.walk_mut(false)?;
+                let right_join = right_pool.apply(right_batch, maybe_right);
 
                 // work on left side in this thread
-                self.child(true, &ctx.get_node)?;
-                let (tree, left_tree) = tree.detach(true);
-                let left = apply_or_build(left_tree, Context {
+                let maybe_left = self.walk_mut(true)?;
+                let left = apply_or_build(maybe_left, Context {
                     batch: left_batch,
                     pool: left_pool,
                     get_node: ctx.get_node
@@ -156,9 +145,9 @@ impl Tree {
                 // join with right side
                 let right = right_join();
                 
-                tree
+                self.unwrap()
                     .attach(true, left)
-                    .attach(false, right);
+                    .attach(false, right)
             }
         };
 
@@ -166,7 +155,7 @@ impl Tree {
     }
 
     fn maybe_balance(
-        self,
+        mut self,
         get_node: &Box<dyn Fn(&[u8]) -> Result<Node>>
     ) -> Result<Tree> {
         let balance_factor = self.balance_factor();
@@ -175,7 +164,7 @@ impl Tree {
         }
 
         let left = balance_factor < 0;
-        let (parent, child) = self.walk_expect(left, get_node)?;
+        let child = self.walk_mut_expect(left, get_node)?;
 
         // maybe do a double rotation
         let child = match left == (child.balance_factor() > 0) {
@@ -183,26 +172,28 @@ impl Tree {
             false => child
         };
 
-        parent.rotate(left, get_node)
+        self.rotate(left, get_node)?;
+        self
     }
 
     fn rotate(
-        self,
+        mut self,
         left: bool,
         get_node: &Box<dyn Fn(&[u8]) -> Result<Node>>
     ) -> Result<Tree> {
-        let (tree, child) = self.walk_expect(left, get_node)?;
-        let (child, maybe_grandchild) = child.walk(!left, get_node)?;
+        let mut child = self.walk_mut_expect(left, get_node)?;
+        let maybe_grandchild = child.walk_mut(!left, get_node)?;
 
         // attach grandchild to self
-        let tree = self
+        self
             .attach(left, maybe_grandchild)
             .maybe_balance(get_node)?;
 
         // attach self to child, return child
         child
-            .attach(!left, Some(tree))
-            .maybe_balance(get_node)
+            .attach(!left, Some(self))
+            .maybe_balance(get_node)?;
+        child
     }
 
     fn build(ctx: Context) -> Result<Option<Tree>> {
