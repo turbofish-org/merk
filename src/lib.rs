@@ -12,12 +12,15 @@ extern crate num_cpus;
 extern crate rocksdb;
 extern crate serde;
 
+mod util;
+
 mod test_util;
 mod ops;
 mod proof;
 mod tree;
 mod error;
 mod merk;
+mod fetch;
 
 // collect all internal module exports and re-export as root module
 pub use crate::error::*;

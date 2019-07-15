@@ -1,34 +1,20 @@
 mod hash;
 mod node;
+mod walk;
+mod build;
 
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
+use crate::util;
 pub use node::*;
-
-macro_rules! deref {
-    ($outer:ty, $inner:ty, $name:ident) => {
-        impl Deref for $outer {
-            type Target = $inner;
-
-            fn deref(&self) -> &$inner {
-                &self.$name
-            }
-        }
-
-        impl DerefMut for $outer {
-            fn deref_mut(&mut self) -> &mut $inner {
-                &mut self.$name
-            }
-        }
-    };
-}
+pub use walk::{Walk, WalkMut};
+pub use build::Build;
 
 pub struct TreeInner {
     node: Node,
     left: Option<Tree>,
-    right: Option<Tree>,
-    pending_writes: u64
+    right: Option<Tree>
 }
 deref!(TreeInner, Node, node);
 
@@ -45,8 +31,7 @@ impl Tree {
             inner: Box::new(TreeInner {
                 node,
                 left: None,
-                right: None,
-                pending_writes: 1
+                right: None
             })
         }
     }
