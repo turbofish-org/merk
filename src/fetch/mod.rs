@@ -1,5 +1,6 @@
-use crate::tree::{Node, Link};
+use crate::error::Result;
+use crate::tree::Node;
 
 pub trait Fetch {
-    fn fetch(&self, link: Link) -> Result<Node>;
+    fn fetch(&self, key: &[u8]) -> Result<Node>;
 }
