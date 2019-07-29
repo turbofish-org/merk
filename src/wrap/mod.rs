@@ -25,7 +25,7 @@ mod test {
 
     #[test]
     fn simple_wrap() {
-        let w = Wrapper {
+        let mut w = Wrapper {
             foo: Foo { n: 123 }
         };
         assert_eq!(w.inner().n, 123);
@@ -35,7 +35,7 @@ mod test {
     }
 
     #[test]
-    fn wrap_methods() {
+    fn wrap_trait_methods() {
         pub trait Inc {
             fn increment(&mut self);
         }
@@ -45,10 +45,10 @@ mod test {
             }
         }
 
-        let w = Wrapper {
+        let mut w = Wrapper {
             foo: Foo { n: 123 }
         };
         w.increment();
-        assert_eq!(w.inner().n, 123);
+        assert_eq!(w.inner().n, 124);
     }
 }

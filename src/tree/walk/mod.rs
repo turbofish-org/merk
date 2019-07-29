@@ -1,5 +1,5 @@
 mod owned;
-
-use crate::error::Result;
+mod fetch;
 
 pub use owned::OwnedWalker;
+pub use fetch::Fetch;

@@ -46,17 +46,9 @@ pub struct Node {
     pub right: Option<Link>
 }
 
-/// Replaces the value of a `Vec<T>` by cloning into it,
-/// possibly not needing to allocate.
-#[inline]
-fn set_vec<T: Clone>(dest: &mut Vec<T>, src: &[T]) {
-    dest.clear();
-    dest.extend_from_slice(src);
-}
-
-///
 impl Node {
     /// Creates a new node from a key and value.
+    // TODO: take Vec<u8>s for simpler top-level APIs
     pub fn new(key: &[u8], value: &[u8]) -> Node {
         let mut node = Node {
             key: key.to_vec(),
@@ -82,7 +74,7 @@ impl Node {
     }
 
     pub fn hash(&self) -> Hash {
-       hash(
+        hash(
            &self.kv_hash,
            self.left.as_ref().map(|l| &l.hash),
            self.right.as_ref().map(|r| &r.hash)
@@ -148,6 +140,11 @@ impl Node {
     pub fn is_leaf(&self) -> bool {
         !(self.left.is_some() || self.right.is_some())
     }
+}
+
+fn set_vec<T: Copy>(vec: &mut Vec<T>, value: &[T]) {
+    vec.clear();
+    vec.extend_from_slice(value);
 }
 
 // impl fmt::Debug for Node {

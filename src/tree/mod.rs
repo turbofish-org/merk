@@ -3,6 +3,7 @@ mod walk;
 mod hash;
 
 pub use node::Node;
+pub use walk::{OwnedWalker, Fetch};
 
 struct TreeInner {
     node: Node,
@@ -80,6 +81,11 @@ impl Tree {
     pub fn node(&self) -> &Node {
         &self.inner.node
     }
+
+    pub fn with_value(mut self, value: &[u8]) -> Self {
+        self.inner.node.set_value(value);
+        self
+    } 
 }
 
 fn side_to_str(left: bool) -> &'static str {

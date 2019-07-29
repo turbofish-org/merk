@@ -5,4 +5,5 @@ extern crate blake2_rfc;
 
 mod error;
 mod tree;
-mod fetch;
+mod ops;
+mod wrap;

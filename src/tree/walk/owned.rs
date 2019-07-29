@@ -1,17 +1,27 @@
 use crate::error::Result;
-use crate::fetch::Fetch;
-use super::super::Tree;
+use super::{Fetch, super::Tree};
+
+// TODO: turn into a trait to make composable?
+//       or add methods on wrapper/newtype?
+
+// TODO: use trait object instead of type parameter?
+
+trait WalkerSource: Fetch + Clone {}
 
 pub struct OwnedWalker<S>
-    where S: Fetch + Sized + Send + Clone
+    where S: Fetch + Sized + Clone + Send
 {
     tree: Tree,
     source: S
 }
 
 impl<S> OwnedWalker<S>
-    where S: Fetch + Sized + Send + Clone
+    where S: Fetch + Sized + Clone + Send
 {
+    pub fn new(tree: Tree, source: S) -> Self {
+        OwnedWalker { tree, source }
+    }
+
     pub fn walk(&mut self, left: bool) -> Result<Option<Self>> {
         if self.tree.node().child_link(left).is_none() {
             return Ok(None)
@@ -56,11 +66,20 @@ impl<S> OwnedWalker<S>
             source: self.source.clone()
         }
     }
+
+    pub fn clone_source(&self) -> S {
+        self.source.clone()
+    }
+
+    pub fn attach(mut self, left: bool, maybe_child: Option<Self>) -> Self {
+        let maybe_child = maybe_child.map(|c| c.unwrap());
+        self.tree = self.tree.attach(left, maybe_child);
+        self
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::fetch::Fetch;
     use super::*;
     use crate::tree::{Tree, Node};
 
@@ -79,9 +98,19 @@ mod test {
             .attach(true, Some(Tree::new(Node::new(b"foo", b"bar"))));
 
         let source = MockSource {};
-        let mut walker = OwnedWalker { tree, source };
+        let mut walker = OwnedWalker::new(tree, source);
 
         let child = walker.walk(true).unwrap();
         assert_eq!(child.unwrap().tree().node().key, b"foo");
+        assert_eq!(
+            walker
+                .walk(true)
+                .unwrap()
+                .unwrap()
+                .tree()
+                .node()
+                .key,
+            b"foo"
+        );
     }
 }
