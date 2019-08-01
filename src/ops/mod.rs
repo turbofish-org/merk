@@ -1,4 +1,5 @@
 use std::fmt;
+use std::collections::BTreeSet;
 use crate::error::Result;
 use crate::tree::{Tree, Node, OwnedWalker, Fetch};
 use Op::*;
@@ -76,6 +77,8 @@ impl<S> OwnedWalker<S>
             // a key matches this node's key, apply op to this node
             match &batch[index].1 {
                 Put(value) => {
+                    // TODO: explode instead of cloning, or use a replacement method
+                    //       - should be able to cleanly add op to write batch
                     let source = self.clone_source();
                     OwnedWalker::new(
                         self.unwrap().with_value(value),

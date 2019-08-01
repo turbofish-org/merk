@@ -4,10 +4,6 @@ use super::{Fetch, super::Tree};
 // TODO: turn into a trait to make composable?
 //       or add methods on wrapper/newtype?
 
-// TODO: use trait object instead of type parameter?
-
-trait WalkerSource: Fetch + Clone {}
-
 pub struct OwnedWalker<S>
     where S: Fetch + Sized + Clone + Send
 {

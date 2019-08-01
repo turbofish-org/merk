@@ -37,10 +37,10 @@ impl Tree {
 
     pub fn attach(mut self, left: bool, maybe_child: Option<Self>) -> Self {
         if self.child(left).is_some() {
-            unreachable!(format!(
+            panic!(
                 "Tried to attach to {} tree slot, but it is already Some",
                 side_to_str(left)
-            ));
+            );
         }
         
         let maybe_child_node = maybe_child.as_ref().map(|c| c.node());
@@ -62,10 +62,10 @@ impl Tree {
         if let Some(child) = maybe_child {
             child
         } else {
-            unreachable!(format!(
+            panic!(
                 "Expected tree to have {} child, but got None",
                 side_to_str(left)
-            ));
+            );
         }
     }
 
@@ -88,7 +88,7 @@ impl Tree {
     } 
 }
 
-fn side_to_str(left: bool) -> &'static str {
+pub fn side_to_str(left: bool) -> &'static str {
     if left { "left" } else { "right" }
 }
 
