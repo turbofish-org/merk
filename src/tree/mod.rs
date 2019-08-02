@@ -5,14 +5,73 @@ mod hash;
 pub use node::Node;
 pub use walk::{OwnedWalker, Fetch};
 
+enum Link {
+    Pruned {
+        hash: Hash,
+        height: u8,
+        key: Vec<u8>
+    },
+    Modified {
+        pending_writes: usize,
+        height: u8,
+        tree: Tree
+    },
+    Stored {
+        hash: Hash,
+        height: u8,
+        tree: Tree
+    }
+}
+
+impl Link {
+    fn from_modified_tree(tree: Tree) -> Self {
+        Link::Modified {
+            height: tree.height(),
+            tree
+        }
+    }
+
+    fn maybe_from_modified_tree(maybe_tree: Option<Tree>) -> Option<Self> {
+        maybe_tree.map(|tree| Some(Link::from_modified_tree(tree)))
+    }
+
+    fn tree(&self) -> Option<&Tree> {
+        match self {
+            Link::Pruned => None,
+            Link::Modified { tree } => Some(&tree),
+            Link::Stored { tree } => Some(&tree)
+        }
+    }
+
+    fn height(&self) -> u8 {
+        match self {
+            Link::Pruned { height } => height,
+            Link::Modified { height } => height,
+            Link::Stored { height } => height
+        }
+    }
+
+    // fn prune(&mut self) {
+    //     *self = match self {
+    //         Link::Pruned => self,
+    //         Link::Modified => panic!("Cannot prune Modified tree"),
+    //         Link::Stored { hash, height, tree } => Link::Pruned {
+    //             hash,
+    //             height,
+    //             key: tree.key
+    //         }
+    //     };
+    // }
+}
+
 struct TreeInner {
-    node: Node,
-    left: Option<Tree>,
-    right: Option<Tree>,
+    node: Node, // TODO: key, value, kv_hash? or in its own struct
+    left: Option<Link>,
+    right: Option<Link>
 }
 
 pub struct Tree {
-    inner: Box<TreeInner>,
+    inner: Box<TreeInner>
 }
 
 impl Tree {
@@ -26,34 +85,41 @@ impl Tree {
         }
     }
 
-    pub fn child(&self, left: bool) -> Option<&Self> {
-        let child = if left {
+    #[inline]
+    pub fn link(&self, left: bool) -> Option<&Link> {
+        if left {
             &self.inner.left
         } else {
             &self.inner.right
-        };
-        child.as_ref()
+        }
+    }
+
+    pub fn child(&self, left: bool) -> Option<&Self> {
+        self.link(left).map(|link| link.tree())
     }
 
     pub fn attach(mut self, left: bool, maybe_child: Option<Self>) -> Self {
-        if self.child(left).is_some() {
+        let slot = self.slot_mut(left);
+
+        if slot.is_some() {
             panic!(
                 "Tried to attach to {} tree slot, but it is already Some",
                 side_to_str(left)
             );
         }
-        
-        let maybe_child_node = maybe_child.as_ref().map(|c| c.node());
-        self.inner.node.link_to(left, maybe_child_node);
 
-        let slot = self.slot_mut(left);
-        *slot = maybe_child;
+        *slot = Some(Link::maybe_from_modified_tree(maybe_child));
 
         self
     }
 
     pub fn detach(&mut self, left: bool) -> Option<Self> {
-        self.slot_mut(left).take()
+        match self.slot_mut(left).take() {
+            None => None,
+            Some(Link::Pruned) => None,
+            Some(Link::Modified { tree }) => Some(tree),
+            Some(Link::Stored { tree }) => Some(tree)
+        }
     }
 
     pub fn detach_expect(&mut self, left: bool) -> Self {
@@ -69,7 +135,7 @@ impl Tree {
         }
     }
 
-    fn slot_mut(&mut self, left: bool) -> &mut Option<Self> {
+    fn slot_mut(&mut self, left: bool) -> &mut Option<Link> {
         if left {
             &mut self.inner.left
         } else {
