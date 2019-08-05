@@ -1,71 +1,15 @@
-mod node;
 mod walk;
 mod hash;
+mod kv;
 
-pub use node::Node;
+use std::cmp::max;
+
 pub use walk::{OwnedWalker, Fetch};
-
-enum Link {
-    Pruned {
-        hash: Hash,
-        height: u8,
-        key: Vec<u8>
-    },
-    Modified {
-        pending_writes: usize,
-        height: u8,
-        tree: Tree
-    },
-    Stored {
-        hash: Hash,
-        height: u8,
-        tree: Tree
-    }
-}
-
-impl Link {
-    fn from_modified_tree(tree: Tree) -> Self {
-        Link::Modified {
-            height: tree.height(),
-            tree
-        }
-    }
-
-    fn maybe_from_modified_tree(maybe_tree: Option<Tree>) -> Option<Self> {
-        maybe_tree.map(|tree| Some(Link::from_modified_tree(tree)))
-    }
-
-    fn tree(&self) -> Option<&Tree> {
-        match self {
-            Link::Pruned => None,
-            Link::Modified { tree } => Some(&tree),
-            Link::Stored { tree } => Some(&tree)
-        }
-    }
-
-    fn height(&self) -> u8 {
-        match self {
-            Link::Pruned { height } => height,
-            Link::Modified { height } => height,
-            Link::Stored { height } => height
-        }
-    }
-
-    // fn prune(&mut self) {
-    //     *self = match self {
-    //         Link::Pruned => self,
-    //         Link::Modified => panic!("Cannot prune Modified tree"),
-    //         Link::Stored { hash, height, tree } => Link::Pruned {
-    //             hash,
-    //             height,
-    //             key: tree.key
-    //         }
-    //     };
-    // }
-}
+use kv::KV;
+use hash::{node_hash, NULL_HASH};
 
 struct TreeInner {
-    node: Node, // TODO: key, value, kv_hash? or in its own struct
+    kv: KV,
     left: Option<Link>,
     right: Option<Link>
 }
@@ -75,14 +19,24 @@ pub struct Tree {
 }
 
 impl Tree {
-    pub fn new(node: Node) -> Self {
+    pub fn new(key: Vec<u8>, value: Vec<u8>) -> Self {
         Tree {
             inner: Box::new(TreeInner {
-                node,
+                kv: KV::new(key, value),
                 left: None,
                 right: None
             })
         }
+    }
+
+    #[inline]
+    pub fn key(&self) -> &[u8] {
+        self.inner.kv.key()
+    }
+
+    #[inline]
+    pub fn value(&self) -> &[u8] {
+        self.inner.kv.value()
     }
 
     #[inline]
@@ -95,7 +49,39 @@ impl Tree {
     }
 
     pub fn child(&self, left: bool) -> Option<&Self> {
-        self.link(left).map(|link| link.tree())
+        self.link(left)
+            .map(|link| link.tree())
+    }
+
+    pub fn child_hash(&self, left: bool) -> &Hash {
+        self.link(left)
+            .map_or(NULL_HASH, |link| link.hash())
+    }
+
+    pub fn hash(&self) -> Hash {
+        node_hash(
+            self.kv.hash(),
+            self.child_hash(true),
+            self.child_hash(false)
+        )
+    }
+
+    pub fn child_height(&self, left: bool) -> u8 {
+        self.link(left)
+            .map_or(0, |child| child.height())
+    }
+
+    pub fn height(&self) -> u8 {
+        1 + max(
+            self.child_height(true),
+            self.child_height(false)
+        )
+    }
+
+    pub fn balance_factor(&self) -> i8 {
+        let left_height = self.child_height(true) as i8;
+        let right_height = self.child_height(false) as i8;
+        left_height - right_height
     }
 
     pub fn attach(mut self, left: bool, maybe_child: Option<Self>) -> Self {
@@ -135,6 +121,7 @@ impl Tree {
         }
     }
 
+    #[inline]
     fn slot_mut(&mut self, left: bool) -> &mut Option<Link> {
         if left {
             &mut self.inner.left
@@ -144,14 +131,10 @@ impl Tree {
     }
 
     #[inline]
-    pub fn node(&self) -> &Node {
-        &self.inner.node
-    }
-
-    pub fn with_value(mut self, value: &[u8]) -> Self {
-        self.inner.node.set_value(value);
+    pub fn with_value(mut self, value: Vec<u8>) -> Self {
+        self.kv = self.kv.with_value(value);
         self
-    } 
+    }
 }
 
 pub fn side_to_str(left: bool) -> &'static str {
@@ -160,34 +143,7 @@ pub fn side_to_str(left: bool) -> &'static str {
 
 #[cfg(test)]
 mod test {
-    use super::{Tree, Node};
-
-    // struct SumNode {
-    //     n: usize,
-    //     left_sum: usize,
-    //     right_sum: usize
-    // }
-
-    // impl SumNode {
-    //     fn new(n: usize) -> Self {
-    //         SumNode { n, left_sum: 0, right_sum: 0 }
-    //     }
-
-    //     fn sum(&self) -> usize {
-    //         self.n + self.left_sum + self.right_sum
-    //     }
-    // }
-
-    // impl Node for SumNode {
-    //     fn link_to(&mut self, left: bool, child: Option<&Self>) {
-    //         let sum = child.map_or(0, |c| c.sum());
-    //         if left {
-    //             self.left_sum = sum;
-    //         } else {
-    //             self.right_sum = sum;
-    //         }
-    //     }
-    // }
+    use super::Tree;
 
     // #[test]
     // fn build_tree() {

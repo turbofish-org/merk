@@ -31,7 +31,7 @@ pub fn kv_hash(key: &[u8], value: &[u8]) -> Hash {
     hash
 }
 
-pub fn hash(kv: &Hash, left: Option<&Hash>, right: Option<&Hash>) -> Hash {
+pub fn node_hash(kv: &Hash, left: Option<&Hash>, right: Option<&Hash>) -> Hash {
     // TODO: make generic to allow other hashers
     let mut hasher = Blake2b::new(HASH_LENGTH);
 

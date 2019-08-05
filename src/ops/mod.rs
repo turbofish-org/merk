@@ -1,7 +1,7 @@
 use std::fmt;
 use std::collections::BTreeSet;
 use crate::error::Result;
-use crate::tree::{Tree, Node, OwnedWalker, Fetch};
+use crate::tree::{Tree, OwnedWalker, Fetch};
 use Op::*;
 
 pub enum Op {
@@ -38,14 +38,16 @@ impl<S> OwnedWalker<S>
         maybe_tree: Option<Self>,
         batch: &Batch
     ) -> Result<Option<Tree>> {
-        if batch.is_empty() {
-            return Ok(maybe_tree.map(|w| w.unwrap()));
-        }
+        let maybe_walker = if batch.is_empty() {
+            maybe_tree
+        } else {
+            match maybe_tree {
+                None => return Self::build(batch),
+                Some(tree) => tree.apply(batch)?
+            }
+        };
 
-        match maybe_tree {
-            None => Self::build(batch),
-            Some(tree) => Ok(tree.apply(batch)?.map(|w| w.unwrap()))
-        }
+        Ok(maybe_walker.map(|walker| walker.unwrap()))
     }
 
     fn build(batch: &Batch) -> Result<Option<Tree>> {
@@ -60,10 +62,8 @@ impl<S> OwnedWalker<S>
             Put(value) => value
         };
 
-        let mid_tree = Tree::new(
-            Node::new(&mid_key[..], &mid_value[..])
-        );
-        let mid_walker = OwnedWalker::<PanicSource>::new(mid_tree, PanicSource {});
+        let mid_tree = Tree::new(mid_key, mid_value);
+        let mid_walker = OwnedWalker::new(mid_tree, PanicSource {});
         Ok(mid_walker.recurse(batch, mid_index, true)?.map(|w| w.unwrap()))
     }
 
@@ -71,7 +71,7 @@ impl<S> OwnedWalker<S>
         // binary search to see if this node's key is in the batch, and to split
         // into left and right batches
         let search = batch.binary_search_by(
-            |(key, _op)| key.cmp(&self.tree().node().key)
+            |(key, _op)| key.cmp(self.tree().key())
         );
         let tree = if let Ok(index) = search {
             // a key matches this node's key, apply op to this node
@@ -114,16 +114,24 @@ impl<S> OwnedWalker<S>
             false => &batch[mid..]
         };
  
-        let maybe_left = Self::apply_to(self.walk(true)?, left_batch)?;
-        let maybe_right = Self::apply_to(self.walk(false)?, right_batch)?;
-        let source = self.clone_source();
-        // TODO: explode instead of cloning source and unwrapping,
-        //       or use a tree replacement method
-        let tree = self.unwrap()
-            // TODO: attach_left, attach_right
-            .attach(true, maybe_left)
-            .attach(false, maybe_right);
-        let walker = Self::new(tree, source);
+        let mut walker = self;
+        
+        if !left_batch.is_empty() {
+            let maybe_left = Self::apply_to(
+                self.walk(true)?,
+                left_batch
+            )?;
+            walker = walker.attach(true, maybe_left);
+        };
+
+        if !right_batch.is_empty() {
+            let maybe_right = Self::apply_to(
+                self.walk(false)?,
+                right_batch
+            )?;
+            walker = walker.attach(false, maybe_right);
+        };
+
         Ok(Some(walker))
 
         // let tree = match (left_batch.is_empty(), right_batch.is_empty()) {
@@ -172,7 +180,7 @@ impl<S> OwnedWalker<S>
 
     #[inline]
     fn balance_factor(&self) -> i8 {
-        self.tree().node().balance_factor()
+        self.tree().balance_factor()
     }
 
     fn maybe_balance(mut self) -> Result<Self> {
@@ -198,11 +206,13 @@ impl<S> OwnedWalker<S>
         let maybe_grandchild = child.walk(!left)?;
 
         // attach grandchild to self
-        let tree = self.attach(left, maybe_grandchild)
+        let tree = self
+            .attach(left, maybe_grandchild.into_inner())
             .maybe_balance()?;
 
         // attach self to child, return child
-        child.attach(!left, Some(tree))
+        child
+            .attach(!left, Some(tree.into_inner()))
             .maybe_balance()
     }
 }
@@ -220,12 +230,12 @@ mod test {
                 Op::Put(b"bar2".to_vec())
             )
         ];
-        let tree = Tree::new(Node::new(b"foo", b"bar"));
+        let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
         let mut walker = OwnedWalker::new(tree, PanicSource {})
             .apply(&batch)
             .expect("apply errored")
             .expect("should be Some");
-        assert_eq!(walker.tree().node().key, b"foo");
-        assert_eq!(walker.walk_expect(false).unwrap().tree().node().key, b"foo2");
+        assert_eq!(walker.tree().key(), b"foo");
+        assert_eq!(walker.walk_expect(false).unwrap().tree().key(), b"foo2");
     }
 }

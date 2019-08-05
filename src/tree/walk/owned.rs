@@ -19,7 +19,7 @@ impl<S> OwnedWalker<S>
     }
 
     pub fn walk(&mut self, left: bool) -> Result<Option<Self>> {
-        if self.tree.node().child_link(left).is_none() {
+        if self.tree.link(left).is_none() {
             return Ok(None)
         }
 
@@ -27,9 +27,11 @@ impl<S> OwnedWalker<S>
         let child = if let Some(child) = maybe_child {
             child
         } else {
-            let link = self.tree.node().child_link(left).as_ref().unwrap();
-            let node = self.source.fetch(&link.key[..])?;
-            Tree::new(node)
+            let key = match self.tree.link(left) {
+                Link::Pruned { key } => key.as_slice(),
+                _ => unreachable!("Expected Link::Pruned")
+            };
+            self.source.fetch(key)?
         };
 
         Ok(Some(self.wrap(child)))
@@ -52,7 +54,7 @@ impl<S> OwnedWalker<S>
         &self.tree
     }
 
-    pub fn unwrap(self) -> Tree {
+    pub fn into_inner(self) -> Tree {
         self.tree
     }
 
@@ -67,8 +69,7 @@ impl<S> OwnedWalker<S>
         self.source.clone()
     }
 
-    pub fn attach(mut self, left: bool, maybe_child: Option<Self>) -> Self {
-        let maybe_child = maybe_child.map(|c| c.unwrap());
+    pub fn attach(mut self, left: bool, maybe_child: Option<Tree>) -> Self {
         self.tree = self.tree.attach(left, maybe_child);
         self
     }
@@ -90,8 +91,8 @@ mod test {
 
     #[test]
     fn test() {
-        let tree = Tree::new(Node::new(b"test", b"abc"))
-            .attach(true, Some(Tree::new(Node::new(b"foo", b"bar"))));
+        let tree = Tree::new(b"test", b"abc")
+            .attach(true, Some(Tree::new(b"foo", b"bar")));
 
         let source = MockSource {};
         let mut walker = OwnedWalker::new(tree, source);
@@ -102,7 +103,7 @@ mod test {
             walker
                 .walk(true)
                 .unwrap()
-                .unwrap()
+                .into_inner()
                 .tree()
                 .node()
                 .key,
