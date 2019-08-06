@@ -2,9 +2,6 @@ use crate::error::Result;
 use super::Fetch;
 use super::super::{Tree, Link};
 
-// TODO: turn into a trait to make composable?
-//       or add methods on wrapper/newtype?
-
 pub struct Walker<S>
     where S: Fetch + Sized + Clone + Send
 {
@@ -96,7 +93,7 @@ mod test {
     }
 
     #[test]
-    fn test() {
+    fn walk_modified() {
         let tree = Tree::new(
                 b"test".to_vec(),
                 b"abc".to_vec()
@@ -111,14 +108,57 @@ mod test {
 
         let child = walker.walk(true).expect("walk failed");
         assert_eq!(child.expect("should have child").tree().key(), b"foo");
-        assert_eq!(
-            walker
-                .walk(true)
-                .expect("walk failed")
-                .expect("should have child")
-                .tree()
-                .key(),
-            b"foo"
+        assert!(walker.into_inner().child(true).is_none());
+    }
+
+    #[test]
+    fn walk_stored() {
+        let tree = Tree::new(
+                b"test".to_vec(),
+                b"abc".to_vec()
+            )
+            .attach(true, Some(Tree::new(
+                b"foo".to_vec(),
+                b"bar".to_vec()
+            )))
+            .commit(&mut |tree: &Tree| Ok(()))
+            .expect("commit failed");
+
+        let source = MockSource {};
+        let mut walker = Walker::new(tree, source);
+
+        let child = walker.walk(true).expect("walk failed");
+        assert_eq!(child.expect("should have child").tree().key(), b"foo");
+        assert!(walker.into_inner().child(true).is_none());
+    }
+
+    #[test]
+    fn walk_pruned() {
+        // TODO: enable once we can prune tree
+        // let tree = Tree::new(
+        //     b"test".to_vec(),
+        //     b"abc".to_vec()
+        // );
+
+        // let source = MockSource {};
+        // let mut walker = Walker::new(tree, source);
+
+        // let child = walker.walk(true).expect("walk failed");
+        // assert_eq!(child.expect("should have child").tree().key(), b"foo");
+        // assert!(walker.into_inner().child(true).is_none());
+    }
+    
+    #[test]
+    fn walk_none() {
+        let tree = Tree::new(
+            b"test".to_vec(),
+            b"abc".to_vec()
         );
+
+        let source = MockSource {};
+        let mut walker = Walker::new(tree, source);
+
+        let child = walker.walk(true).expect("walk failed");
+        assert!(child.is_none());
     }
 }

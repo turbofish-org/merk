@@ -1,5 +1,5 @@
-mod owned;
+mod walker;
 mod fetch;
 
-pub use owned::Walker;
+pub use walker::Walker;
 pub use fetch::Fetch;
