@@ -41,6 +41,11 @@ impl KV {
     pub fn hash(&self) -> &Hash {
         &self.hash
     }
+
+    #[inline]
+    pub fn take_key(self) -> Vec<u8> {
+        self.key
+    }
 }
 
 #[cfg(test)]

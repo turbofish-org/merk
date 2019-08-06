@@ -86,17 +86,17 @@ impl Link {
         }
     }
 
-    // pub fn prune(&mut self) {
-    //     *self = match self {
-    //         Link::Pruned => self,
-    //         Link::Modified => panic!("Cannot prune Modified tree"),
-    //         Link::Stored { hash, height, tree } => Link::Pruned {
-    //             hash,
-    //             height,
-    //             key: tree.key
-    //         }
-    //     };
-    // }
+    pub fn to_pruned(self) -> Self {
+        match self {
+            Link::Pruned { .. } => self,
+            Link::Modified { .. } => panic!("Cannot prune Modified tree"),
+            Link::Stored { hash, height, tree } => Link::Pruned {
+                hash,
+                height,
+                key: tree.take_key()
+            }
+        }
+    }
 }
 
 #[cfg(test)]

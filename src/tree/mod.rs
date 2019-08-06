@@ -38,6 +38,11 @@ impl Tree {
     }
 
     #[inline]
+    pub fn take_key(self) -> Vec<u8> {
+        self.inner.kv.take_key()
+    }
+
+    #[inline]
     pub fn value(&self) -> &[u8] {
         self.inner.kv.value()
     }
