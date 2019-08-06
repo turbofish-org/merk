@@ -103,6 +103,6 @@ impl Link {
 mod test {
     #[test]
     fn from_modified_tree() {
-        
+
     }
 }

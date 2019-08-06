@@ -6,6 +6,7 @@ mod link;
 use std::cmp::max;
 
 pub use walk::{Walker, Fetch};
+use super::error::Result;
 use kv::KV;
 use link::Link;
 use hash::{Hash, node_hash, NULL_HASH};
@@ -146,6 +147,32 @@ impl Tree {
         self.inner.kv = self.inner.kv.with_value(value);
         self
     }
+
+    pub fn commit<F>(mut self, f: &mut F) -> Result<Self>
+        where F: (FnMut(&Self) -> Result<()>) + Sync
+    {
+        if let Some(Link::Modified { tree, height, .. }) = self.inner.left {
+            let tree = tree.commit(f)?;
+            self.inner.left = Some(Link::Stored {
+                hash: tree.hash(),
+                tree,
+                height
+            });
+        }
+
+        f(&self)?;
+
+        if let Some(Link::Modified { tree, height, .. }) = self.inner.right {
+            let tree = tree.commit(f)?;
+            self.inner.right = Some(Link::Stored {
+                hash: tree.hash(),
+                tree,
+                height
+            });
+        }
+
+        Ok(self)
+    }
 }
 
 pub fn side_to_str(left: bool) -> &'static str {
@@ -285,5 +312,18 @@ mod test {
         assert_eq!(tree.child_height(true), 0);
         assert_eq!(tree.child_height(false), 1);
         assert_eq!(tree.balance_factor(), -1);
+    }
+
+    #[test]
+    fn commit() {
+        let tree = Tree::new(vec![0], vec![1])
+            .attach(false, Some(Tree::new(vec![2], vec![3])))
+            .commit(&mut |tree: &Tree| {
+                println!("{:?}", tree.key());
+                Ok(())
+            })
+            .expect("commit failed");
+
+        assert!(tree.link(false).expect("expected link").is_stored());
     }
 }
