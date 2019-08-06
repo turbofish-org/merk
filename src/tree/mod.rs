@@ -272,7 +272,7 @@ mod test {
             .attach(true, Some(Tree::new(vec![2], vec![3])))
             .commit(&mut |tree: &Tree| Ok(()))
             .expect("commit failed");
-        assert_eq!(tree.child_hash(true), &[0; 20]);
+        assert_eq!(tree.child_hash(true), &[23, 66, 77, 65, 141, 140, 245, 11, 53, 36, 157, 248, 208, 6, 160, 222, 213, 143, 249, 85]);
         assert_eq!(tree.child_hash(false), &NULL_HASH);
     }
 
