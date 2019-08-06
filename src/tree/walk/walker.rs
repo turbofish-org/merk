@@ -1,11 +1,11 @@
 use crate::error::Result;
-use super::Fetch;
+use super::{Fetch, Owner};
 use super::super::{Tree, Link};
 
 pub struct Walker<S>
     where S: Fetch + Sized + Clone + Send
 {
-    tree: Tree,
+    tree: Owner<Tree>,
     source: S
 }
 
@@ -13,7 +13,7 @@ impl<S> Walker<S>
     where S: Fetch + Sized + Clone + Send
 {
     pub fn new(tree: Tree, source: S) -> Self {
-        Walker { tree, source }
+        Walker { tree: Owner::new(tree), source }
     }
 
     pub fn walk(&mut self, left: bool) -> Result<Option<Self>> {
@@ -21,7 +21,7 @@ impl<S> Walker<S>
             return Ok(None)
         }
 
-        let maybe_child = self.tree.detach(left);
+        let maybe_child = self.tree.own(|tree| tree.detach(left));
         let child = if let Some(child) = maybe_child {
             child
         } else {
@@ -53,14 +53,11 @@ impl<S> Walker<S>
     }
 
     pub fn into_inner(self) -> Tree {
-        self.tree
+        self.tree.into_inner()
     }
 
     fn wrap(&self, tree: Tree) -> Self {
-        Walker {
-            tree,
-            source: self.source.clone()
-        }
+        Walker::new(tree, self.source.clone())
     }
 
     pub fn clone_source(&self) -> S {
@@ -68,12 +65,16 @@ impl<S> Walker<S>
     }
 
     pub fn attach(mut self, left: bool, maybe_child: Option<Tree>) -> Self {
-        self.tree = self.tree.attach(left, maybe_child);
+        let tree = self.tree.into_inner()
+            .attach(left, maybe_child);
+        self.tree = Owner::new(tree);
         self
     }
 
     pub fn with_value(mut self, value: Vec<u8>) -> Self {
-        self.tree = self.tree.with_value(value);
+        let tree = self.tree.into_inner()
+            .with_value(value);
+        self.tree = Owner::new(tree);
         self
     }
 }

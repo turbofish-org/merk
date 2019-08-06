@@ -116,20 +116,22 @@ impl Tree {
         self
     }
 
-    pub fn detach(&mut self, left: bool) -> Option<Self> {
-        match self.slot_mut(left).take() {
+    pub fn detach(mut self, left: bool) -> (Self, Option<Self>) {
+        let maybe_child = match self.slot_mut(left).take() {
             None => None,
             Some(Link::Pruned { .. }) => None,
             Some(Link::Modified { tree, .. }) => Some(tree),
             Some(Link::Stored { tree, .. }) => Some(tree)
-        }
+        };
+
+        (self, maybe_child)
     }
 
-    pub fn detach_expect(&mut self, left: bool) -> Self {
-        let maybe_child = self.detach(left);
+    pub fn detach_expect(mut self, left: bool) -> (Self, Self) {
+        let (parent, maybe_child) = self.detach(left);
 
         if let Some(child) = maybe_child {
-            child
+            (parent, child)
         } else {
             panic!(
                 "Expected tree to have {} child, but got None",
@@ -230,19 +232,19 @@ mod test {
             .attach(true, Some(Tree::new(vec![2], vec![3])))
             .attach(false, Some(Tree::new(vec![4], vec![5])));
 
-        let left_opt = tree.detach(true);
+        let (tree, left_opt) = tree.detach(true);
         assert!(tree.child(true).is_none());
         assert!(tree.child(false).is_some());
         assert_eq!(left_opt.as_ref().unwrap().key(), &[2]);
 
-        let right = tree.detach_expect(false);
+        let (tree, right_opt) = tree.detach(false);
         assert!(tree.child(true).is_none());
         assert!(tree.child(false).is_none());
-        assert_eq!(right.key(), &[4]);
+        assert_eq!(right_opt.as_ref().unwrap().key(), &[4]);
 
         let tree = tree
             .attach(true, left_opt)
-            .attach(false, Some(right));
+            .attach(false, right_opt);
         assert!(tree.child(true).is_some());
         assert!(tree.child(false).is_some());
     }
@@ -266,7 +268,7 @@ mod test {
         // assert!(tree.link(true).expect("expected link").is_pruned());
         // assert!(tree.child(true).is_none());
 
-        tree.detach(true);
+        let (tree, _) = tree.detach(true);
         assert!(tree.link(true).is_none());
         assert!(tree.child(true).is_none());
     }
@@ -312,8 +314,8 @@ mod test {
         assert_eq!(tree.child_height(false), 0);
         assert_eq!(tree.balance_factor(), 1);
 
-        let child = tree.detach(true);
-        let tree = tree.attach(false, child);
+        let (parent, maybe_child) = tree.detach(true);
+        let tree = parent.attach(false, maybe_child);
         assert_eq!(tree.height(), 2);
         assert_eq!(tree.child_height(true), 0);
         assert_eq!(tree.child_height(false), 1);
