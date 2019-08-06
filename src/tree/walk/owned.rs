@@ -5,18 +5,18 @@ use super::super::{Tree, Link};
 // TODO: turn into a trait to make composable?
 //       or add methods on wrapper/newtype?
 
-pub struct OwnedWalker<S>
+pub struct Walker<S>
     where S: Fetch + Sized + Clone + Send
 {
     tree: Tree,
     source: S
 }
 
-impl<S> OwnedWalker<S>
+impl<S> Walker<S>
     where S: Fetch + Sized + Clone + Send
 {
     pub fn new(tree: Tree, source: S) -> Self {
-        OwnedWalker { tree, source }
+        Walker { tree, source }
     }
 
     pub fn walk(&mut self, left: bool) -> Result<Option<Self>> {
@@ -60,7 +60,7 @@ impl<S> OwnedWalker<S>
     }
 
     fn wrap(&self, tree: Tree) -> Self {
-        OwnedWalker {
+        Walker {
             tree,
             source: self.source.clone()
         }
@@ -107,15 +107,15 @@ mod test {
             )));
 
         let source = MockSource {};
-        let mut walker = OwnedWalker::new(tree, source);
+        let mut walker = Walker::new(tree, source);
 
-        let child = walker.walk(true).unwrap();
-        assert_eq!(child.unwrap().tree().key(), b"foo");
+        let child = walker.walk(true).expect("walk failed");
+        assert_eq!(child.expect("should have child").tree().key(), b"foo");
         assert_eq!(
             walker
                 .walk(true)
-                .unwrap()
-                .unwrap()
+                .expect("walk failed")
+                .expect("should have child")
                 .tree()
                 .key(),
             b"foo"

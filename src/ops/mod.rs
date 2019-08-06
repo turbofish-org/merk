@@ -1,7 +1,7 @@
 use std::fmt;
 use std::collections::BTreeSet;
 use crate::error::Result;
-use crate::tree::{Tree, OwnedWalker, Fetch};
+use crate::tree::{Tree, Walker, Fetch};
 use Op::*;
 
 pub enum Op {
@@ -31,7 +31,7 @@ impl Fetch for PanicSource {
     }
 }
 
-impl<S> OwnedWalker<S>
+impl<S> Walker<S>
     where S: Fetch + Sized + Send + Clone
 {
     pub fn apply_to(
@@ -64,7 +64,7 @@ impl<S> OwnedWalker<S>
 
         // TODO: take from batch so we don't have to clone
         let mid_tree = Tree::new(mid_key.to_vec(), mid_value.to_vec());
-        let mid_walker = OwnedWalker::new(mid_tree, PanicSource {});
+        let mid_walker = Walker::new(mid_tree, PanicSource {});
         Ok(mid_walker
             .recurse(batch, mid_index, true)?
             .map(|w| w.into_inner()))
@@ -229,7 +229,7 @@ mod test {
             )
         ];
         let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
-        let mut walker = OwnedWalker::new(tree, PanicSource {})
+        let mut walker = Walker::new(tree, PanicSource {})
             .apply(&batch)
             .expect("apply errored")
             .expect("should be Some");

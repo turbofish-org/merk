@@ -5,7 +5,7 @@ mod link;
 
 use std::cmp::max;
 
-pub use walk::{OwnedWalker, Fetch};
+pub use walk::{Walker, Fetch};
 use kv::KV;
 use link::Link;
 use hash::{Hash, node_hash, NULL_HASH};
