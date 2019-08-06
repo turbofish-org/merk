@@ -155,6 +155,7 @@ pub fn side_to_str(left: bool) -> &'static str {
 #[cfg(test)]
 mod test {
     use super::Tree;
+    use super::hash::NULL_HASH;
 
     #[test]
     fn build_tree() {
@@ -212,5 +213,77 @@ mod test {
             .attach(false, Some(right));
         assert!(tree.child(true).is_some());
         assert!(tree.child(false).is_some());
+    }
+
+    #[test]
+    fn child_and_link() {
+        let mut tree = Tree::new(vec![0], vec![1])
+            .attach(true, Some(Tree::new(vec![2], vec![3])));
+        assert!(tree.link(true).expect("expected link").is_modified());
+        assert!(tree.child(true).is_some());
+        assert!(tree.link(false).is_none());
+        assert!(tree.child(false).is_none());
+
+        // TODO: enable when implemented
+        // tree.commit();
+        // assert!(tree.link(true).expect("expected link").is_stored());
+        // assert!(tree.child(true).is_some());
+        // 
+        // tree.link(true).prune(true);
+        // assert!(tree.link(true).expect("expected link").is_pruned());
+        // assert!(tree.child(true).is_none());
+
+        tree.detach(true);
+        assert!(tree.link(true).is_none());
+        assert!(tree.child(true).is_none());
+    }
+
+    #[test]
+    fn child_hash() {
+        let mut tree = Tree::new(vec![0], vec![1])
+            .attach(true, Some(Tree::new(vec![2], vec![3])));
+        // TODO: enable once commit is implemented
+        // tree.commit();
+        // assert_eq!(tree.child_hash(true), [0; 20]);
+        assert_eq!(tree.child_hash(false), &NULL_HASH);
+    }
+
+    #[test]
+    fn hash() {
+        let tree = Tree::new(vec![0], vec![1]);
+        assert_eq!(tree.hash(), [9, 242, 41, 142, 47, 227, 251, 242, 27, 29, 140, 24, 184, 111, 118, 188, 20, 58, 223, 197]);
+    }
+
+    #[test]
+    fn child_pending_writes() {
+        let tree = Tree::new(vec![0], vec![1]);
+        assert_eq!(tree.child_pending_writes(true), 0);
+        assert_eq!(tree.child_pending_writes(false), 0);
+
+        let tree = tree.attach(true, Some(Tree::new(vec![2], vec![3])));
+        assert_eq!(tree.child_pending_writes(true), 1);
+        assert_eq!(tree.child_pending_writes(false), 0);
+    }
+
+    #[test]
+    fn height_and_balance() {
+        let tree = Tree::new(vec![0], vec![1]);
+        assert_eq!(tree.height(), 1);
+        assert_eq!(tree.child_height(true), 0);
+        assert_eq!(tree.child_height(false), 0);
+        assert_eq!(tree.balance_factor(), 0);
+
+        let mut tree = tree.attach(true, Some(Tree::new(vec![2], vec![3])));
+        assert_eq!(tree.height(), 2);
+        assert_eq!(tree.child_height(true), 1);
+        assert_eq!(tree.child_height(false), 0);
+        assert_eq!(tree.balance_factor(), 1);
+
+        let child = tree.detach(true);
+        let tree = tree.attach(false, child);
+        assert_eq!(tree.height(), 2);
+        assert_eq!(tree.child_height(true), 0);
+        assert_eq!(tree.child_height(false), 1);
+        assert_eq!(tree.balance_factor(), -1);
     }
 }
