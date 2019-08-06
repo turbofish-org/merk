@@ -1,5 +1,6 @@
 use crate::error::Result;
-use super::{Fetch, super::Tree};
+use super::Fetch;
+use super::super::{Tree, Link};
 
 // TODO: turn into a trait to make composable?
 //       or add methods on wrapper/newtype?
@@ -28,7 +29,7 @@ impl<S> OwnedWalker<S>
             child
         } else {
             let key = match self.tree.link(left) {
-                Link::Pruned { key } => key.as_slice(),
+                Some(Link::Pruned { key, .. }) => key.as_slice(),
                 _ => unreachable!("Expected Link::Pruned")
             };
             self.source.fetch(key)?
@@ -73,40 +74,50 @@ impl<S> OwnedWalker<S>
         self.tree = self.tree.attach(left, maybe_child);
         self
     }
+
+    pub fn with_value(mut self, value: Vec<u8>) -> Self {
+        self.tree = self.tree.with_value(value);
+        self
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::tree::{Tree, Node};
+    use crate::tree::Tree;
 
     #[derive(Clone)]
     struct MockSource {}
 
     impl Fetch for MockSource {
-        fn fetch(&self, key: &[u8]) -> Result<Node> {
-            Ok(Node::new(key, b"foo"))
+        fn fetch(&self, key: &[u8]) -> Result<Tree> {
+            Ok(Tree::new(key.to_vec(), b"foo".to_vec()))
         }
     }
 
     #[test]
     fn test() {
-        let tree = Tree::new(b"test", b"abc")
-            .attach(true, Some(Tree::new(b"foo", b"bar")));
+        let tree = Tree::new(
+                b"test".to_vec(),
+                b"abc".to_vec()
+            )
+            .attach(true, Some(Tree::new(
+                b"foo".to_vec(),
+                b"bar".to_vec()
+            )));
 
         let source = MockSource {};
         let mut walker = OwnedWalker::new(tree, source);
 
         let child = walker.walk(true).unwrap();
-        assert_eq!(child.unwrap().tree().node().key, b"foo");
+        assert_eq!(child.unwrap().tree().key(), b"foo");
         assert_eq!(
             walker
                 .walk(true)
                 .unwrap()
-                .into_inner()
+                .unwrap()
                 .tree()
-                .node()
-                .key,
+                .key(),
             b"foo"
         );
     }

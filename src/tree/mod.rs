@@ -1,12 +1,14 @@
 mod walk;
 mod hash;
 mod kv;
+mod link;
 
 use std::cmp::max;
 
 pub use walk::{OwnedWalker, Fetch};
 use kv::KV;
-use hash::{node_hash, NULL_HASH};
+use link::Link;
+use hash::{Hash, node_hash, NULL_HASH};
 
 struct TreeInner {
     kv: KV,
@@ -42,28 +44,37 @@ impl Tree {
     #[inline]
     pub fn link(&self, left: bool) -> Option<&Link> {
         if left {
-            &self.inner.left
+            self.inner.left.as_ref()
         } else {
-            &self.inner.right
+            self.inner.right.as_ref()
         }
     }
 
     pub fn child(&self, left: bool) -> Option<&Self> {
-        self.link(left)
-            .map(|link| link.tree())
+        match self.link(left) {
+            None => None,
+            Some(link) => link.tree()
+        }
     }
 
     pub fn child_hash(&self, left: bool) -> &Hash {
         self.link(left)
-            .map_or(NULL_HASH, |link| link.hash())
+            .map_or(&NULL_HASH, |link| link.hash())
     }
 
     pub fn hash(&self) -> Hash {
         node_hash(
-            self.kv.hash(),
+            self.inner.kv.hash(),
             self.child_hash(true),
             self.child_hash(false)
         )
+    }
+
+    pub fn child_pending_writes(&self, left: bool) -> usize {
+        match self.link(left) {
+            Some(Link::Modified { pending_writes, .. }) => *pending_writes,
+            _ => 0
+        }
     }
 
     pub fn child_height(&self, left: bool) -> u8 {
@@ -94,7 +105,7 @@ impl Tree {
             );
         }
 
-        *slot = Some(Link::maybe_from_modified_tree(maybe_child));
+        *slot = Link::maybe_from_modified_tree(maybe_child);
 
         self
     }
@@ -102,9 +113,9 @@ impl Tree {
     pub fn detach(&mut self, left: bool) -> Option<Self> {
         match self.slot_mut(left).take() {
             None => None,
-            Some(Link::Pruned) => None,
-            Some(Link::Modified { tree }) => Some(tree),
-            Some(Link::Stored { tree }) => Some(tree)
+            Some(Link::Pruned { .. }) => None,
+            Some(Link::Modified { tree, .. }) => Some(tree),
+            Some(Link::Stored { tree, .. }) => Some(tree)
         }
     }
 
@@ -132,7 +143,7 @@ impl Tree {
 
     #[inline]
     pub fn with_value(mut self, value: Vec<u8>) -> Self {
-        self.kv = self.kv.with_value(value);
+        self.inner.kv = self.inner.kv.with_value(value);
         self
     }
 }

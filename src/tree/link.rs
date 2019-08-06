@@ -23,14 +23,19 @@ pub enum Link {
 impl Link {
     #[inline]
     pub fn from_modified_tree(tree: Tree) -> Self {
+        let mut pending_writes = 1
+            + tree.child_pending_writes(true)
+            + tree.child_pending_writes(false);
+
         Link::Modified {
+            pending_writes,
             height: tree.height(),
             tree
         }
     }
 
     pub fn maybe_from_modified_tree(maybe_tree: Option<Tree>) -> Option<Self> {
-        maybe_tree.map(|tree| Some(Link::from_modified_tree(tree)))
+        maybe_tree.map(|tree| Link::from_modified_tree(tree))
     }
 
     #[inline]
@@ -59,25 +64,25 @@ impl Link {
 
     pub fn tree(&self) -> Option<&Tree> {
         match self {
-            Link::Pruned => None,
-            Link::Modified { tree } => Some(&tree),
-            Link::Stored { tree } => Some(&tree)
+            Link::Pruned { .. } => None,
+            Link::Modified { tree, .. } => Some(tree),
+            Link::Stored { tree, .. } => Some(tree)
         }
     }
 
     pub fn hash(&self) -> &Hash {
         match self {
-            Link::Modified => panic!("Cannot get hash from modified link"),
-            Link::Pruned { hash } => &hash,
-            Link::Stored { hash } => &hash
+            Link::Modified { .. } => panic!("Cannot get hash from modified link"),
+            Link::Pruned { hash, .. } => hash,
+            Link::Stored { hash, .. } => hash
         }
     }
 
     pub fn height(&self) -> u8 {
         match self {
-            Link::Pruned { height } => height,
-            Link::Modified { height } => height,
-            Link::Stored { height } => height
+            Link::Pruned { height, .. } => *height,
+            Link::Modified { height, .. } => *height,
+            Link::Stored { height, .. } => *height
         }
     }
 

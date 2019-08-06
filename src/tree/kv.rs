@@ -53,7 +53,7 @@ mod test {
 
         assert_eq!(kv.key(), &[1, 2, 3]);
         assert_eq!(kv.value(), &[4, 5, 6]);
-        assert_eq!(kv.hash(), &[0]);
+        assert_ne!(kv.hash(), &super::super::hash::NULL_HASH);
     }
 
     #[test]
@@ -63,6 +63,6 @@ mod test {
 
         assert_eq!(kv.key(), &[1, 2, 3]);
         assert_eq!(kv.value(), &[4, 5, 6]);
-        assert_eq!(kv.hash(), &[0]);
+        assert_ne!(kv.hash(), &super::super::hash::NULL_HASH);
     }
 }

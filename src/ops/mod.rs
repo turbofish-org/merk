@@ -26,7 +26,7 @@ pub type Batch = [BatchEntry];
 #[derive(Clone)]
 struct PanicSource {}
 impl Fetch for PanicSource {
-    fn fetch(&self, key: &[u8]) -> Result<Node> {
+    fn fetch(&self, key: &[u8]) -> Result<Tree> {
         unreachable!("'fetch' should not have been called")
     }
 }
@@ -47,7 +47,7 @@ impl<S> OwnedWalker<S>
             }
         };
 
-        Ok(maybe_walker.map(|walker| walker.unwrap()))
+        Ok(maybe_walker.map(|walker| walker.into_inner()))
     }
 
     fn build(batch: &Batch) -> Result<Option<Tree>> {
@@ -62,29 +62,25 @@ impl<S> OwnedWalker<S>
             Put(value) => value
         };
 
-        let mid_tree = Tree::new(mid_key, mid_value);
+        // TODO: take from batch so we don't have to clone
+        let mid_tree = Tree::new(mid_key.to_vec(), mid_value.to_vec());
         let mid_walker = OwnedWalker::new(mid_tree, PanicSource {});
-        Ok(mid_walker.recurse(batch, mid_index, true)?.map(|w| w.unwrap()))
+        Ok(mid_walker
+            .recurse(batch, mid_index, true)?
+            .map(|w| w.into_inner()))
     }
 
     fn apply(self, batch: &Batch) -> Result<Option<Self>> {
         // binary search to see if this node's key is in the batch, and to split
         // into left and right batches
         let search = batch.binary_search_by(
-            |(key, _op)| key.cmp(self.tree().key())
+            |(key, _op)| key.as_slice().cmp(self.tree().key())
         );
         let tree = if let Ok(index) = search {
             // a key matches this node's key, apply op to this node
             match &batch[index].1 {
-                Put(value) => {
-                    // TODO: explode instead of cloning, or use a replacement method
-                    //       - should be able to cleanly add op to write batch
-                    let source = self.clone_source();
-                    OwnedWalker::new(
-                        self.unwrap().with_value(value),
-                        source
-                    )
-                },
+                // TODO: take vec from batch so we don't need to clone
+                Put(value) => self.with_value(value.to_vec()),
                 Delete => {
                     // self.remove()?;
                     panic!("remove not yet implemented")
@@ -118,7 +114,7 @@ impl<S> OwnedWalker<S>
         
         if !left_batch.is_empty() {
             let maybe_left = Self::apply_to(
-                self.walk(true)?,
+                walker.walk(true)?,
                 left_batch
             )?;
             walker = walker.attach(true, maybe_left);
@@ -126,7 +122,7 @@ impl<S> OwnedWalker<S>
 
         if !right_batch.is_empty() {
             let maybe_right = Self::apply_to(
-                self.walk(false)?,
+                walker.walk(false)?,
                 right_batch
             )?;
             walker = walker.attach(false, maybe_right);
@@ -203,11 +199,13 @@ impl<S> OwnedWalker<S>
 
     fn rotate(mut self, left: bool) -> Result<Self> {
         let mut child = self.walk_expect(left)?;
-        let maybe_grandchild = child.walk(!left)?;
+        let maybe_grandchild = child
+            .walk(!left)?
+            .map(|w| w.into_inner());
 
         // attach grandchild to self
         let tree = self
-            .attach(left, maybe_grandchild.into_inner())
+            .attach(left, maybe_grandchild)
             .maybe_balance()?;
 
         // attach self to child, return child
