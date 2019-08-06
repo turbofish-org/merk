@@ -156,64 +156,61 @@ pub fn side_to_str(left: bool) -> &'static str {
 mod test {
     use super::Tree;
 
-    // #[test]
-    // fn build_tree() {
-    //     let tree = Tree::new(SumNode::new(1));
-    //     assert_eq!(tree.node().sum(), 1);
-    //     assert!(tree.child(true).is_none());
-    //     assert!(tree.child(false).is_none());
+    #[test]
+    fn build_tree() {
+        let tree = Tree::new(vec![1], vec![101]);
+        assert_eq!(tree.key(), &[1]);
+        assert_eq!(tree.value(), &[101]);
+        assert!(tree.child(true).is_none());
+        assert!(tree.child(false).is_none());
 
-    //     let tree = tree.attach(true, None);
-    //     assert_eq!(tree.node().sum(), 1);
-    //     assert!(tree.child(true).is_none());
-    //     assert!(tree.child(false).is_none());
+        let tree = tree.attach(true, None);
+        assert!(tree.child(true).is_none());
+        assert!(tree.child(false).is_none());
 
-    //     let tree = tree.attach(
-    //         true,
-    //         Some(Tree::new(SumNode::new(2)))
-    //     );
-    //     assert_eq!(tree.node().sum(), 3);
-    //     assert_eq!(tree.child(true).unwrap().node().sum(), 2);
-    //     assert!(tree.child(false).is_none());
+        let tree = tree.attach(
+            true,
+            Some(Tree::new(vec![2], vec![102]))
+        );
+        assert_eq!(tree.key(), &[1]);
+        assert_eq!(tree.child(true).unwrap().key(), &[2]);
+        assert!(tree.child(false).is_none());
 
-    //     let tree = Tree::new(SumNode::new(3))
-    //         .attach(false, Some(tree));
-    //     assert_eq!(tree.node().sum(), 6);
-    //     assert_eq!(tree.child(false).unwrap().node().sum(), 3);
-    //     assert!(tree.child(true).is_none());
-    // }
+        let tree = Tree::new(vec![3], vec![103])
+            .attach(false, Some(tree));
+        assert_eq!(tree.key(), &[3]);
+        assert_eq!(tree.child(false).unwrap().key(), &[1]);
+        assert!(tree.child(true).is_none());
+    }
 
-    // #[should_panic]
-    // #[test]
-    // fn attach_existing() {
-    //     Tree::new(SumNode::new(1))
-    //         .attach(true, Some(Tree::new(SumNode::new(1))))
-    //         .attach(true, Some(Tree::new(SumNode::new(1))));
-    // }
+    #[should_panic]
+    #[test]
+    fn attach_existing() {
+        Tree::new(vec![0], vec![1])
+            .attach(true, Some(Tree::new(vec![2], vec![3])))
+            .attach(true, Some(Tree::new(vec![4], vec![5])));
+    }
 
-    // #[test]
-    // fn detach() {
-    //     let tree = Tree::new(SumNode::new(1))
-    //         .attach(true, Some(Tree::new(SumNode::new(1))))
-    //         .attach(false, Some(Tree::new(SumNode::new(1))));
+    #[test]
+    fn detach() {
+        let mut tree = Tree::new(vec![0], vec![1])
+            .attach(true, Some(Tree::new(vec![2], vec![3])))
+            .attach(false, Some(Tree::new(vec![4], vec![5])));
 
-    //     let (tree, left_opt) = tree.detach(true);
-    //     assert_eq!(tree.node().sum(), 3);
-    //     assert!(tree.child(true).is_none());
-    //     assert!(tree.child(false).is_some());
-    //     assert_eq!(left_opt.as_ref().unwrap().node().sum(), 1);
+        let left_opt = tree.detach(true);
+        assert!(tree.child(true).is_none());
+        assert!(tree.child(false).is_some());
+        assert_eq!(left_opt.as_ref().unwrap().key(), &[2]);
 
-    //     let (tree, right) = tree.detach_expect(false);
-    //     assert_eq!(tree.node().sum(), 3);
-    //     assert!(tree.child(true).is_none());
-    //     assert!(tree.child(false).is_none());
-    //     assert_eq!(right.node().sum(), 1);
+        let right = tree.detach_expect(false);
+        assert!(tree.child(true).is_none());
+        assert!(tree.child(false).is_none());
+        assert_eq!(right.key(), &[4]);
 
-    //     let tree = tree
-    //         .attach(true, left_opt)
-    //         .attach(false, Some(right));
-    //     assert_eq!(tree.node().sum(), 3);
-    //     assert!(tree.child(true).is_some());
-    //     assert!(tree.child(false).is_some());
-    // }
+        let tree = tree
+            .attach(true, left_opt)
+            .attach(false, Some(right));
+        assert!(tree.child(true).is_some());
+        assert!(tree.child(false).is_some());
+    }
 }
