@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 
-use super::{Tree, Link};
+use super::{Tree, Link, Hash};
 use crate::error::Result;
 
 // TODO: Encode, Decode traits
@@ -32,6 +32,25 @@ impl Link {
             Link::Modified { .. } => panic!("No encoding for Link::Modified"),
             Link::Stored { .. } => panic!("No encoding for Link::Stored")
         }
+    }
+
+    pub fn decode(bytes: &[u8]) -> Result<Link> {
+        let mut offset = 0;
+
+        let length = bytes[offset];
+        offset += 1;
+
+        let key = bytes[offset..offset + length as usize].to_vec();
+        offset += length as usize;
+
+        let mut hash: Hash = Default::default();
+        hash.copy_from_slice(&bytes[offset..offset + 20]);
+        offset += 20;
+
+        let height = bytes[offset];
+        offset += 1;
+
+        Ok(Link::Pruned { key, hash, height })
     }
 }
 
@@ -65,7 +84,47 @@ impl Tree {
     }
 
     pub fn decode(key: &[u8], bytes: &[u8]) -> Result<Tree> {
-        unimplemented!("todo")
+        let mut offset = 0;
+
+        let value_len =
+            bytes[offset] as usize
+            + ((bytes[offset + 1] as usize) << 8);
+        offset += 2;
+
+        let value = bytes[offset..offset + value_len].to_vec();
+        offset += value_len;
+
+        let mut kv_hash: Hash = Default::default();
+        kv_hash.copy_from_slice(&bytes[offset..offset + 20]);
+        offset += 20;
+
+        let link_length = bytes[offset];
+        let left = if link_length > 0 {
+            let link = Link::decode(&bytes[offset..])?;
+            offset += link.encoding_length();
+            Some(link)
+        } else {
+            offset += 1;
+            None
+        };
+
+        let link_length = bytes[offset];
+        let right = if link_length > 0 {
+            let link = Link::decode(&bytes[offset..])?;
+            offset += link.encoding_length();
+            Some(link)
+        } else {
+            offset += 1;
+            None
+        };
+
+        Ok(Tree::from_fields(
+            key.to_vec(),
+            value,
+            kv_hash,
+            left,
+            right
+        ))
     }
 }
 
@@ -74,7 +133,7 @@ mod test {
     use super::super::{Tree, Link};
 
     #[test]
-    fn encode_tree() {
+    fn encode_leaf_tree() {
         let tree = Tree::new(vec![0], vec![1]);
         assert_eq!(tree.encoding_length(), 25);
 
@@ -95,5 +154,13 @@ mod test {
         let mut bytes = vec![];
         link.encode_into(&mut bytes);
         assert_eq!(bytes, vec![3, 1, 2, 3, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 123]);
+    }
+
+    #[test]
+    fn decode_leaf_tree() {
+        let bytes = vec![1, 0, 1, 195, 201, 244, 70, 50, 255, 177, 215, 40, 246, 8, 69, 174, 17, 72, 99, 29, 112, 226, 212, 0, 0];
+        let tree = Tree::decode(&[0], bytes.as_slice()).expect("decode failed");
+        assert_eq!(tree.key(), &[0]);
+        assert_eq!(tree.value(), &[1]);
     }
 }
