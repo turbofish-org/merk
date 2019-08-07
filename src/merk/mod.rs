@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
-use crate::tree::Tree;
+use crate::tree::{Tree, Fetch};
 
 // TODO: use a column family or something to keep the root key separate
 const ROOT_KEY_KEY: [u8; 12] = *b"\00\00root\00\00";
@@ -135,6 +135,12 @@ impl Merk {
         }
 
         Ok(())
+    }
+}
+
+impl Fetch for Merk {
+    fn fetch(&self, key: &[u8]) -> Result<Tree> {
+        get_node(&self.db, key)
     }
 }
 
