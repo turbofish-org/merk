@@ -3,6 +3,8 @@ use std::convert::TryInto;
 use super::{Tree, Link};
 use crate::error::Result;
 
+// TODO: Encode, Decode traits
+
 impl Link {
     pub fn encode_into(&self, output: &mut Vec<u8>) {
         let (hash, key, height) = match self {
@@ -68,14 +70,29 @@ impl Tree {
 
 #[cfg(test)]
 mod test {
-    use super::super::Tree;
+    use super::super::{Tree, Link};
 
     #[test]
     fn encode_tree() {
-        let mut bytes = vec![];
         let tree = Tree::new(vec![0], vec![1]);
         assert_eq!(tree.encoding_length(), 25);
+
+        let mut bytes = vec![];
         tree.encode_into(&mut bytes);
         assert_eq!(bytes, vec![1, 0, 1, 195, 201, 244, 70, 50, 255, 177, 215, 40, 246, 8, 69, 174, 17, 72, 99, 29, 112, 226, 212, 0, 0]);
+    }
+
+    #[test]
+    fn encode_link() {
+        let link = Link::Pruned {
+            key: vec![1, 2, 3],
+            height: 123,
+            hash: [55; 20]
+        };
+        assert_eq!(link.encoding_length(), 25);
+
+        let mut bytes = vec![];
+        link.encode_into(&mut bytes);
+        assert_eq!(bytes, vec![3, 1, 2, 3, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 123]);
     }
 }
