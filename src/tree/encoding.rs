@@ -38,6 +38,7 @@ impl Link {
 impl Tree {
     pub fn encode_into(&self, output: &mut Vec<u8>) {
         let value_len = self.value().len();
+        // TODO: use byteorder package
         output.push((value_len & 0xff).try_into().unwrap());
         output.push((value_len >> 8).try_into().unwrap());
         output.extend_from_slice(self.value());

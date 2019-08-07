@@ -139,6 +139,7 @@ impl Merk {
 }
 
 fn get_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
+    // TODO: for bottom levels, iterate and return tree with descendants
     let bytes = db.get_pinned(key)?;
     if let Some(bytes) = bytes {
         Tree::decode(key, &bytes)
