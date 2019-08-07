@@ -33,6 +33,22 @@ impl Tree {
         }
     }
 
+    pub fn from_fields(
+        key: Vec<u8>,
+        value: Vec<u8>,
+        kv_hash: Hash,
+        left: Option<Link>,
+        right: Option<Link>
+    ) -> Tree {
+        Tree {
+            inner: Box::new(TreeInner {
+                kv: KV::from_fields(key, value, kv_hash),
+                left,
+                right
+            })
+        }
+    }
+
     #[inline]
     pub fn key(&self) -> &[u8] {
         self.inner.kv.key()

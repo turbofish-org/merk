@@ -20,6 +20,11 @@ impl KV {
     }
 
     #[inline]
+    pub fn from_fields(key: Vec<u8>, value: Vec<u8>, hash: Hash) -> Self {
+        KV { key, value, hash }
+    }
+
+    #[inline]
     pub fn with_value(mut self, value: Vec<u8>) -> Self {
         // TODO: length check?
         self.value = value;
