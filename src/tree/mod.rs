@@ -2,6 +2,7 @@ mod walk;
 mod hash;
 mod kv;
 mod link;
+mod encoding;
 
 use std::cmp::max;
 
