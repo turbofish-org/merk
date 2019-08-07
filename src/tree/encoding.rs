@@ -157,10 +157,90 @@ mod test {
     }
 
     #[test]
+    #[should_panic]
+    fn encode_link_long_key() {
+        let link = Link::Pruned {
+            key: vec![123; 300],
+            height: 123,
+            hash: [55; 20]
+        };
+        let mut bytes = vec![];
+        link.encode_into(&mut bytes);
+    }
+
+    #[test]
+    #[should_panic]
+    fn encode_modified_tree() {
+        let tree = Tree::from_fields(
+            vec![0], vec![1],
+            [55; 20],
+            Some(Link::Modified {
+                pending_writes: 1,
+                height: 123,
+                tree: Tree::new(vec![2], vec![3])
+            }),
+            None
+        );
+        let mut bytes = vec![];
+        tree.encode_into(&mut bytes);
+    }
+
+    #[test]
+    #[should_panic]
+    fn encode_stored_tree() {
+        let tree = Tree::from_fields(
+            vec![0], vec![1],
+            [55; 20],
+            Some(Link::Stored {
+                hash: [66; 20],
+                height: 123,
+                tree: Tree::new(vec![2], vec![3])
+            }),
+            None
+        );
+        let mut bytes = vec![];
+        tree.encode_into(&mut bytes);
+    }
+
+    #[test]
+    fn encode_pruned_tree() {
+        let tree = Tree::from_fields(
+            vec![0], vec![1],
+            [55; 20],
+            Some(Link::Pruned {
+                hash: [66; 20],
+                height: 123,
+                key: vec![2]
+            }),
+            None
+        );
+        assert_eq!(tree.encoding_length(), 47);
+        
+        let mut bytes = vec![];
+        tree.encode_into(&mut bytes);
+        assert_eq!(bytes, vec![1, 0, 1, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 1, 2, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 123, 0].as_slice());
+    }
+
+    #[test]
     fn decode_leaf_tree() {
         let bytes = vec![1, 0, 1, 195, 201, 244, 70, 50, 255, 177, 215, 40, 246, 8, 69, 174, 17, 72, 99, 29, 112, 226, 212, 0, 0];
         let tree = Tree::decode(&[0], bytes.as_slice()).expect("decode failed");
         assert_eq!(tree.key(), &[0]);
         assert_eq!(tree.value(), &[1]);
+    }
+
+    #[test]
+    fn decode_pruned_tree() {
+        let bytes = vec![1, 0, 1, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 1, 2, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 123, 0];
+        let tree = Tree::decode(&[0], bytes.as_slice()).expect("decode failed");
+        assert_eq!(tree.key(), &[0]);
+        assert_eq!(tree.value(), &[1]);
+        if let Some(Link::Pruned { key, height, hash }) = tree.link(true) {
+            assert_eq!(key, &[2]);
+            assert_eq!(*height, 123 as u8);
+            assert_eq!(hash, &[66; 20]);
+        } else {
+            panic!("Expected Link::Pruned");
+        }
     }
 }
