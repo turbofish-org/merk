@@ -62,6 +62,14 @@ impl Link {
         }
     }
 
+    pub fn key(&self) -> &[u8] {
+        match self {
+            Link::Pruned { key, .. } => key.as_slice(),
+            Link::Modified { tree, .. } => tree.key(),
+            Link::Stored { tree, .. } => tree.key()
+        }
+    }
+
     pub fn tree(&self) -> Option<&Tree> {
         match self {
             // TODO: panic for Pruned, don't return Option?
