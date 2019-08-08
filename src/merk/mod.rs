@@ -63,10 +63,7 @@ impl Merk {
         self.tree = Walker::apply_to(maybe_walker, batch)?;
 
         // commit changes to db
-        // TODO:
-        // self.commit()
-
-        Ok(())
+        self.commit()
     }
 
     pub fn destroy(self) -> Result<()> {
@@ -76,36 +73,36 @@ impl Merk {
         Ok(())
     }
 
-    // fn commit(&mut self) -> Result<()> {
-    //     let mut batch = rocksdb::WriteBatch::default();
+    fn commit(&mut self) -> Result<()> {
+        // TODO: concurrent commit
 
-    //     if let Some(tree) = &mut self.tree {
-    //         // get nodes to flush to disk
-    //         let modified = tree.modified()?;
-    //         for (key, value) in modified {
-    //             batch.put(key, value)?;
-    //         }
+        let mut batch = rocksdb::WriteBatch::default();
 
-    //         // update pointer to root node
-    //         batch.put(ROOT_KEY_KEY, &tree.key)?;
-    //     } else {
-    //         // empty tree, delete pointer to root
-    //         batch.delete(ROOT_KEY_KEY)?;
-    //     }
+        if let Some(tree) = &mut self.tree {
+            let mut encode_buf = Vec::with_capacity(256);
 
-    //     // write to db
-    //     let mut opts = rocksdb::WriteOptions::default();
-    //     opts.set_sync(false);
-    //     self.db.write_opt(batch, &opts)?;
+            // in-order traversal of modified nodes
+            tree.commit(&mut |tree: &Tree| {
+                encode_buf.clear();
+                tree.encode_into(&mut encode_buf);
+                batch.put(tree.key(), &encode_buf)?;
+                Ok(())
+            })?;
 
-    //     if let Some(tree) = &mut self.tree {
-    //         // clear tree so it only contains the root node
-    //         // TODO: strategies for persisting nodes in memory
-    //         tree.prune();
-    //     }
+            // update pointer to root node
+            batch.put(ROOT_KEY_KEY, tree.key())?;
+        } else {
+            // empty tree, delete pointer to root
+            batch.delete(ROOT_KEY_KEY)?;
+        }
 
-    //     Ok(())
-    // }
+        // write to db
+        let mut opts = rocksdb::WriteOptions::default();
+        opts.set_sync(false);
+        self.db.write_opt(batch, &opts)?;
+
+        Ok(())
+    }
 
     pub fn map_range<F: FnMut(Tree)>(
         &self,
