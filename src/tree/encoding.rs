@@ -23,12 +23,7 @@ impl Link {
 
     pub fn encoding_length(&self) -> usize {
         match self {
-            Link::Pruned { hash, key, .. } => {
-                1 +
-                key.len() +
-                20 +
-                1
-            },
+            Link::Pruned { hash, key, .. } => { 1 + key.len() + 20 + 1 },
             Link::Modified { .. } => panic!("No encoding for Link::Modified"),
             Link::Stored { .. } => panic!("No encoding for Link::Stored")
         }

@@ -114,15 +114,15 @@ mod test {
 
     #[test]
     fn walk_stored() {
-        let tree = Tree::new(
+        let mut tree = Tree::new(
                 b"test".to_vec(),
                 b"abc".to_vec()
             )
             .attach(true, Some(Tree::new(
                 b"foo".to_vec(),
                 b"bar".to_vec()
-            )))
-            .commit(&mut |tree: &Tree| Ok(()))
+            )));
+        tree.commit(&mut |tree: &Tree| Ok(()))
             .expect("commit failed");
 
         let source = MockSource {};

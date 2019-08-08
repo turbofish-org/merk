@@ -9,4 +9,4 @@ mod ops;
 mod merk;
 
 pub use error::{Error, Result};
-pub use merk::Merk;
+pub use self::merk::Merk;

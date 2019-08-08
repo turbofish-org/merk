@@ -20,6 +20,9 @@ pub enum Link {
     }
 }
 
+// TODO: deleted keys aren't counted as pending_writes, but they probably
+//       should be
+
 impl Link {
     #[inline]
     pub fn from_modified_tree(tree: Tree) -> Self {

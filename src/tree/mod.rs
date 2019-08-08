@@ -172,30 +172,34 @@ impl Tree {
         self
     }
 
-    pub fn commit<F>(mut self, f: &mut F) -> Result<Self>
-        where F: (FnMut(&Self) -> Result<()>) + Sync
+    pub fn commit<F>(&mut self, f: &mut F) -> Result<()>
+        where F: FnMut(&Self) -> Result<()>
     {
-        if let Some(Link::Modified { tree, height, .. }) = self.inner.left {
-            let tree = tree.commit(f)?;
-            self.inner.left = Some(Link::Stored {
-                hash: tree.hash(),
-                tree,
-                height
-            });
+        if let Some(Link::Modified { .. }) = self.inner.left {
+            if let Some(Link::Modified { mut tree, height, .. }) = self.inner.left.take() {
+                tree.commit(f)?;
+                self.inner.left = Some(Link::Stored {
+                    hash: tree.hash(),
+                    tree,
+                    height
+                });
+            }
         }
 
         f(&self)?;
 
-        if let Some(Link::Modified { tree, height, .. }) = self.inner.right {
-            let tree = tree.commit(f)?;
-            self.inner.right = Some(Link::Stored {
-                hash: tree.hash(),
-                tree,
-                height
-            });
+        if let Some(Link::Modified { .. }) = self.inner.right {
+            if let Some(Link::Modified { mut tree, height, .. }) = self.inner.right.take() {
+                tree.commit(f)?;
+                self.inner.right = Some(Link::Stored {
+                    hash: tree.hash(),
+                    tree,
+                    height
+                });
+            }
         }
 
-        Ok(self)
+        Ok(())
     }
 }
 
@@ -275,7 +279,7 @@ mod test {
         assert!(tree.link(false).is_none());
         assert!(tree.child(false).is_none());
 
-        let mut tree = tree.commit(&mut |tree: &Tree| Ok(()))
+        tree.commit(&mut |tree: &Tree| Ok(()))
             .expect("commit failed");
         assert!(tree.link(true).expect("expected link").is_stored());
         assert!(tree.child(true).is_some());
@@ -292,9 +296,9 @@ mod test {
 
     #[test]
     fn child_hash() {
-        let tree = Tree::new(vec![0], vec![1])
-            .attach(true, Some(Tree::new(vec![2], vec![3])))
-            .commit(&mut |tree: &Tree| Ok(()))
+        let mut tree = Tree::new(vec![0], vec![1])
+            .attach(true, Some(Tree::new(vec![2], vec![3])));
+        tree.commit(&mut |tree: &Tree| Ok(()))
             .expect("commit failed");
         assert_eq!(tree.child_hash(true), &[23, 66, 77, 65, 141, 140, 245, 11, 53, 36, 157, 248, 208, 6, 160, 222, 213, 143, 249, 85]);
         assert_eq!(tree.child_hash(false), &NULL_HASH);
@@ -341,9 +345,9 @@ mod test {
 
     #[test]
     fn commit() {
-        let tree = Tree::new(vec![0], vec![1])
-            .attach(false, Some(Tree::new(vec![2], vec![3])))
-            .commit(&mut |tree: &Tree| {
+        let mut tree = Tree::new(vec![0], vec![1])
+            .attach(false, Some(Tree::new(vec![2], vec![3])));
+        tree.commit(&mut |tree: &Tree| {
                 println!("{:?}", tree.key());
                 Ok(())
             })
