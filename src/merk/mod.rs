@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
-use crate::tree::{Tree, Fetch, Walker};
+use crate::tree::{Tree, Fetch, Walker, Commit};
 use super::ops::Batch;
 
 // TODO: use a column family or something to keep the root key separate
@@ -79,15 +79,9 @@ impl Merk {
         let mut batch = rocksdb::WriteBatch::default();
 
         if let Some(tree) = &mut self.tree {
-            let mut encode_buf = Vec::with_capacity(256);
-
-            // in-order traversal of modified nodes
-            tree.commit(&mut |tree: &Tree| {
-                encode_buf.clear();
-                tree.encode_into(&mut encode_buf);
-                batch.put(tree.key(), &encode_buf)?;
-                Ok(())
-            })?;
+            // TODO: configurable committer
+            let mut committer = MerkCommitter::new(&mut batch, tree.height(), 18);
+            tree.commit(&mut committer)?;
 
             // update pointer to root node
             batch.put(ROOT_KEY_KEY, tree.key())?;
@@ -142,6 +136,35 @@ struct MerkSource<'a> {
 impl<'a> Fetch for MerkSource<'a> {
     fn fetch(&self, key: &[u8]) -> Result<Tree> {
         get_node(&self.db, key)
+    }
+}
+
+struct MerkCommitter<'a> {
+    encode_buf: Vec<u8>,
+    batch: &'a mut rocksdb::WriteBatch,
+    height: u8,
+    levels: u8
+}
+
+impl<'a> MerkCommitter<'a> {
+    fn new(batch: &'a mut rocksdb::WriteBatch, height: u8, levels: u8) -> Self {
+        let mut encode_buf = Vec::with_capacity(256);
+        MerkCommitter { encode_buf, batch, height, levels }
+    }
+}
+
+impl<'a> Commit for MerkCommitter<'a> {
+    fn write(&mut self, tree: &Tree) -> Result<()> {
+        self.encode_buf.clear();
+        tree.encode_into(&mut self.encode_buf);
+        self.batch.put(tree.key(), &self.encode_buf)?;
+        Ok(())
+    }
+
+    fn prune(&self, tree: &Tree) -> (bool, bool) {
+        // keep N top levels of tree
+        let prune = (self.height - tree.height()) > self.levels;
+        (prune, prune)
     }
 }
 

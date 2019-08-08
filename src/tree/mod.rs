@@ -3,11 +3,13 @@ mod hash;
 mod kv;
 mod link;
 mod encoding;
+mod commit;
 
 use std::cmp::max;
 
 pub use walk::{Walker, Fetch};
 use super::error::Result;
+pub use commit::Commit;
 use kv::KV;
 use link::Link;
 use hash::{Hash, node_hash, NULL_HASH};
@@ -172,12 +174,10 @@ impl Tree {
         self
     }
 
-    pub fn commit<F>(&mut self, f: &mut F) -> Result<()>
-        where F: FnMut(&Self) -> Result<()>
-    {
+    pub fn commit<C: Commit>(&mut self, c: &mut C) -> Result<()> {
         if let Some(Link::Modified { .. }) = self.inner.left {
             if let Some(Link::Modified { mut tree, height, .. }) = self.inner.left.take() {
-                tree.commit(f)?;
+                tree.commit(c)?;
                 self.inner.left = Some(Link::Stored {
                     hash: tree.hash(),
                     tree,
@@ -186,17 +186,27 @@ impl Tree {
             }
         }
 
-        f(&self)?;
+        c.write(&self)?;
 
         if let Some(Link::Modified { .. }) = self.inner.right {
             if let Some(Link::Modified { mut tree, height, .. }) = self.inner.right.take() {
-                tree.commit(f)?;
+                tree.commit(c)?;
                 self.inner.right = Some(Link::Stored {
                     hash: tree.hash(),
                     tree,
                     height
                 });
             }
+        }
+
+        let (prune_left, prune_right) = c.prune(&self);
+        if prune_left {
+            self.inner.left = self.inner.left.take()
+                .map(|link| link.to_pruned());
+        }
+        if prune_right {
+            self.inner.right = self.inner.right.take()
+                .map(|link| link.to_pruned());
         }
 
         Ok(())
@@ -211,6 +221,7 @@ pub fn side_to_str(left: bool) -> &'static str {
 mod test {
     use super::Tree;
     use super::hash::NULL_HASH;
+    use super::commit::NoopCommit;
 
     #[test]
     fn build_tree() {
@@ -279,8 +290,7 @@ mod test {
         assert!(tree.link(false).is_none());
         assert!(tree.child(false).is_none());
 
-        tree.commit(&mut |tree: &Tree| Ok(()))
-            .expect("commit failed");
+        tree.commit(&mut NoopCommit {}).expect("commit failed");
         assert!(tree.link(true).expect("expected link").is_stored());
         assert!(tree.child(true).is_some());
 
@@ -298,8 +308,7 @@ mod test {
     fn child_hash() {
         let mut tree = Tree::new(vec![0], vec![1])
             .attach(true, Some(Tree::new(vec![2], vec![3])));
-        tree.commit(&mut |tree: &Tree| Ok(()))
-            .expect("commit failed");
+        tree.commit(&mut NoopCommit {}).expect("commit failed");
         assert_eq!(tree.child_hash(true), &[23, 66, 77, 65, 141, 140, 245, 11, 53, 36, 157, 248, 208, 6, 160, 222, 213, 143, 249, 85]);
         assert_eq!(tree.child_hash(false), &NULL_HASH);
     }
@@ -347,11 +356,7 @@ mod test {
     fn commit() {
         let mut tree = Tree::new(vec![0], vec![1])
             .attach(false, Some(Tree::new(vec![2], vec![3])));
-        tree.commit(&mut |tree: &Tree| {
-                println!("{:?}", tree.key());
-                Ok(())
-            })
-            .expect("commit failed");
+        tree.commit(&mut NoopCommit {}).expect("commit failed");
 
         assert!(tree.link(false).expect("expected link").is_stored());
     }

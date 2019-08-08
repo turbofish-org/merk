@@ -1,6 +1,6 @@
 use crate::error::Result;
 use super::{Fetch, Owner};
-use super::super::{Tree, Link};
+use super::super::{Tree, Link, commit::NoopCommit};
 
 pub struct Walker<S>
     where S: Fetch + Sized + Clone + Send
@@ -122,7 +122,7 @@ mod test {
                 b"foo".to_vec(),
                 b"bar".to_vec()
             )));
-        tree.commit(&mut |tree: &Tree| Ok(()))
+        tree.commit(&mut NoopCommit {})
             .expect("commit failed");
 
         let source = MockSource {};
