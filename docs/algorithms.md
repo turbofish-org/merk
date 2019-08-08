@@ -29,47 +29,13 @@ Note that the `left_child_hash` and/or `right_child_hash` values may be null sin
 
 In our implementation, the hash function used is Blake2b (chosen for its performance characteristics) but this choice is trivially swappable.
 
-#### In-Memory Representation
-
-Trees are structured in memory sparsely so that not all nodes need to be retained, but can be fetched from the backing store as needed when operating on the tree. Applications can make decisions about when to retain and when to prune nodes from this graph to make time/memory tradeoffs.
-
-The following are simplified forms of the tree structures from the Rust implementation:
-```rust
-struct Link {
-    key: Vec<u8>,
-    hash: Hash,
-    height: u8
-}
-
-struct Node {
-    key: Vec<u8>,
-    value: Vec<u8>,
-    kv_hash: Hash,
-    left: Option<Link>,
-    right: Option<Link>
-}
-
-struct Tree {
-    node: Node,
-    left: Option<Box<Tree>>,
-    right: Option<Box<Tree>>
-}
-```
-
-The `Link` struct contains the required data to reference a child node which may not be loaded in memory, `Node` represents a single loaded node's data, and `Tree` is a container which connects nodes into a graph by containing heap references to its children.
-
-The sparse tree graph can be in a few states:
-- A node does not have a child, in which case both its `node.right` and `tree.right` will be `None`.
-- A node has a child, but the child is not currently loaded in memory. In this case, `node.right` will represent a valid `Link` structure which can be used to lookup the child node in the backing store, but `tree.right` will be `None`.
-- A node has a child which is loaded in memory, in which case both `node.right` and `tree.right` will be populated.
-
 #### Database Representation
 
 In the backing key/value store, nodes are stored using their key/value pair key as the database key, and a binary encoding that contains the fields in the above `Node` structure - minus the `key` field since that is already implied by the database entry.
 
-Storing nodes by key is an important optimization, and is the reason why inner nodes each have a key/value pair. The implication is that reading a key does not require traversing through the tree structure but only requires a single read in the backing key/value store, meaning there is little overhead versus using the backing store without a tree structure. Additionally, we can efficiently iterate through nodes in the tree in their in-order traversal just by iterating by key in the backing store (which RocksDB and LevelDB are optimized for).
+Storing nodes by key rather than by hash is an important optimization, and is the reason why inner nodes each have a key/value pair. The implication is that reading a key does not require traversing through the tree structure but only requires a single read in the backing key/value store, meaning there is practically no overhead versus using the backing store without a tree structure. Additionally, we can efficiently iterate through nodes in the tree in their in-order traversal just by iterating by key in the backing store (which RocksDB and LevelDB are optimized for).
 
-This means we lose the "I" compared to the IAVL library - immutability. Since now we operate the tree nodes in-place in the backing store, we don't by default have views of past states of the tree. However, in our implementation we replicate this functionality with RocksDB's snapshot and checkpoint features which provide a consistent view of the store at a certain point in history - either ephemerally in memory or persistently on disk.
+This means we lose the "I" compared to the IAVL library - immutability. Since now we operate on the tree nodes in-place in the backing store, we don't by default have views of past states of the tree. However, in our implementation we replicate this functionality with RocksDB's snapshot and checkpoint features which provide a consistent view of the store at a certain point in history - either ephemerally in memory or persistently on disk.
 
 ### Operations
 

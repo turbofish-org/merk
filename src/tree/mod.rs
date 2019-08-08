@@ -175,6 +175,8 @@ impl Tree {
     }
 
     pub fn commit<C: Commit>(&mut self, c: &mut C) -> Result<()> {
+        // TODO: make this method less ugly
+
         if let Some(Link::Modified { .. }) = self.inner.left {
             if let Some(Link::Modified { mut tree, height, .. }) = self.inner.left.take() {
                 tree.commit(c)?;
