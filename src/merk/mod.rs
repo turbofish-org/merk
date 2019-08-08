@@ -2,7 +2,8 @@ use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
-use crate::tree::{Tree, Fetch};
+use crate::tree::{Tree, Fetch, Walker};
+use super::ops::Batch;
 
 // TODO: use a column family or something to keep the root key separate
 const ROOT_KEY_KEY: [u8; 12] = *b"\00\00root\00\00";
@@ -30,49 +31,43 @@ impl Merk {
         Ok(Merk { tree, db, path: path_buf })
     }
 
-    // pub fn get(&self, key: &[u8]) -> Result<Vec<u8>> {
-    //     let node = get_node(&self.db, key)?;
-    //     Ok(node.value)
-    // }
+    pub fn get(&self, key: &[u8]) -> Result<Vec<u8>> {
+        // TODO: ignore other fields when reading from node bytes
+        let node = get_node(&self.db, key)?;
+        // TODO: don't reallocate
+        Ok(node.value().to_vec())
+    }
 
-    // pub fn apply(&mut self, batch: &mut TreeBatch) -> Result<()> {
-    //     let db = &self.db;
-    //     let mut get_node = |link: &Link| -> Result<Node> {
-    //         get_node(db, &link.key)
-    //     };
+    pub fn apply(&mut self, batch: &mut Batch) -> Result<()> {
+        // sort batch and ensure there are no duplicate keys
+        let mut duplicate = false;
+        batch.sort_by(|a, b| {
+            let cmp = a.0.cmp(&b.0);
+            if let Ordering::Equal = cmp {
+                duplicate = true;
+            }
+            cmp
+        });
+        if duplicate {
+            bail!("Batch must not have duplicate keys");
+        }
 
-    //     // sort batch and ensure there are no duplicate keys
-    //     let mut duplicate = false;
-    //     batch.sort_by(|a, b| {
-    //         let cmp = a.0.cmp(&b.0);
-    //         if let Ordering::Equal = cmp {
-    //             duplicate = true;
-    //         }
-    //         cmp
-    //     });
-    //     if duplicate {
-    //         bail!("Batch must not have duplicate keys");
-    //     }
+        self.apply_unchecked(batch)
+    }
 
-    //     // apply tree operations, setting resulting root node in self.tree
-    //     SparseTree::apply(&mut self.tree, &mut get_node, batch)?;
+    pub fn apply_unchecked(&mut self, batch: &Batch) -> Result<()> {
+        let maybe_walker = self.tree.take()
+            .map(|tree| Walker::new(tree, self.source()));
 
-    //     // commit changes to db
-    //     self.commit()
-    // }
+        // TODO: will return set of deleted keys
+        self.tree = Walker::apply_to(maybe_walker, batch)?;
 
-    // pub fn apply_unchecked(&mut self, batch: &TreeBatch) -> Result<()> {
-    //     let db = &self.db;
-    //     let mut get_node = |link: &Link| -> Result<Node> {
-    //         get_node(db, &link.key)
-    //     };
+        // commit changes to db
+        // TODO:
+        // self.commit()
 
-    //     // apply tree operations, setting resulting root node in self.tree
-    //     SparseTree::apply(&mut self.tree, &mut get_node, batch)?;
-
-    //     // commit changes to db
-    //     self.commit()
-    // }
+        Ok(())
+    }
 
     pub fn destroy(self) -> Result<()> {
         let opts = default_db_opts();
@@ -136,9 +131,18 @@ impl Merk {
 
         Ok(())
     }
+
+    fn source(&self) -> MerkSource {
+        MerkSource { db: &self.db }
+    }
 }
 
-impl Fetch for Merk {
+#[derive(Clone)]
+struct MerkSource<'a> {
+    db: &'a rocksdb::DB
+}
+
+impl<'a> Fetch for MerkSource<'a> {
     fn fetch(&self, key: &[u8]) -> Result<Tree> {
         get_node(&self.db, key)
     }
@@ -160,4 +164,14 @@ fn default_db_opts() -> rocksdb::Options {
     opts.increase_parallelism(num_cpus::get() as i32);
     // TODO: tune
     opts
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn apply_unchecked() {
+        
+    }
 }
