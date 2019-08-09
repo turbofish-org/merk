@@ -9,7 +9,7 @@ use std::cmp::max;
 
 pub use walk::{Walker, Fetch};
 use super::error::Result;
-pub use commit::Commit;
+pub use commit::{Commit, NoopCommit};
 use kv::KV;
 use link::Link;
 use hash::{Hash, node_hash, NULL_HASH};
@@ -117,7 +117,7 @@ impl Tree {
     pub fn balance_factor(&self) -> i8 {
         let left_height = self.child_height(true) as i8;
         let right_height = self.child_height(false) as i8;
-        left_height - right_height
+        right_height - left_height
     }
 
     pub fn attach(mut self, left: bool, maybe_child: Option<Self>) -> Self {
@@ -344,14 +344,14 @@ mod test {
         assert_eq!(tree.height(), 2);
         assert_eq!(tree.child_height(true), 1);
         assert_eq!(tree.child_height(false), 0);
-        assert_eq!(tree.balance_factor(), 1);
+        assert_eq!(tree.balance_factor(), -1);
 
         let (parent, maybe_child) = tree.detach(true);
         let tree = parent.attach(false, maybe_child);
         assert_eq!(tree.height(), 2);
         assert_eq!(tree.child_height(true), 0);
         assert_eq!(tree.child_height(false), 1);
-        assert_eq!(tree.balance_factor(), -1);
+        assert_eq!(tree.balance_factor(), 1);
     }
 
     #[test]

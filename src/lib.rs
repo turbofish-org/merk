@@ -10,3 +10,4 @@ mod merk;
 
 pub use error::{Error, Result};
 pub use self::merk::Merk;
+pub use ops::{Batch, BatchEntry, Op, PanicSource};

@@ -24,7 +24,7 @@ pub type BatchEntry = (Vec<u8>, Op);
 pub type Batch = [BatchEntry];
 
 #[derive(Clone)]
-struct PanicSource {}
+pub struct PanicSource {}
 impl Fetch for PanicSource {
     fn fetch(&self, key: &[u8]) -> Result<Tree> {
         unreachable!("'fetch' should not have been called")
@@ -117,7 +117,8 @@ impl<S> Walker<S>
                 walker.walk(true)?,
                 left_batch
             )?;
-            walker = walker.attach(true, maybe_left);
+            walker = walker.attach(true, maybe_left)
+                .maybe_balance()?;
         };
 
         if !right_batch.is_empty() {
@@ -125,7 +126,8 @@ impl<S> Walker<S>
                 walker.walk(false)?,
                 right_batch
             )?;
-            walker = walker.attach(false, maybe_right);
+            walker = walker.attach(false, maybe_right)
+                .maybe_balance()?;
         };
 
         Ok(Some(walker))
@@ -186,13 +188,16 @@ impl<S> Walker<S>
         }
 
         let left = balance_factor < 0;
-        let child = self.walk_expect(left)?;
 
         // maybe do a double rotation
+        // TODO: we can avoid walking in the non-double-rotation case
+        //       if links store child's balance factor
+        let child = self.walk_expect(left)?;
         let child = match left == (child.balance_factor() > 0) {
             true => child.rotate(!left)?,
             false => child
         };
+        self = self.attach(left, Some(child.into_inner()));
 
         self.rotate(left)
     }
@@ -235,5 +240,12 @@ mod test {
             .expect("should be Some");
         assert_eq!(walker.tree().key(), b"foo");
         assert_eq!(walker.walk_expect(false).unwrap().tree().key(), b"foo2");
+    }
+
+    #[test]
+    fn apply_empty_none() {
+        let maybe_tree = Walker::<PanicSource>::apply_to(None, &vec![])
+            .expect("apply_to failed");
+        assert!(maybe_tree.is_none());
     }
 }
