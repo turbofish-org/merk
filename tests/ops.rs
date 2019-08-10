@@ -58,19 +58,13 @@ fn insert_rebalance() {
 #[test]
 fn insert_100_sequential() {
     let mut tree = Tree::new(vec![0], vec![123]);
-    println!("{:?}", &tree);
 
     for i in 0..100 {
-        std::thread::sleep_ms(1000);
-        for j in 0..50 {
-            println!();
-        }
         let batch = vec![ (vec![i + 1], Op::Put(vec![123])) ];
         tree = apply_memonly(tree, &batch);
-        println!("{:?}", &tree);
     }
 
-    assert_eq!(tree.key(), &[6]);
-    assert_eq!(tree.child(true).expect("expected child").key(), &[5]);
-    assert_eq!(tree.child(false).expect("expected child").key(), &[7]);
+    assert_eq!(tree.key(), &[63]);
+    assert_eq!(tree.child(true).expect("expected child").key(), &[31]);
+    assert_eq!(tree.child(false).expect("expected child").key(), &[79]);
 }
