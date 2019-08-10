@@ -21,7 +21,7 @@ pub fn assert_tree_invariants(tree: &Tree) {
     tree.child(false).map(|right| assert_tree_invariants(right));
 }
 
-pub fn apply_noop(tree: Tree, batch: &Batch) -> Tree {
+pub fn apply_memonly(tree: Tree, batch: &Batch) -> Tree {
     let walker = Walker::<PanicSource>::new(tree, PanicSource {});
     let mut tree = Walker::<PanicSource>::apply_to(Some(walker), batch)
         .expect("apply failed")
