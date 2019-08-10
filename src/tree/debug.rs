@@ -7,55 +7,46 @@ impl Debug for Tree {
         fn traverse(
             f: &mut Formatter,
             cursor: &Tree,
-            stack: &mut Vec<bool>,
-            left: bool,
-            has_sibling_after: bool,
+            stack: &mut Vec<(Vec<u8>, Vec<u8>)>,
+            left: bool
         ) {
-            let depth = stack.len();
-
-            if depth > 0 {
-                // draw ancestor's vertical lines
-                for &line in stack.iter().take(depth-1) {
-                    write!(
-                        f,
-                        "{}",
-                        if line { " │  " } else { "    " }
-                            .dimmed()
-                    ).unwrap();
-                }
-
-                // draw our connecting line to parent
-                write!(
-                    f,
-                    "{}",
-                    if has_sibling_after { " ├" } else { " └" }
-                        .dimmed()
-                ).unwrap();
-            }
-
-            let prefix = if depth == 0 {
-                ""
-            } else if left {
-                "L─"
-            } else {
-                "R─"
-            };
-            writeln!(f, "{}{:?} h={}", prefix.dimmed(), cursor.key(), cursor.height()).unwrap();
-
             if let Some(child_link) = cursor.link(true) {
                 if let Some(child_tree) = child_link.tree() {
-                    stack.push(true);
-                    traverse(f, child_tree, stack, true, cursor.child(false).is_some());
+                    stack.push((child_tree.key().to_vec(), cursor.key().to_vec()));
+                    traverse(f, child_tree, stack, true);
                     stack.pop();
                 } else {
                     // TODO: print pruned link
                 }
             }
 
+            let depth = stack.len();
+
+            if depth > 0 {
+                // draw ancestor's vertical lines
+                for (low, high) in stack.iter().take(depth-1) {
+                    let draw_line = cursor.key() > &low && cursor.key() < &high;
+                    write!(
+                        f,
+                        "{}",
+                        if draw_line { " │  " } else { "    " }.dimmed()
+                    ).unwrap();
+                }
+            }
+
+            let prefix = if depth == 0 {
+                ""
+            } else if left {
+                " ┌-"
+            } else {
+                " └-"
+            };
+            writeln!(f, "{}{:?}", prefix.dimmed(), cursor.key()).unwrap();
+
             if let Some(child_link) = cursor.link(false) {
                 if let Some(child_tree) = child_link.tree() {
-                    stack.push(false);
-                    traverse(f, child_tree, stack, false, false);
+                    stack.push((cursor.key().to_vec(), child_tree.key().to_vec()));
+                    traverse(f, child_tree, stack, false);
                     stack.pop();
                 } else {
                     // TODO: print pruned link
@@ -64,7 +55,7 @@ impl Debug for Tree {
         };
 
         let mut stack = vec![];
-        traverse(f, self, &mut stack, false, false);
+        traverse(f, self, &mut stack, false);
         writeln!(f)
     }
 }
