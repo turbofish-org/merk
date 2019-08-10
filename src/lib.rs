@@ -2,6 +2,7 @@
 extern crate error_chain;
 extern crate blake2_rfc;
 extern crate rocksdb;
+extern crate colored;
 
 mod error;
 pub mod tree;

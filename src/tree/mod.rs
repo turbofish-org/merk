@@ -4,6 +4,7 @@ mod kv;
 mod link;
 mod encoding;
 mod commit;
+mod debug;
 
 use std::cmp::max;
 

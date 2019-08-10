@@ -117,7 +117,8 @@ impl<S> Walker<S>
                 walker.walk(true)?,
                 left_batch
             )?;
-            walker = walker.attach(true, maybe_left)
+            walker = walker
+                .attach(true, maybe_left)
                 .maybe_balance()?;
         };
 
@@ -126,7 +127,8 @@ impl<S> Walker<S>
                 walker.walk(false)?,
                 right_batch
             )?;
-            walker = walker.attach(false, maybe_right)
+            walker = walker
+                .attach(false, maybe_right)
                 .maybe_balance()?;
         };
 
