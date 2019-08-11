@@ -126,6 +126,10 @@ impl Merk {
     fn source(&self) -> MerkSource {
         MerkSource { db: &self.db }
     }
+
+    fn tree(&self) -> Option<&Tree> {
+        self.tree.as_ref()
+    }
 }
 
 #[derive(Clone)]
@@ -188,10 +192,21 @@ fn default_db_opts() -> rocksdb::Options {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use std::thread;
+    use crate::*;
+    use crate::test_utils::*;
+    use crate::tree::Owner;
 
     #[test]
-    fn apply_unchecked() {
-        
+    fn simple_insert_apply_unchecked() {
+        let batch_size = 20;
+
+        let path = thread::current().name().unwrap().to_owned();
+        let mut merk = TempMerk::open(path).expect("failed to open merk");
+
+        let mut batch = make_batch_seq(0..batch_size);
+        merk.apply_unchecked(&mut batch).expect("apply failed");
+
+        assert_tree_invariants(merk.tree().expect("expected tree"));
     }
 }
