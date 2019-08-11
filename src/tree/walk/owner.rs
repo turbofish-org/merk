@@ -9,6 +9,8 @@ impl<T> Owner<T> {
         Owner { inner: Some(value) }
     }
 
+    // TODO: rename to own_return, with an alternate own which doesn't
+    //       return anything other than the owned value
     pub fn own<R, F>(&mut self, f: F) -> R
         where
             R: Sized,
