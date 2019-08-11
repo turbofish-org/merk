@@ -57,15 +57,38 @@ pub fn make_batch_seq(range: Range<u64>) -> Vec<BatchEntry> {
     batch
 }
 
-pub fn make_batch_rand(size: usize, seed: u64) -> Vec<BatchEntry> {
+pub fn make_batch_rand(size: u64, seed: u64) -> Vec<BatchEntry> {
     let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
-    let mut batch = Vec::with_capacity(size);
+    let mut batch = Vec::with_capacity(size.try_into().unwrap());
     for _ in 0..size {
         let n = rng.gen::<u64>();
         batch.push(put_entry(n));
     }
     batch.sort_by(|a, b| a.0.cmp(&b.0));
     batch
+}
+
+pub fn make_tree_rand(
+    node_count: u64,
+    batch_size: u64,
+    initial_seed: u64
+) -> Tree {
+    assert!(node_count > batch_size);
+    assert!(node_count % batch_size == 0);
+
+    let value = vec![123; 60];
+    let mut tree = Tree::new(vec![0; 20], value.clone());
+
+    let mut seed = initial_seed;
+    
+    let batch_count = node_count / batch_size;
+    for i in 0..batch_count {
+        let batch = make_batch_rand(batch_size, seed);
+        tree = apply_memonly(tree, &batch);
+        seed += 1;
+    }
+
+    tree
 }
 
 pub fn make_tree_seq(node_count: u64) -> Tree {
