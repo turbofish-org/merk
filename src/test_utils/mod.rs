@@ -1,9 +1,13 @@
+mod temp_merk;
+
 use std::ops::Range;
 use std::convert::TryInto;
 use byteorder::{BigEndian, WriteBytesExt};
 use rand::prelude::*;
 use crate::tree::{Tree, Walker, NoopCommit};
-use crate::{Batch, Op, PanicSource, BatchEntry};
+use crate::{Merk, Batch, Op, PanicSource, BatchEntry};
+
+pub use temp_merk::TempMerk;
 
 pub fn assert_tree_invariants(tree: &Tree) {
     assert!(tree.balance_factor().abs() < 2);

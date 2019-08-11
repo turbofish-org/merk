@@ -1,7 +1,5 @@
 extern crate merk;
 
-mod common;
-
 use merk::*;
 use merk::tree::{Tree, Walker, NoopCommit}; 
 use merk::test_utils::{assert_tree_invariants, apply_memonly};
