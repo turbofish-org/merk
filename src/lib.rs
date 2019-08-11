@@ -4,6 +4,7 @@ extern crate blake2_rfc;
 extern crate rocksdb;
 extern crate colored;
 extern crate byteorder;
+extern crate rand;
 
 mod error;
 pub mod tree;

@@ -1,6 +1,7 @@
 use std::ops::Range;
 use std::convert::TryInto;
 use byteorder::{BigEndian, WriteBytesExt};
+use rand::prelude::*;
 use crate::tree::{Tree, Walker, NoopCommit};
 use crate::{Batch, Op, PanicSource, BatchEntry};
 
@@ -56,9 +57,16 @@ pub fn make_batch_seq(range: Range<u64>) -> Vec<BatchEntry> {
     batch
 }
 
-// pub fn make_batch_rand(size: usize, seed: usize) -> Vec<BatchEntry> {
-//     let mut batch = Vec::with_capacity(size);
-// }
+pub fn make_batch_rand(size: usize, seed: u64) -> Vec<BatchEntry> {
+    let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
+    let mut batch = Vec::with_capacity(size);
+    for _ in 0..size {
+        let n = rng.gen::<u64>();
+        batch.push(put_entry(n));
+    }
+    batch.sort_by(|a, b| a.0.cmp(&b.0));
+    batch
+}
 
 pub fn make_tree_seq(node_count: u64) -> Tree {
     let batch_size = 10_000;
