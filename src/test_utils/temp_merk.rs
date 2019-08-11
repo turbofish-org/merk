@@ -1,4 +1,3 @@
-use std::thread;
 use std::path::Path;
 use std::ops::{Deref, DerefMut};
 use crate::{Merk, Result};

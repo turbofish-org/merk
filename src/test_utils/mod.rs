@@ -44,7 +44,7 @@ pub fn apply_memonly(tree: Tree, batch: &Batch) -> Tree {
     tree
 }
 
-fn put_entry(n: u64) -> BatchEntry {
+pub fn put_entry(n: u64) -> BatchEntry {
     let mut key = vec![0; 12];
     key.write_u64::<BigEndian>(n)
         .expect("writing to key failed");
@@ -96,8 +96,12 @@ pub fn make_tree_rand(
 }
 
 pub fn make_tree_seq(node_count: u64) -> Tree {
-    let batch_size = 10_000;
-    assert!(node_count % batch_size == 0);
+    let batch_size = if node_count >= 10_000 {
+        assert!(node_count % 10_000 == 0);
+        10_000
+    } else {
+        node_count
+    };
 
     let value = vec![123; 60];
     let mut tree = Tree::new(vec![0; 20], value.clone());
