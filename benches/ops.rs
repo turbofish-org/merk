@@ -12,7 +12,7 @@ use merk::test_utils::{
 use merk::tree::Owner;
 
 #[bench]
-fn insert_10k_seq(b: &mut Bencher) {
+fn insert_10k_seq_nowrite_noprune(b: &mut Bencher) {
     let mut tree = Owner::new(make_tree_seq(1_000_000));
 
     let batch_size = 10_000;
