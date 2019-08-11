@@ -183,7 +183,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
     fn encode_stored_tree() {
         let tree = Tree::from_fields(
             vec![0], vec![1],
@@ -197,6 +196,7 @@ mod test {
         );
         let mut bytes = vec![];
         tree.encode_into(&mut bytes);
+        assert_eq!(bytes, vec![1, 0, 1, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 1, 2, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 123, 0].as_slice());
     }
 
     #[test]
