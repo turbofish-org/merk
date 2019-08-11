@@ -4,7 +4,7 @@ mod common;
 
 use merk::*;
 use merk::tree::{Tree, Walker, NoopCommit}; 
-use common::{assert_tree_invariants, apply_memonly};
+use merk::test_utils::{assert_tree_invariants, apply_memonly};
 
 #[test]
 fn insert_empty_single() {

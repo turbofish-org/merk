@@ -3,11 +3,13 @@ extern crate error_chain;
 extern crate blake2_rfc;
 extern crate rocksdb;
 extern crate colored;
+extern crate byteorder;
 
 mod error;
 pub mod tree;
 mod ops;
 mod merk;
+pub mod test_utils;
 
 pub use error::{Error, Result};
 pub use self::merk::Merk;
