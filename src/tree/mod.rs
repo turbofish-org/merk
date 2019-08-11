@@ -177,6 +177,7 @@ impl Tree {
 
     pub fn commit<C: Commit>(&mut self, c: &mut C) -> Result<()> {
         // TODO: make this method less ugly
+        // TODO: call write in-order for better performance in writing batch to db?
 
         if let Some(Link::Modified { .. }) = self.inner.left {
             if let Some(Link::Modified { mut tree, height, .. }) = self.inner.left.take() {
@@ -189,8 +190,6 @@ impl Tree {
             }
         }
 
-        c.write(&self)?;
-
         if let Some(Link::Modified { .. }) = self.inner.right {
             if let Some(Link::Modified { mut tree, height, .. }) = self.inner.right.take() {
                 tree.commit(c)?;
@@ -201,6 +200,8 @@ impl Tree {
                 });
             }
         }
+
+        c.write(&self)?;
 
         let (prune_left, prune_right) = c.prune(&self);
         if prune_left {

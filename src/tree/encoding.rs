@@ -6,15 +6,17 @@ use crate::error::Result;
 // TODO: Encode, Decode traits
 
 impl Link {
+    // TODO: encode_recursive_into? doesn't convert into pruned
+
     pub fn encode_into(&self, output: &mut Vec<u8>) {
         let (hash, key, height) = match self {
-            Link::Pruned { hash, key, height } => (hash, key, height),
-            Link::Modified { .. } => panic!("No encoding for Link::Modified"),
-            Link::Stored { .. } => panic!("No encoding for Link::Stored")
+            Link::Pruned { hash, key, height } => (hash, key.as_slice(), height),
+            Link::Stored { hash, tree, height } => (hash, tree.key(), height),
+            Link::Modified { .. } => panic!("No encoding for Link::Modified")
         };
 
         output.push(key.len().try_into().unwrap());
-        output.extend_from_slice(key.as_slice());
+        output.extend_from_slice(key);
 
         output.extend_from_slice(hash);
 

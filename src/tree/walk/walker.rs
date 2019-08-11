@@ -17,19 +17,22 @@ impl<S> Walker<S>
     }
 
     pub fn walk(&mut self, left: bool) -> Result<Option<Self>> {
-        if self.tree.link(left).is_none() {
-            return Ok(None)
-        }
+        let link = match self.tree.link(left) {
+            None => return Ok(None),
+            Some(link) => link
+        };
 
-        let maybe_child = self.tree.own(|tree| tree.detach(left));
-        let child = if let Some(child) = maybe_child {
-            child
+        let child = if link.tree().is_some() {
+            match self.tree.own(|tree| tree.detach(left)) {
+                Some(child) => child,
+                _ => unreachable!("Expected Some")
+            }
         } else {
-            let key = match self.tree.link(left) {
-                Some(Link::Pruned { key, .. }) => key.as_slice(),
+            let key = match self.tree.slot_mut(left).take() {
+                Some(Link::Pruned { key, .. }) => key,
                 _ => unreachable!("Expected Link::Pruned")
             };
-            self.source.fetch(key)?
+            self.source.fetch(key.as_slice())?
         };
 
         Ok(Some(self.wrap(child)))
