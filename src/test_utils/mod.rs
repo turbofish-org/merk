@@ -45,7 +45,7 @@ pub fn apply_memonly(tree: Tree, batch: &Batch) -> Tree {
 }
 
 pub fn put_entry(n: u64) -> BatchEntry {
-    let mut key = vec![0; 12];
+    let mut key = vec![0; 0];
     key.write_u64::<BigEndian>(n)
         .expect("writing to key failed");
     (key, Op::Put(vec![123; 60]))

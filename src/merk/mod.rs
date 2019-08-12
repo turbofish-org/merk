@@ -80,7 +80,7 @@ impl Merk {
 
         if let Some(tree) = &mut self.tree {
             // TODO: configurable committer
-            let mut committer = MerkCommitter::new(&mut batch, tree.height(), 18);
+            let mut committer = MerkCommitter::new(&mut batch, tree.height(), 1);
             tree.commit(&mut committer)?;
 
             // update pointer to root node
@@ -93,6 +93,7 @@ impl Merk {
         // write to db
         let mut opts = rocksdb::WriteOptions::default();
         opts.set_sync(false);
+        opts.disable_wal(true);
         self.db.write_opt(batch, &opts)?;
 
         Ok(())
@@ -138,8 +139,8 @@ struct MerkSource<'a> {
 }
 
 impl<'a> Fetch for MerkSource<'a> {
-    fn fetch(&self, key: &[u8]) -> Result<Tree> {
-        get_node(&self.db, key)
+    fn fetch(&self, link: &Link) -> Result<Tree> {
+        get_node(&self.db, link.key())
     }
 }
 
@@ -208,5 +209,37 @@ mod test {
         merk.apply_unchecked(&mut batch).expect("apply failed");
 
         assert_tree_invariants(merk.tree().expect("expected tree"));
+    }
+
+    #[test]
+    fn insert_uncached() {
+        let batch_size = 20;
+
+        let path = thread::current().name().unwrap().to_owned();
+        let mut merk = TempMerk::open(path).expect("failed to open merk");
+
+        let batch = make_batch_seq(0..batch_size);
+        merk.apply_unchecked(&batch).expect("apply failed");
+        assert_tree_invariants(merk.tree().expect("expected tree"));
+
+        let batch = make_batch_seq(batch_size..(batch_size*2));
+        merk.apply_unchecked(&batch).expect("apply failed");
+        assert_tree_invariants(merk.tree().expect("expected tree"));
+    }
+
+    #[test]
+    fn insert_rand() {
+        let tree_size = 40;
+        let batch_size = 4;
+
+        let path = thread::current().name().unwrap().to_owned();
+        let mut merk = TempMerk::open(path).expect("failed to open merk");
+
+        for i in 0..(tree_size / batch_size) {
+            println!("i:{}", i);
+            let batch = make_batch_rand(batch_size, i);
+            merk.apply_unchecked(&batch).expect("apply failed");
+
+        }
     }
 }
