@@ -9,9 +9,9 @@ use merk::test_utils::*;
 use merk::tree::Owner;
 
 #[bench]
-fn insert_1m_10k_seq_rocksdb_noprune(b: &mut Bencher) {
+fn insert_1m_2k_seq_rocksdb_noprune(b: &mut Bencher) {
     let initial_size = 1_000_000;
-    let batch_size = 10_000;
+    let batch_size = 2_000;
 
     let path = thread::current().name().unwrap().to_owned();
     let mut merk = TempMerk::open(path).expect("failed to open merk");
@@ -30,9 +30,9 @@ fn insert_1m_10k_seq_rocksdb_noprune(b: &mut Bencher) {
 }
 
 #[bench]
-fn insert_1m_10k_rand_rocksdb_noprune(b: &mut Bencher) {
+fn insert_1m_2k_rand_rocksdb_noprune(b: &mut Bencher) {
     let initial_size = 1_000_000;
-    let batch_size = 10_000;
+    let batch_size = 2_000;
 
     let path = thread::current().name().unwrap().to_owned();
     let mut merk = TempMerk::open(path).expect("failed to open merk");
