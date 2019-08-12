@@ -1,7 +1,7 @@
 use std::fmt;
 use std::collections::BTreeSet;
 use crate::error::Result;
-use crate::tree::{Tree, Walker, Fetch};
+use crate::tree::{Tree, Link, Walker, Fetch};
 use Op::*;
 
 pub enum Op {
@@ -26,7 +26,7 @@ pub type Batch = [BatchEntry];
 #[derive(Clone)]
 pub struct PanicSource {}
 impl Fetch for PanicSource {
-    fn fetch(&self, key: &[u8]) -> Result<Tree> {
+    fn fetch(&self, link: &Link) -> Result<Tree> {
         unreachable!("'fetch' should not have been called")
     }
 }

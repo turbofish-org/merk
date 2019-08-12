@@ -1,6 +1,6 @@
 use crate::error::Result;
-use super::super::Tree;
+use super::super::{Tree, Link};
 
 pub trait Fetch {
-    fn fetch(&self, key: &[u8]) -> Result<Tree>;
+    fn fetch(&self, link: &Link) -> Result<Tree>;
 }

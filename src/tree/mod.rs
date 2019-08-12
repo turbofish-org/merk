@@ -12,7 +12,7 @@ pub use walk::{Walker, Fetch, Owner};
 use super::error::Result;
 pub use commit::{Commit, NoopCommit};
 use kv::KV;
-use link::Link;
+pub use link::Link;
 use hash::{Hash, node_hash, NULL_HASH};
 
 struct TreeInner {
@@ -122,6 +122,12 @@ impl Tree {
     }
 
     pub fn attach(mut self, left: bool, maybe_child: Option<Self>) -> Self {
+        debug_assert_ne!(
+            Some(self.key()),
+            maybe_child.as_ref().map(|c| c.key()),
+            "Tried to attach tree with same key"
+        );
+
         let slot = self.slot_mut(left);
 
         if slot.is_some() {
@@ -130,7 +136,6 @@ impl Tree {
                 side_to_str(left)
             );
         }
-
         *slot = Link::maybe_from_modified_tree(maybe_child);
 
         self

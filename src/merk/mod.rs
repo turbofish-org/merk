@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
-use crate::tree::{Tree, Fetch, Walker, Commit};
+use crate::tree::{Tree, Link, Fetch, Walker, Commit};
 use super::ops::Batch;
 
 // TODO: use a column family or something to keep the root key separate

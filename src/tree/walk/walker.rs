@@ -28,11 +28,12 @@ impl<S> Walker<S>
                 _ => unreachable!("Expected Some")
             }
         } else {
-            let key = match self.tree.slot_mut(left).take() {
-                Some(Link::Pruned { key, .. }) => key,
-                _ => unreachable!("Expected Link::Pruned")
-            };
-            self.source.fetch(key.as_slice())?
+            let link = self.tree.slot_mut(left).take();
+            match link {
+                Some(Link::Pruned { .. }) => (),
+                _ => unreachable!("Expected Some(Link::Pruned)")
+            }
+            self.source.fetch(&link.unwrap())?
         };
 
         Ok(Some(self.wrap(child)))
@@ -91,8 +92,8 @@ mod test {
     struct MockSource {}
 
     impl Fetch for MockSource {
-        fn fetch(&self, key: &[u8]) -> Result<Tree> {
-            Ok(Tree::new(key.to_vec(), b"foo".to_vec()))
+        fn fetch(&self, link: &Link) -> Result<Tree> {
+            Ok(Tree::new(link.key().to_vec(), b"foo".to_vec()))
         }
     }
 

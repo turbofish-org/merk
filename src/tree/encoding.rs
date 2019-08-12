@@ -92,7 +92,7 @@ impl Tree {
         offset += value_len;
 
         let mut kv_hash: Hash = Default::default();
-        kv_hash.copy_from_slice(&bytes[offset..offset + 20]);
+        kv_hash.copy_from_slice(&bytes[offset..(offset + 20)]);
         offset += 20;
 
         let link_length = bytes[offset];

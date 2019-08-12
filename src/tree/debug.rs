@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Formatter, Result};
 use colored::Colorize;
-use super::Tree;
+use super::{Tree, Link};
 
 impl Debug for Tree {
     fn fmt(&self, f: &mut Formatter) -> Result {
