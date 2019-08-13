@@ -196,7 +196,6 @@ mod test {
     use std::thread;
     use crate::*;
     use crate::test_utils::*;
-    use crate::tree::Owner;
 
     #[test]
     fn simple_insert_apply_unchecked() {

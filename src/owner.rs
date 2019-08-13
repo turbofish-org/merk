@@ -9,9 +9,13 @@ impl<T> Owner<T> {
         Owner { inner: Some(value) }
     }
 
-    // TODO: rename to own_return, with an alternate own which doesn't
-    //       return anything other than the owned value
-    pub fn own<R, F>(&mut self, f: F) -> R
+    pub fn own<F: FnOnce(T) -> T>(&mut self, f: F) {
+        let old_value = unwrap(self.inner.take());
+        let new_value = f(old_value);
+        self.inner = Some(new_value);
+    }
+
+    pub fn own_return<R, F>(&mut self, f: F) -> R
         where
             R: Sized,
             F: FnOnce(T) -> (T, R)
@@ -47,3 +51,5 @@ fn unwrap<T>(option: Option<T>) -> T {
         None => unreachable!("value should be Some")
     }
 }
+
+// TODO: unit tests

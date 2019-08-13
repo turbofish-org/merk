@@ -6,7 +6,6 @@ use std::thread;
 use test::Bencher;
 use merk::*;
 use merk::test_utils::*;
-use merk::tree::Owner;
 
 #[bench]
 fn insert_1m_2k_seq_rocksdb_noprune(b: &mut Bencher) {

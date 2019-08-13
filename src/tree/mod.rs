@@ -8,7 +8,7 @@ mod debug;
 
 use std::cmp::max;
 
-pub use walk::{Walker, Fetch, Owner};
+pub use walk::{Walker, Fetch};
 use super::error::Result;
 pub use commit::{Commit, NoopCommit};
 use kv::KV;

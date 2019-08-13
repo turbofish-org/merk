@@ -11,6 +11,7 @@ pub mod tree;
 mod ops;
 mod merk;
 pub mod test_utils;
+pub mod owner;
 
 pub use error::{Error, Result};
 pub use self::merk::Merk;

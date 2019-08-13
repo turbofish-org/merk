@@ -1,6 +1,7 @@
 use crate::error::Result;
-use super::{Fetch, Owner};
+use super::Fetch;
 use super::super::{Tree, Link, commit::NoopCommit};
+use crate::owner::Owner;
 
 pub struct Walker<S>
     where S: Fetch + Sized + Clone + Send
@@ -23,7 +24,7 @@ impl<S> Walker<S>
         };
 
         let child = if link.tree().is_some() {
-            match self.tree.own(|tree| tree.detach(left)) {
+            match self.tree.own_return(|tree| tree.detach(left)) {
                 Some(child) => child,
                 _ => unreachable!("Expected Some")
             }

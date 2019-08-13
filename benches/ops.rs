@@ -5,7 +5,7 @@ extern crate test;
 use test::Bencher;
 use merk::*;
 use merk::test_utils::*;
-use merk::tree::Owner;
+use merk::owner::Owner;
 
 #[bench]
 fn insert_1m_10k_seq_memonly(b: &mut Bencher) {
@@ -17,7 +17,7 @@ fn insert_1m_10k_seq_memonly(b: &mut Bencher) {
     let mut i = initial_size / batch_size;
     b.iter(|| {
         let batch = make_batch_seq((i * batch_size)..((i+1) * batch_size));
-        tree.own(|tree| (apply_memonly_unchecked(tree, &batch), 0));
+        tree.own(|tree| apply_memonly_unchecked(tree, &batch));
         i += 1;
     });
 }
@@ -32,7 +32,7 @@ fn insert_1m_10k_rand_memonly(b: &mut Bencher) {
     let mut i = initial_size / batch_size;
     b.iter(|| {
         let batch = make_batch_rand(batch_size, i);
-        tree.own(|tree| (apply_memonly_unchecked(tree, &batch), 0));
+        tree.own(|tree| apply_memonly_unchecked(tree, &batch));
         i += 1;
     });
 }
@@ -47,7 +47,7 @@ fn update_1m_10k_seq_memonly(b: &mut Bencher) {
     let mut i = 0;
     b.iter(|| {
         let batch = make_batch_seq((i * batch_size)..((i+1) * batch_size));
-        tree.own(|tree| (apply_memonly_unchecked(tree, &batch), 0));
+        tree.own(|tree| apply_memonly_unchecked(tree, &batch));
         i = (i + 1) % (initial_size / batch_size);
     });
 }
@@ -62,7 +62,7 @@ fn update_1m_10k_rand_memonly(b: &mut Bencher) {
     let mut i = 0;
     b.iter(|| {
         let batch = make_batch_rand(batch_size, i);
-        tree.own(|tree| (apply_memonly_unchecked(tree, &batch), 0));
+        tree.own(|tree| apply_memonly_unchecked(tree, &batch));
         i = (i + 1) % (initial_size / batch_size);
     });
 }
