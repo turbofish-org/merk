@@ -27,7 +27,7 @@ impl Link {
         match self {
             Link::Pruned { hash, key, .. } => { 1 + key.len() + 20 + 1 },
             Link::Modified { .. } => panic!("No encoding for Link::Modified"),
-            Link::Stored { .. } => panic!("No encoding for Link::Stored")
+            Link::Stored { tree, .. } => { 1 + tree.key().len() + 20 + 1 }
         }
     }
 
