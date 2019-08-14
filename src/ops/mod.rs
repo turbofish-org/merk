@@ -109,73 +109,30 @@ impl<S> Walker<S>
             true => &batch[mid + 1..],
             false => &batch[mid..]
         };
- 
-        let mut walker = self;
         
-        if !left_batch.is_empty() {
-            let maybe_left = Self::apply_to(
-                walker.walk(true)?,
-                left_batch
-            )?;
-            walker = walker
-                .attach(true, maybe_left)
-                .maybe_balance()?;
+        let _self = match left_batch.is_empty() {
+            false => {
+                self
+                    .walk(true, |maybe_left|
+                        Self::apply_to(maybe_left, left_batch)
+                    )?
+                    .maybe_balance()?
+            },
+            true => self
         };
 
-        if !right_batch.is_empty() {
-            let maybe_right = Self::apply_to(
-                walker.walk(false)?,
-                right_batch
-            )?;
-            walker = walker
-                .attach(false, maybe_right)
-                .maybe_balance()?;
+        let _self = match right_batch.is_empty() {
+            false => {
+                _self
+                    .walk(false, |maybe_right|
+                        Self::apply_to(maybe_right, right_batch)
+                    )?
+                    .maybe_balance()?
+            },
+            true => _self
         };
 
-        Ok(Some(walker))
-
-        // let tree = match (left_batch.is_empty(), right_batch.is_empty()) {
-        //     // batches are empty, don't recurse
-        //     (true, true) => self,
-            
-        //     // one batch is empty
-        //     (left_ne, right_ne) if left_ne != right_ne => {
-        //         let maybe_child = self.walk_mut(right_ne)?;
-        //         let child = apply_or_build(maybe_child, self.with_batch(left_batch))?;
-        //         self.attach(right_ne, child)
-        //     },
-
-        //     // neither batch is empty
-        //     (false, false) => {
-        //         // split up workers based on ratio of batch sizes.
-        //         // it is possible for one side to have 0 workers, which means
-        //         // it will just run in the same thread.
-        //         let ratio = left_batch.len() as f32 / right_batch.len() as f32;
-        //         let left_pool_len = (self.pool.len() * ratio) as u32;
-        //         let (left_pool, right_pool) = self.pool.split_at(left_pool_len);
-
-        //         // start working on right side in parallel
-        //         let maybe_right = self.walk_mut(false)?;
-        //         let right_join = right_pool.apply(right_batch, maybe_right);
-
-        //         // work on left side in this thread
-        //         let maybe_left = self.walk_mut(true)?;
-        //         let left = apply_or_build(maybe_left, Context {
-        //             batch: left_batch,
-        //             pool: left_pool,
-        //             get_node: self.get_node
-        //         })?;
-
-        //         // join with right side
-        //         let right = right_join();
-                
-        //         self.attach(true, left)
-        //             .attach(false, right)
-        //             .maybe_balance()?
-        //     }
-        // }.unwrap();
-
-        // Ok(Some(tree))
+        Ok(Some(_self))
     }
 
     #[inline]
@@ -194,31 +151,31 @@ impl<S> Walker<S>
         // maybe do a double rotation
         // TODO: we can avoid walking in the non-double-rotation case
         //       if links store child's balance factor
-        let child = self.walk_expect(left)?;
-        let child = match left == (child.balance_factor() > 0) {
-            true => child.rotate(!left)?,
-            false => child
-        };
-        self = self.attach(left, Some(child.into_inner()));
-
-        self.rotate(left)
+        let _self = self.walk_expect(left, |child| {
+            match left == (child.balance_factor() > 0) {
+                true => Ok(Some(child.rotate(!left)?)),
+                false => Ok(Some(child))
+            }
+        })?;
+        
+        _self.rotate(left)
     }
 
     fn rotate(mut self, left: bool) -> Result<Self> {
-        let mut child = self.walk_expect(left)?;
-        let maybe_grandchild = child
-            .walk(!left)?
-            .map(|w| w.into_inner());
+        unsafe {
+            let (_self, child) = self.detach_expect(left)?;
+            let (child, maybe_grandchild) = child.detach(!left)?;
 
-        // attach grandchild to self
-        let tree = self
-            .attach(left, maybe_grandchild)
-            .maybe_balance()?;
+            // attach grandchild to self
+            let _self = _self
+                .attach(left, maybe_grandchild)
+                .maybe_balance()?;
 
-        // attach self to child, return child
-        child
-            .attach(!left, Some(tree.into_inner()))
-            .maybe_balance()
+            // attach self to child, return child
+            child
+                .attach(!left, Some(_self))
+                .maybe_balance()
+        }
     }
 }
 
@@ -241,7 +198,7 @@ mod test {
             .expect("apply errored")
             .expect("should be Some");
         assert_eq!(walker.tree().key(), b"foo");
-        assert_eq!(walker.walk_expect(false).unwrap().tree().key(), b"foo2");
+        assert_eq!(walker.into_inner().child(false).unwrap().key(), b"foo2");
     }
 
     #[test]

@@ -14,6 +14,7 @@ pub use commit::{Commit, NoopCommit};
 use kv::KV;
 pub use link::Link;
 use hash::{Hash, node_hash, NULL_HASH};
+use super::owner::Owner;
 
 struct TreeInner {
     kv: KV,
@@ -141,7 +142,7 @@ impl Tree {
         self
     }
 
-    pub fn detach(mut self, left: bool) -> (Self, Option<Self>) {
+    pub unsafe fn detach(mut self, left: bool) -> (Self, Option<Self>) {
         let maybe_child = match self.slot_mut(left).take() {
             None => None,
             Some(Link::Pruned { .. }) => None,
@@ -152,7 +153,7 @@ impl Tree {
         (self, maybe_child)
     }
 
-    pub fn detach_expect(mut self, left: bool) -> (Self, Self) {
+    pub unsafe fn detach_expect(mut self, left: bool) -> (Self, Self) {
         let (parent, maybe_child) = self.detach(left);
 
         if let Some(child) = maybe_child {
@@ -163,6 +164,20 @@ impl Tree {
                 side_to_str(left)
             );
         }
+    }
+
+    pub fn walk<F>(mut self, left: bool, f: F) -> Self
+        where F: FnOnce(Option<Self>) -> Option<Self>
+    {
+        let (_self, maybe_child) = unsafe { self.detach(left) };
+        _self.attach(left, f(maybe_child))
+    }
+
+    pub fn walk_expect<F>(mut self, left: bool, f: F) -> Self
+        where F: FnOnce(Self) -> Option<Self>
+    {
+        let (_self, child) = unsafe { self.detach_expect(left) };
+        _self.attach(left, f(child))
     }
 
     #[inline]
@@ -268,26 +283,30 @@ mod test {
     }
 
     #[test]
-    fn detach() {
+    fn modify() {
         let mut tree = Tree::new(vec![0], vec![1])
             .attach(true, Some(Tree::new(vec![2], vec![3])))
             .attach(false, Some(Tree::new(vec![4], vec![5])));
 
-        let (tree, left_opt) = tree.detach(true);
+        let tree = tree.walk(true, |left_opt| {
+            assert_eq!(left_opt.as_ref().unwrap().key(), &[2]);
+            None
+        });
         assert!(tree.child(true).is_none());
         assert!(tree.child(false).is_some());
-        assert_eq!(left_opt.as_ref().unwrap().key(), &[2]);
 
-        let (tree, right_opt) = tree.detach(false);
-        assert!(tree.child(true).is_none());
-        assert!(tree.child(false).is_none());
-        assert_eq!(right_opt.as_ref().unwrap().key(), &[4]);
+        let tree = tree.walk(true, |left_opt| {
+            assert!(left_opt.is_none());
+            Some(Tree::new(vec![2], vec![3]))
+        });
+        assert_eq!(tree.link(true).unwrap().key(), &[2]);
 
-        let tree = tree
-            .attach(true, left_opt)
-            .attach(false, right_opt);
+        let tree = tree.walk_expect(false, |right| {
+            assert_eq!(right.key(), &[4]);
+            None
+        });
         assert!(tree.child(true).is_some());
-        assert!(tree.child(false).is_some());
+        assert!(tree.child(false).is_none());
     }
 
     #[test]
@@ -303,12 +322,11 @@ mod test {
         assert!(tree.link(true).expect("expected link").is_stored());
         assert!(tree.child(true).is_some());
 
-        // TODO: enable when implemented
         // tree.link(true).prune(true);
         // assert!(tree.link(true).expect("expected link").is_pruned());
         // assert!(tree.child(true).is_none());
 
-        let (tree, _) = tree.detach(true);
+        let tree = tree.walk(true, |_| None);
         assert!(tree.link(true).is_none());
         assert!(tree.child(true).is_none());
     }
@@ -353,8 +371,8 @@ mod test {
         assert_eq!(tree.child_height(false), 0);
         assert_eq!(tree.balance_factor(), -1);
 
-        let (parent, maybe_child) = tree.detach(true);
-        let tree = parent.attach(false, maybe_child);
+        let (tree, maybe_child) = unsafe { tree.detach(true) };
+        let tree = tree.attach(false, maybe_child);
         assert_eq!(tree.height(), 2);
         assert_eq!(tree.child_height(true), 0);
         assert_eq!(tree.child_height(false), 1);

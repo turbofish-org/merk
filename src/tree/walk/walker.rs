@@ -17,14 +17,14 @@ impl<S> Walker<S>
         Walker { tree: Owner::new(tree), source }
     }
 
-    pub fn walk(&mut self, left: bool) -> Result<Option<Self>> {
+    pub unsafe fn detach(mut self, left: bool) -> Result<(Self, Option<Self>)> {
         let link = match self.tree.link(left) {
-            None => return Ok(None),
+            None => return Ok((self, None)),
             Some(link) => link
         };
 
         let child = if link.tree().is_some() {
-            match self.tree.own_return(|tree| tree.detach(left)) {
+            match self.tree.own_return(|t| t.detach(left)) {
                 Some(child) => child,
                 _ => unreachable!("Expected Some")
             }
@@ -37,20 +37,42 @@ impl<S> Walker<S>
             self.source.fetch(&link.unwrap())?
         };
 
-        Ok(Some(self.wrap(child)))
+        let child = self.wrap(child);
+        Ok((self, Some(child)))
     }
 
-    pub fn walk_expect(&mut self, left: bool) -> Result<Self> {
-        let maybe_walker = self.walk(left)?;
-
-        if let Some(walker) = maybe_walker {
-            Ok(walker)
+    pub unsafe fn detach_expect(mut self, left: bool) -> Result<(Self, Self)> {
+        let (_self, maybe_child) = self.detach(left)?;
+        if let Some(child) = maybe_child {
+            Ok((_self, child))
         } else {
-            unreachable!(
+            panic!(
                 "Expected {} child, got None",
                 if left { "left" } else { "right" }
-            )
+            );
         }
+    }
+
+    pub fn walk<F, T>(mut self, left: bool, f: F) -> Result<Self>
+        where
+            F: FnOnce(Option<Self>) -> Result<Option<T>>,
+            T: Into<Tree>
+    {
+        let (mut _self, maybe_child) = unsafe { self.detach(left)? };
+        let new_child = f(maybe_child)?.map(|t| t.into());
+        _self.tree.own(|t| t.attach(left, new_child));
+        Ok(_self)
+    }
+
+    pub fn walk_expect<F, T>(mut self, left: bool, f: F) -> Result<Self>
+        where
+            F: FnOnce(Self) -> Result<Option<T>>,
+            T: Into<Tree>
+    {
+        let (mut _self, child) = unsafe { self.detach_expect(left)? };
+        let new_child = f(child)?.map(|t| t.into());
+        _self.tree.own(|t| t.attach(left, new_child));
+        Ok(_self)
     }
 
     pub fn tree(&self) -> &Tree {
@@ -69,18 +91,26 @@ impl<S> Walker<S>
         self.source.clone()
     }
 
-    pub fn attach(mut self, left: bool, maybe_child: Option<Tree>) -> Self {
-        let tree = self.tree.into_inner()
-            .attach(left, maybe_child);
-        self.tree = Owner::new(tree);
+    pub fn attach<T>(mut self, left: bool, maybe_child: Option<T>) -> Self
+        where T: Into<Tree>
+    {
+        self.tree.own(|t| {
+            t.attach(left, maybe_child.map(|t| t.into()))
+        });
         self
     }
 
     pub fn with_value(mut self, value: Vec<u8>) -> Self {
-        let tree = self.tree.into_inner()
-            .with_value(value);
-        self.tree = Owner::new(tree);
+        self.tree.own(|t| t.with_value(value));
         self
+    }
+}
+
+impl<S> From<Walker<S>> for Tree
+    where S: Fetch + Sized + Clone + Send
+{
+    fn from(walker: Walker<S>) -> Tree {
+        walker.into_inner()
     }
 }
 
@@ -110,10 +140,12 @@ mod test {
             )));
 
         let source = MockSource {};
-        let mut walker = Walker::new(tree, source);
+        let walker = Walker::new(tree, source);
 
-        let child = walker.walk(true).expect("walk failed");
-        assert_eq!(child.expect("should have child").tree().key(), b"foo");
+        let walker = walker.walk(true, |child| -> Result<Option<Tree>> {
+            assert_eq!(child.expect("should have child").tree().key(), b"foo");
+            Ok(None)
+        }).expect("walk failed");
         assert!(walker.into_inner().child(true).is_none());
     }
 
@@ -131,27 +163,37 @@ mod test {
             .expect("commit failed");
 
         let source = MockSource {};
-        let mut walker = Walker::new(tree, source);
+        let walker = Walker::new(tree, source);
 
-        let child = walker.walk(true).expect("walk failed");
-        assert_eq!(child.expect("should have child").tree().key(), b"foo");
+        let walker = walker.walk(true, |child| -> Result<Option<Tree>> {
+            assert_eq!(child.expect("should have child").tree().key(), b"foo");
+            Ok(None)
+        }).expect("walk failed");
         assert!(walker.into_inner().child(true).is_none());
     }
 
     #[test]
     fn walk_pruned() {
-        // TODO: enable once we can prune tree
-        // let tree = Tree::new(
-        //     b"test".to_vec(),
-        //     b"abc".to_vec()
-        // );
+        let tree = Tree::from_fields(
+            b"test".to_vec(),
+            b"abc".to_vec(),
+            Default::default(),
+            Some(Link::Pruned {
+                hash: Default::default(),
+                key: b"foo".to_vec(),
+                height: 1
+            }),
+            None
+        );
 
-        // let source = MockSource {};
-        // let mut walker = Walker::new(tree, source);
+        let source = MockSource {};
+        let walker = Walker::new(tree, source);
 
-        // let child = walker.walk(true).expect("walk failed");
-        // assert_eq!(child.expect("should have child").tree().key(), b"foo");
-        // assert!(walker.into_inner().child(true).is_none());
+        let walker = walker.walk_expect(true, |child| -> Result<Option<Tree>> {
+            assert_eq!(child.tree().key(), b"foo");
+            Ok(None)
+        }).expect("walk failed");
+        assert!(walker.into_inner().child(true).is_none());
     }
     
     #[test]
@@ -164,7 +206,9 @@ mod test {
         let source = MockSource {};
         let mut walker = Walker::new(tree, source);
 
-        let child = walker.walk(true).expect("walk failed");
-        assert!(child.is_none());
+        walker.walk(true, |child| -> Result<Option<Tree>> {
+            assert!(child.is_none());
+            Ok(None)
+        }).expect("walk failed");
     }
 }
