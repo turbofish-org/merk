@@ -109,6 +109,15 @@ impl Tree {
             .map_or(0, |child| child.height())
     }
 
+    #[inline]
+    pub fn child_heights(&self) -> (u8, u8) {
+        (
+            self.child_height(true),
+            self.child_height(false)
+        )
+    }
+
+    #[inline]
     pub fn height(&self) -> u8 {
         1 + max(
             self.child_height(true),
@@ -116,6 +125,7 @@ impl Tree {
         )
     }
 
+    #[inline]
     pub fn balance_factor(&self) -> i8 {
         let left_height = self.child_height(true) as i8;
         let right_height = self.child_height(false) as i8;
@@ -169,15 +179,15 @@ impl Tree {
     pub fn walk<F>(mut self, left: bool, f: F) -> Self
         where F: FnOnce(Option<Self>) -> Option<Self>
     {
-        let (_self, maybe_child) = unsafe { self.detach(left) };
-        _self.attach(left, f(maybe_child))
+        let (tree, maybe_child) = unsafe { self.detach(left) };
+        tree.attach(left, f(maybe_child))
     }
 
     pub fn walk_expect<F>(mut self, left: bool, f: F) -> Self
         where F: FnOnce(Self) -> Option<Self>
     {
-        let (_self, child) = unsafe { self.detach_expect(left) };
-        _self.attach(left, f(child))
+        let (tree, child) = unsafe { self.detach_expect(left) };
+        tree.attach(left, f(child))
     }
 
     #[inline]
@@ -200,23 +210,23 @@ impl Tree {
         // TODO: call write in-order for better performance in writing batch to db?
 
         if let Some(Link::Modified { .. }) = self.inner.left {
-            if let Some(Link::Modified { mut tree, height, .. }) = self.inner.left.take() {
+            if let Some(Link::Modified { mut tree, child_heights, .. }) = self.inner.left.take() {
                 tree.commit(c)?;
                 self.inner.left = Some(Link::Stored {
                     hash: tree.hash(),
                     tree,
-                    height
+                    child_heights
                 });
             }
         }
 
         if let Some(Link::Modified { .. }) = self.inner.right {
-            if let Some(Link::Modified { mut tree, height, .. }) = self.inner.right.take() {
+            if let Some(Link::Modified { mut tree, child_heights, .. }) = self.inner.right.take() {
                 tree.commit(c)?;
                 self.inner.right = Some(Link::Stored {
                     hash: tree.hash(),
                     tree,
-                    height
+                    child_heights
                 });
             }
         }

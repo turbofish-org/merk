@@ -42,9 +42,9 @@ impl<S> Walker<S>
     }
 
     pub unsafe fn detach_expect(mut self, left: bool) -> Result<(Self, Self)> {
-        let (_self, maybe_child) = self.detach(left)?;
+        let (walker, maybe_child) = self.detach(left)?;
         if let Some(child) = maybe_child {
-            Ok((_self, child))
+            Ok((walker, child))
         } else {
             panic!(
                 "Expected {} child, got None",
@@ -58,10 +58,10 @@ impl<S> Walker<S>
             F: FnOnce(Option<Self>) -> Result<Option<T>>,
             T: Into<Tree>
     {
-        let (mut _self, maybe_child) = unsafe { self.detach(left)? };
+        let (mut walker, maybe_child) = unsafe { self.detach(left)? };
         let new_child = f(maybe_child)?.map(|t| t.into());
-        _self.tree.own(|t| t.attach(left, new_child));
-        Ok(_self)
+        walker.tree.own(|t| t.attach(left, new_child));
+        Ok(walker)
     }
 
     pub fn walk_expect<F, T>(mut self, left: bool, f: F) -> Result<Self>
@@ -69,10 +69,10 @@ impl<S> Walker<S>
             F: FnOnce(Self) -> Result<Option<T>>,
             T: Into<Tree>
     {
-        let (mut _self, child) = unsafe { self.detach_expect(left)? };
+        let (mut walker, child) = unsafe { self.detach_expect(left)? };
         let new_child = f(child)?.map(|t| t.into());
-        _self.tree.own(|t| t.attach(left, new_child));
-        Ok(_self)
+        walker.tree.own(|t| t.attach(left, new_child));
+        Ok(walker)
     }
 
     pub fn tree(&self) -> &Tree {
@@ -181,7 +181,7 @@ mod test {
             Some(Link::Pruned {
                 hash: Default::default(),
                 key: b"foo".to_vec(),
-                height: 1
+                child_heights: (0, 0)
             }),
             None
         );

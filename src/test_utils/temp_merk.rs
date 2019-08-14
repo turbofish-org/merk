@@ -15,7 +15,9 @@ impl TempMerk {
 
 impl Drop for TempMerk {
     fn drop(&mut self) {
-        self.inner.take().unwrap().destroy();
+        self.inner
+            .take().unwrap()
+            .destroy().expect("failed to delete db");
     }
 }
 

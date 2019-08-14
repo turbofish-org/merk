@@ -149,14 +149,11 @@ impl<S> Walker<S>
         let left = balance_factor < 0;
 
         // maybe do a double rotation
-        // TODO: we can avoid walking in the non-double-rotation case
-        //       if links store child's balance factor
-        let _self = self.walk_expect(left, |child| {
-            match left == (child.balance_factor() > 0) {
-                true => Ok(Some(child.rotate(!left)?)),
-                false => Ok(Some(child))
-            }
-        })?;
+        let _self = if left == (self.tree().link(left).unwrap().balance_factor() > 0) {
+            self.walk_expect(left, |child| Ok(Some(child.rotate(!left)?)))?
+        } else {
+            self
+        };
         
         _self.rotate(left)
     }

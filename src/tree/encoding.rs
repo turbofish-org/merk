@@ -9,9 +9,9 @@ impl Link {
     // TODO: encode_recursive_into? doesn't convert into pruned
 
     pub fn encode_into(&self, output: &mut Vec<u8>) {
-        let (hash, key, height) = match self {
-            Link::Pruned { hash, key, height } => (hash, key.as_slice(), height),
-            Link::Stored { hash, tree, height } => (hash, tree.key(), height),
+        let (hash, key, (left_height, right_height)) = match self {
+            Link::Pruned { hash, key, child_heights } => (hash, key.as_slice(), child_heights),
+            Link::Stored { hash, tree, child_heights } => (hash, tree.key(), child_heights),
             Link::Modified { .. } => panic!("No encoding for Link::Modified")
         };
 
@@ -20,14 +20,15 @@ impl Link {
 
         output.extend_from_slice(hash);
 
-        output.push(*height);
+        output.push(*left_height);
+        output.push(*right_height);
     }
 
     pub fn encoding_length(&self) -> usize {
         match self {
-            Link::Pruned { hash, key, .. } => { 1 + key.len() + 20 + 1 },
+            Link::Pruned { hash, key, .. } => { 1 + key.len() + 20 + 2 },
             Link::Modified { .. } => panic!("No encoding for Link::Modified"),
-            Link::Stored { tree, .. } => { 1 + tree.key().len() + 20 + 1 }
+            Link::Stored { tree, .. } => { 1 + tree.key().len() + 20 + 2 }
         }
     }
 
@@ -44,10 +45,10 @@ impl Link {
         hash.copy_from_slice(&bytes[offset..offset + 20]);
         offset += 20;
 
-        let height = bytes[offset];
-        offset += 1;
+        let child_heights = (bytes[offset], bytes[offset + 1]);
+        offset += 2;
 
-        Ok(Link::Pruned { key, hash, height })
+        Ok(Link::Pruned { key, hash, child_heights })
     }
 }
 
@@ -143,14 +144,14 @@ mod test {
     fn encode_link() {
         let link = Link::Pruned {
             key: vec![1, 2, 3],
-            height: 123,
+            child_heights: (123, 124),
             hash: [55; 20]
         };
-        assert_eq!(link.encoding_length(), 25);
+        assert_eq!(link.encoding_length(), 26);
 
         let mut bytes = vec![];
         link.encode_into(&mut bytes);
-        assert_eq!(bytes, vec![3, 1, 2, 3, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 123]);
+        assert_eq!(bytes, vec![3, 1, 2, 3, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 123, 124]);
     }
 
     #[test]
@@ -158,7 +159,7 @@ mod test {
     fn encode_link_long_key() {
         let link = Link::Pruned {
             key: vec![123; 300],
-            height: 123,
+            child_heights: (123, 124),
             hash: [55; 20]
         };
         let mut bytes = vec![];
@@ -173,7 +174,7 @@ mod test {
             [55; 20],
             Some(Link::Modified {
                 pending_writes: 1,
-                height: 123,
+                child_heights: (123, 124),
                 tree: Tree::new(vec![2], vec![3])
             }),
             None
@@ -189,14 +190,14 @@ mod test {
             [55; 20],
             Some(Link::Stored {
                 hash: [66; 20],
-                height: 123,
+                child_heights: (123, 124),
                 tree: Tree::new(vec![2], vec![3])
             }),
             None
         );
         let mut bytes = vec![];
         tree.encode_into(&mut bytes);
-        assert_eq!(bytes, vec![1, 0, 1, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 1, 2, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 123, 0].as_slice());
+        assert_eq!(bytes, vec![1, 0, 1, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 1, 2, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 123, 124, 0].as_slice());
     }
 
     #[test]
@@ -206,16 +207,16 @@ mod test {
             [55; 20],
             Some(Link::Pruned {
                 hash: [66; 20],
-                height: 123,
+                child_heights: (123, 124),
                 key: vec![2]
             }),
             None
         );
-        assert_eq!(tree.encoding_length(), 47);
+        assert_eq!(tree.encoding_length(), 48);
         
         let mut bytes = vec![];
         tree.encode_into(&mut bytes);
-        assert_eq!(bytes, vec![1, 0, 1, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 1, 2, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 123, 0].as_slice());
+        assert_eq!(bytes, vec![1, 0, 1, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 1, 2, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 123, 124, 0].as_slice());
     }
 
     #[test]
@@ -228,13 +229,13 @@ mod test {
 
     #[test]
     fn decode_pruned_tree() {
-        let bytes = vec![1, 0, 1, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 1, 2, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 123, 0];
+        let bytes = vec![1, 0, 1, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 1, 2, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 123, 124, 0];
         let tree = Tree::decode(&[0], bytes.as_slice()).expect("decode failed");
         assert_eq!(tree.key(), &[0]);
         assert_eq!(tree.value(), &[1]);
-        if let Some(Link::Pruned { key, height, hash }) = tree.link(true) {
+        if let Some(Link::Pruned { key, child_heights, hash }) = tree.link(true) {
             assert_eq!(key, &[2]);
-            assert_eq!(*height, 123 as u8);
+            assert_eq!(*child_heights, (123 as u8, 124 as u8));
             assert_eq!(hash, &[66; 20]);
         } else {
             panic!("Expected Link::Pruned");

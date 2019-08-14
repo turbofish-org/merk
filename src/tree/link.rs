@@ -1,3 +1,4 @@
+use std::cmp::max;
 use super::hash::Hash;
 use super::Tree;
 
@@ -5,17 +6,17 @@ use super::Tree;
 pub enum Link {
     Pruned {
         hash: Hash,
-        height: u8,
+        child_heights: (u8, u8),
         key: Vec<u8>
     },
     Modified {
         pending_writes: usize,
-        height: u8,
+        child_heights: (u8, u8),
         tree: Tree
     },
     Stored {
         hash: Hash,
-        height: u8,
+        child_heights: (u8, u8),
         tree: Tree
     }
 }
@@ -29,7 +30,7 @@ impl Link {
 
         Link::Modified {
             pending_writes,
-            height: tree.height(),
+            child_heights: tree.child_heights(),
             tree
         }
     }
@@ -88,20 +89,31 @@ impl Link {
     }
 
     pub fn height(&self) -> u8 {
-        match self {
-            Link::Pruned { height, .. } => *height,
-            Link::Modified { height, .. } => *height,
-            Link::Stored { height, .. } => *height
-        }
+        let (left_height, right_height) = match self {
+            Link::Pruned { child_heights, .. } => *child_heights,
+            Link::Modified { child_heights, .. } => *child_heights,
+            Link::Stored { child_heights, .. } => *child_heights
+        };
+        1 + max(left_height, right_height)
+    }
+    
+    #[inline]
+    pub fn balance_factor(&self) -> i8 {
+        let (left_height, right_height) = match self {
+            Link::Pruned { child_heights, .. } => *child_heights,
+            Link::Modified { child_heights, .. } => *child_heights,
+            Link::Stored { child_heights, .. } => *child_heights
+        };
+        right_height as i8 - left_height as i8
     }
 
     pub fn to_pruned(self) -> Self {
         match self {
             Link::Pruned { .. } => self,
             Link::Modified { .. } => panic!("Cannot prune Modified tree"),
-            Link::Stored { hash, height, tree } => Link::Pruned {
+            Link::Stored { hash, child_heights, tree } => Link::Pruned {
                 hash,
-                height,
+                child_heights,
                 key: tree.take_key()
             }
         }
@@ -141,14 +153,14 @@ mod test {
     #[test]
     fn types() {
         let hash = NULL_HASH;
-        let height = 1;
+        let child_heights = (0, 0);
         let pending_writes = 1;
         let key = vec![0];
         let tree = || Tree::new(vec![0], vec![1]);
 
-        let pruned = Link::Pruned { hash, height, key };
-        let modified = Link::Modified { pending_writes, height, tree: tree() };
-        let stored = Link::Stored { hash, height, tree: tree() };
+        let pruned = Link::Pruned { hash, child_heights, key };
+        let modified = Link::Modified { pending_writes, child_heights, tree: tree() };
+        let stored = Link::Stored { hash, child_heights, tree: tree() };
 
         assert!(pruned.is_pruned());
         assert!(!pruned.is_modified());
@@ -178,7 +190,7 @@ mod test {
     fn modified_hash() {
         Link::Modified {
             pending_writes: 1,
-            height: 1,
+            child_heights: (1, 1),
             tree: Tree::new(vec![0], vec![1])
         }.hash();
     }
@@ -188,7 +200,7 @@ mod test {
     fn modified_to_pruned() {
         Link::Modified {
             pending_writes: 1,
-            height: 1,
+            child_heights: (1, 1),
             tree: Tree::new(vec![0], vec![1])
         }.to_pruned();
     }
