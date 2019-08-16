@@ -82,8 +82,12 @@ impl<S> Walker<S>
                 // TODO: take vec from batch so we don't need to clone
                 Put(value) => self.with_value(value.to_vec()),
                 Delete => {
-                    // self.remove()?;
-                    panic!("remove not yet implemented")
+                    let maybe_tree = self.remove()?;
+                    if let Some(tree) = maybe_tree {
+                        tree
+                    } else {
+                        return Ok(None);
+                    }
                 }
             }
         } else {
@@ -174,6 +178,50 @@ impl<S> Walker<S>
                 .maybe_balance()
         }
     }
+
+    pub fn remove(mut self) -> Result<Option<Self>> {
+        let tree = self.tree();
+        let has_left = tree.link(true).is_some();
+        let has_right = tree.link(false).is_some();
+        let left = tree.child_height(true) > tree.child_height(false);
+
+        // TODO: propagate up deleted keys?
+
+        let maybe_tree = unsafe {
+            if has_left && has_right {
+                // two children, promote edge of taller child
+                let (tree, tall_child) = self.detach_expect(left)?;
+                let (tree, short_child) = tree.detach_expect(!left)?;
+                Some(tall_child.promote_edge(!left, short_child)?)
+            } else if has_left || has_right {
+                // single child, promote it
+                Some(self.detach_expect(left)?.1)
+            } else {
+                // no child
+                None
+            }
+        };
+
+        Ok(maybe_tree)
+    }
+
+    fn promote_edge(mut self, left: bool, attach: Self) -> Result<Self> {
+        let (edge, maybe_child) = self.remove_edge(left)?;
+        let tree = edge
+            .attach(left, maybe_child)
+            .attach(!left, Some(attach));
+        Ok(tree)
+    }
+
+    fn remove_edge(mut self, left: bool) -> Result<(Self, Option<Self>)> {
+        Ok(if self.tree().link(left).is_some() {
+            let (tree, child) = unsafe { self.detach_expect(left)? };
+            let (edge, maybe_child) = child.remove_edge(left)?;
+            (edge, Some(tree.attach(left, maybe_child)))
+        } else {
+            (self, None)
+        })
+    }
 }
 
 #[cfg(test)]
@@ -182,7 +230,7 @@ mod test {
     use crate::tree::*;
 
     #[test]
-    fn simple_put() {
+    fn simple_insert() {
         let batch = [
             (
                 b"foo2".to_vec(),
@@ -196,6 +244,62 @@ mod test {
             .expect("should be Some");
         assert_eq!(walker.tree().key(), b"foo");
         assert_eq!(walker.into_inner().child(false).unwrap().key(), b"foo2");
+    }
+
+    #[test]
+    fn simple_update() {
+        let batch = [
+            (
+                b"foo".to_vec(),
+                Op::Put(b"bar2".to_vec())
+            )
+        ];
+        let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
+        let mut walker = Walker::new(tree, PanicSource {})
+            .apply(&batch)
+            .expect("apply errored")
+            .expect("should be Some");
+        assert_eq!(walker.tree().key(), b"foo");
+        assert_eq!(walker.tree().value(), b"bar2");
+        assert!(walker.tree().link(true).is_none());
+        assert!(walker.tree().link(false).is_none());
+    }
+
+    #[test]
+    fn simple_delete() {
+        let batch = [
+            (b"foo2".to_vec(), Op::Delete)
+        ];
+        let tree = Tree::from_fields(
+            b"foo".to_vec(), b"bar".to_vec(),
+            [123; 20],
+            None,
+            Some(Link::Stored {
+                hash: [123; 20],
+                child_heights: (0, 0),
+                tree: Tree::new(b"foo2".to_vec(), b"bar2".to_vec())
+            })
+        );
+        let mut walker = Walker::new(tree, PanicSource {})
+            .apply(&batch)
+            .expect("apply errored")
+            .expect("should be Some");
+        assert_eq!(walker.tree().key(), b"foo");
+        assert_eq!(walker.tree().value(), b"bar");
+        assert!(walker.tree().link(true).is_none());
+        assert!(walker.tree().link(false).is_none());
+    }
+
+    #[test]
+    fn delete_only_node() {
+        let batch = [
+            (b"foo".to_vec(), Op::Delete)
+        ];
+        let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
+        let mut walker = Walker::new(tree, PanicSource {})
+            .apply(&batch)
+            .expect("apply errored");
+        assert!(walker.is_none());
     }
 
     #[test]
