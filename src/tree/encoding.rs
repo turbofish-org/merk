@@ -26,7 +26,7 @@ impl Link {
 
     pub fn encoding_length(&self) -> usize {
         match self {
-            Link::Pruned { hash, key, .. } => { 1 + key.len() + 20 + 2 },
+            Link::Pruned { key, .. } => { 1 + key.len() + 20 + 2 },
             Link::Modified { .. } => panic!("No encoding for Link::Modified"),
             Link::Stored { tree, .. } => { 1 + tree.key().len() + 20 + 2 }
         }
@@ -46,7 +46,7 @@ impl Link {
         offset += 20;
 
         let child_heights = (bytes[offset], bytes[offset + 1]);
-        offset += 2;
+        // offset += 2;
 
         Ok(Link::Pruned { key, hash, child_heights })
     }
@@ -109,10 +109,10 @@ impl Tree {
         let link_length = bytes[offset];
         let right = if link_length > 0 {
             let link = Link::decode(&bytes[offset..])?;
-            offset += link.encoding_length();
+            // offset += link.encoding_length();
             Some(link)
         } else {
-            offset += 1;
+            // offset += 1;
             None
         };
 

@@ -2,7 +2,7 @@ mod fetch;
 
 pub use fetch::Fetch;
 use crate::error::Result;
-use super::{Tree, Link, commit::NoopCommit};
+use super::{Tree, Link};
 use crate::owner::Owner;
 
 pub struct Walker<S>
@@ -43,7 +43,7 @@ impl<S> Walker<S>
         Ok((self, Some(child)))
     }
 
-    pub unsafe fn detach_expect(mut self, left: bool) -> Result<(Self, Self)> {
+    pub unsafe fn detach_expect(self, left: bool) -> Result<(Self, Self)> {
         let (walker, maybe_child) = self.detach(left)?;
         if let Some(child) = maybe_child {
             Ok((walker, child))
@@ -55,7 +55,7 @@ impl<S> Walker<S>
         }
     }
 
-    pub fn walk<F, T>(mut self, left: bool, f: F) -> Result<Self>
+    pub fn walk<F, T>(self, left: bool, f: F) -> Result<Self>
         where
             F: FnOnce(Option<Self>) -> Result<Option<T>>,
             T: Into<Tree>
@@ -66,7 +66,7 @@ impl<S> Walker<S>
         Ok(walker)
     }
 
-    pub fn walk_expect<F, T>(mut self, left: bool, f: F) -> Result<Self>
+    pub fn walk_expect<F, T>(self, left: bool, f: F) -> Result<Self>
         where
             F: FnOnce(Self) -> Result<Option<T>>,
             T: Into<Tree>

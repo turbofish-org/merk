@@ -15,7 +15,6 @@ pub use commit::{Commit, NoopCommit};
 use kv::KV;
 pub use link::Link;
 use hash::{Hash, node_hash, NULL_HASH};
-use super::owner::Owner;
 pub use ops::{Batch, BatchEntry, PanicSource, Op};
 
 struct TreeInner {
@@ -165,7 +164,7 @@ impl Tree {
         (self, maybe_child)
     }
 
-    pub unsafe fn detach_expect(mut self, left: bool) -> (Self, Self) {
+    pub unsafe fn detach_expect(self, left: bool) -> (Self, Self) {
         let (parent, maybe_child) = self.detach(left);
 
         if let Some(child) = maybe_child {
@@ -178,14 +177,14 @@ impl Tree {
         }
     }
 
-    pub fn walk<F>(mut self, left: bool, f: F) -> Self
+    pub fn walk<F>(self, left: bool, f: F) -> Self
         where F: FnOnce(Option<Self>) -> Option<Self>
     {
         let (tree, maybe_child) = unsafe { self.detach(left) };
         tree.attach(left, f(maybe_child))
     }
 
-    pub fn walk_expect<F>(mut self, left: bool, f: F) -> Self
+    pub fn walk_expect<F>(self, left: bool, f: F) -> Self
         where F: FnOnce(Self) -> Option<Self>
     {
         let (tree, child) = unsafe { self.detach_expect(left) };

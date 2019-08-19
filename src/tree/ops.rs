@@ -25,7 +25,7 @@ pub type Batch = [BatchEntry];
 #[derive(Clone)]
 pub struct PanicSource {}
 impl Fetch for PanicSource {
-    fn fetch(&self, link: &Link) -> Result<Tree> {
+    fn fetch(&self, _link: &Link) -> Result<Tree> {
         unreachable!("'fetch' should not have been called")
     }
 }
@@ -195,7 +195,7 @@ impl<S> Walker<S>
             if has_left && has_right {
                 // two children, promote edge of taller child
                 let (tree, tall_child) = self.detach_expect(left)?;
-                let (tree, short_child) = tree.detach_expect(!left)?;
+                let (_, short_child) = tree.detach_expect(!left)?;
                 Some(tall_child.promote_edge(!left, short_child)?)
             } else if has_left || has_right {
                 // single child, promote it

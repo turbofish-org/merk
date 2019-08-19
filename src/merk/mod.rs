@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
-use crate::tree::{Tree, Link, Fetch, Walker, Commit, Batch, BatchEntry};
+use crate::tree::{Tree, Link, Fetch, Walker, Commit, Batch};
 
 // TODO: use a column family or something to keep the root key separate
 const ROOT_KEY_KEY: [u8; 12] = *b"\00\00root\00\00";

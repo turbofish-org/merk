@@ -13,7 +13,6 @@ use crate::tree::{
     PanicSource,
     BatchEntry
 };
-use crate::Merk;
 
 pub use temp_merk::TempMerk;
 
@@ -98,7 +97,7 @@ pub fn make_tree_rand(
     let mut seed = initial_seed;
     
     let batch_count = node_count / batch_size;
-    for i in 0..batch_count {
+    for _ in 0..batch_count {
         let batch = make_batch_rand(batch_size, seed);
         tree = apply_memonly(tree, &batch);
         seed += 1;
