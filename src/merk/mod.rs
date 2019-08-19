@@ -2,8 +2,7 @@ use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
-use crate::tree::{Tree, Link, Fetch, Walker, Commit};
-use super::ops::{Batch, BatchEntry};
+use crate::tree::{Tree, Link, Fetch, Walker, Commit, Batch, BatchEntry};
 
 // TODO: use a column family or something to keep the root key separate
 const ROOT_KEY_KEY: [u8; 12] = *b"\00\00root\00\00";
@@ -80,7 +79,7 @@ impl Merk {
 
         if let Some(tree) = &mut self.tree {
             // TODO: configurable committer
-            let mut committer = MerkCommitter::new(tree.height(), 1);
+            let mut committer = MerkCommitter::new(tree.height(), 100);
             tree.commit(&mut committer)?;
 
             committer.batch.sort_by(|a, b| a.0.cmp(&b.0));

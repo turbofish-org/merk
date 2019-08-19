@@ -1,7 +1,6 @@
 use std::fmt;
-use std::collections::BTreeSet;
 use crate::error::Result;
-use crate::tree::{Tree, Link, Walker, Fetch};
+use super::{Tree, Link, Walker, Fetch};
 use Op::*;
 
 pub enum Op {

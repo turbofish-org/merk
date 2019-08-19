@@ -4,8 +4,16 @@ use std::ops::Range;
 use std::convert::TryInto;
 use byteorder::{BigEndian, WriteBytesExt};
 use rand::prelude::*;
-use crate::tree::{Tree, Walker, NoopCommit};
-use crate::{Merk, Batch, Op, PanicSource, BatchEntry};
+use crate::tree::{
+    Tree,
+    Walker,
+    NoopCommit,
+    Batch,
+    Op,
+    PanicSource,
+    BatchEntry
+};
+use crate::Merk;
 
 pub use temp_merk::TempMerk;
 

@@ -8,11 +8,10 @@ extern crate rand;
 
 mod error;
 pub mod tree;
-mod ops;
 mod merk;
 pub mod test_utils;
 pub mod owner;
 
 pub use error::{Error, Result};
 pub use self::merk::Merk;
-pub use ops::{Batch, BatchEntry, Op, PanicSource};
+pub use tree::{Batch, BatchEntry, Op, PanicSource};

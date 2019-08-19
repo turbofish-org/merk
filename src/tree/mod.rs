@@ -5,6 +5,7 @@ mod link;
 mod encoding;
 mod commit;
 mod debug;
+mod ops;
 
 use std::cmp::max;
 
@@ -15,6 +16,7 @@ use kv::KV;
 pub use link::Link;
 use hash::{Hash, node_hash, NULL_HASH};
 use super::owner::Owner;
+pub use ops::{Batch, BatchEntry, PanicSource, Op};
 
 struct TreeInner {
     kv: KV,
