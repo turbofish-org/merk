@@ -79,7 +79,7 @@ impl Merk {
 
         if let Some(tree) = &mut self.tree {
             // TODO: configurable committer
-            let mut committer = MerkCommitter::new(tree.height(), 100);
+            let mut committer = MerkCommitter::new(tree.height(), 1);
             tree.commit(&mut committer)?;
 
             committer.batch.sort_by(|a, b| a.0.cmp(&b.0));
@@ -199,7 +199,6 @@ fn default_db_opts() -> rocksdb::Options {
 #[cfg(test)]
 mod test {
     use std::thread;
-    use crate::*;
     use crate::test_utils::*;
 
     #[test]

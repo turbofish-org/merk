@@ -242,7 +242,7 @@ mod test {
             )
         ];
         let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
-        let mut walker = Walker::new(tree, PanicSource {})
+        let walker = Walker::new(tree, PanicSource {})
             .apply(&batch)
             .expect("apply errored")
             .expect("should be Some");
@@ -259,7 +259,7 @@ mod test {
             )
         ];
         let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
-        let mut walker = Walker::new(tree, PanicSource {})
+        let walker = Walker::new(tree, PanicSource {})
             .apply(&batch)
             .expect("apply errored")
             .expect("should be Some");
@@ -284,7 +284,7 @@ mod test {
                 tree: Tree::new(b"foo2".to_vec(), b"bar2".to_vec())
             })
         );
-        let mut walker = Walker::new(tree, PanicSource {})
+        let walker = Walker::new(tree, PanicSource {})
             .apply(&batch)
             .expect("apply errored")
             .expect("should be Some");
@@ -300,7 +300,7 @@ mod test {
             (b"foo".to_vec(), Op::Delete)
         ];
         let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
-        let mut walker = Walker::new(tree, PanicSource {})
+        let walker = Walker::new(tree, PanicSource {})
             .apply(&batch)
             .expect("apply errored");
         assert!(walker.is_none());

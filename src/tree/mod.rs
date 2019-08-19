@@ -295,7 +295,7 @@ mod test {
 
     #[test]
     fn modify() {
-        let mut tree = Tree::new(vec![0], vec![1])
+        let tree = Tree::new(vec![0], vec![1])
             .attach(true, Some(Tree::new(vec![2], vec![3])))
             .attach(false, Some(Tree::new(vec![4], vec![5])));
 
@@ -376,7 +376,7 @@ mod test {
         assert_eq!(tree.child_height(false), 0);
         assert_eq!(tree.balance_factor(), 0);
 
-        let mut tree = tree.attach(true, Some(Tree::new(vec![2], vec![3])));
+        let tree = tree.attach(true, Some(Tree::new(vec![2], vec![3])));
         assert_eq!(tree.height(), 2);
         assert_eq!(tree.child_height(true), 1);
         assert_eq!(tree.child_height(false), 0);

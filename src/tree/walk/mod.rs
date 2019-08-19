@@ -119,6 +119,7 @@ impl<S> From<Walker<S>> for Tree
 #[cfg(test)]
 mod test {
     use super::*;
+    use super::super::NoopCommit;
     use crate::tree::Tree;
 
     #[derive(Clone)]
@@ -206,7 +207,7 @@ mod test {
         );
 
         let source = MockSource {};
-        let mut walker = Walker::new(tree, source);
+        let walker = Walker::new(tree, source);
 
         walker.walk(true, |child| -> Result<Option<Tree>> {
             assert!(child.is_none());

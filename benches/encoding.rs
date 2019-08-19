@@ -2,7 +2,6 @@
 
 extern crate test;
 
-use std::thread;
 use test::Bencher;
 use merk::test_utils::*;
 use merk::tree::Tree;
