@@ -42,7 +42,12 @@ impl Debug for Tree {
             } else {
                 " └-"
             };
-            writeln!(f, "{}{:?}", prefix.dimmed(), cursor.key()).unwrap();
+            writeln!(
+                    f,
+                    "{}{}",
+                    prefix.dimmed(),
+                    format!("{:?}", cursor.key()).on_bright_black()
+            ).unwrap();
 
             if let Some(child_link) = cursor.link(false) {
                 stack.push((cursor.key().to_vec(), child_link.key().to_vec()));
