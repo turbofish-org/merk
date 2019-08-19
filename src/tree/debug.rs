@@ -19,8 +19,6 @@ impl Debug for Tree {
                     traverse_pruned(f, child_link, stack, true);
                 }
                 stack.pop();
-            } else {
-                write!(f, "no left").unwrap();
             }
 
             let depth = stack.len();
@@ -54,8 +52,6 @@ impl Debug for Tree {
                     traverse_pruned(f, child_link, stack, false);
                 }
                 stack.pop();
-            } else {
-                write!(f, "no right").unwrap();
             }
         };
 
