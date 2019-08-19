@@ -62,6 +62,13 @@ pub fn put_entry(n: u64) -> BatchEntry {
     (key, Op::Put(vec![123; 60]))
 }
 
+pub fn del_entry(n: u64) -> BatchEntry {
+    let mut key = vec![0; 0];
+    key.write_u64::<BigEndian>(n)
+        .expect("writing to key failed");
+    (key, Op::Delete)
+}
+
 pub fn make_batch_seq(range: Range<u64>) -> Vec<BatchEntry> {
     let mut batch = Vec::with_capacity(
         (range.end - range.start).try_into().unwrap()
@@ -72,12 +79,33 @@ pub fn make_batch_seq(range: Range<u64>) -> Vec<BatchEntry> {
     batch
 }
 
+pub fn make_del_batch_seq(range: Range<u64>) -> Vec<BatchEntry> {
+    let mut batch = Vec::with_capacity(
+        (range.end - range.start).try_into().unwrap()
+    );
+    for n in range {
+        batch.push(del_entry(n));
+    }
+    batch
+}
+
 pub fn make_batch_rand(size: u64, seed: u64) -> Vec<BatchEntry> {
     let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
     let mut batch = Vec::with_capacity(size.try_into().unwrap());
     for _ in 0..size {
         let n = rng.gen::<u64>();
         batch.push(put_entry(n));
+    }
+    batch.sort_by(|a, b| a.0.cmp(&b.0));
+    batch
+}
+
+pub fn make_del_batch_rand(size: u64, seed: u64) -> Vec<BatchEntry> {
+    let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
+    let mut batch = Vec::with_capacity(size.try_into().unwrap());
+    for _ in 0..size {
+        let n = rng.gen::<u64>();
+        batch.push(del_entry(n));
     }
     batch.sort_by(|a, b| a.0.cmp(&b.0));
     batch
