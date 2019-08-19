@@ -232,6 +232,7 @@ impl<S> Walker<S>
 mod test {
     use super::*;
     use crate::tree::*;
+    use crate::test_utils::{make_tree_seq, del_entry};
 
     #[test]
     fn simple_insert() {
@@ -295,6 +296,18 @@ mod test {
     }
 
     #[test]
+    #[should_panic]
+    fn delete_non_existent() {
+        let batch = [
+            (b"foo2".to_vec(), Op::Delete)
+        ];
+        let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
+        Walker::new(tree, PanicSource {})
+            .apply(&batch)
+            .unwrap();
+    }
+
+    #[test]
     fn delete_only_node() {
         let batch = [
             (b"foo".to_vec(), Op::Delete)
@@ -305,6 +318,31 @@ mod test {
             .expect("apply errored");
         assert!(walker.is_none());
     }
+
+    #[test]
+    fn delete_deep() {
+        let tree = make_tree_seq(50);
+        let batch = [ del_entry(5) ]; 
+        let walker = Walker::new(tree, PanicSource {})
+            .apply(&batch)
+            .expect("apply errored")
+            .expect("should be Some");
+        // TODO: assert set of keys are correct
+    }
+
+    #[test]
+    fn delete_recursive() {
+        let tree = make_tree_seq(50);
+        let batch = [ del_entry(29), del_entry(34) ]; 
+        let walker = Walker::new(tree, PanicSource {})
+            .apply(&batch)
+            .expect("apply errored")
+            .expect("should be Some");
+        // TODO: assert set of keys are correct
+
+        println!("{:?}", walker.tree());
+    }
+
 
     #[test]
     fn apply_empty_none() {
