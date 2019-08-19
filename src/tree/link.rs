@@ -24,7 +24,7 @@ pub enum Link {
 impl Link {
     #[inline]
     pub fn from_modified_tree(tree: Tree) -> Self {
-        let mut pending_writes = 1
+        let pending_writes = 1
             + tree.child_pending_writes(true)
             + tree.child_pending_writes(false);
 
@@ -36,7 +36,7 @@ impl Link {
     }
 
     pub fn maybe_from_modified_tree(maybe_tree: Option<Tree>) -> Option<Self> {
-        maybe_tree.map(|tree| Link::from_modified_tree(tree))
+        maybe_tree.map(Link::from_modified_tree)
     }
 
     #[inline]
@@ -107,7 +107,7 @@ impl Link {
         right_height as i8 - left_height as i8
     }
 
-    pub fn to_pruned(self) -> Self {
+    pub fn into_pruned(self) -> Self {
         match self {
             Link::Pruned { .. } => self,
             Link::Modified { .. } => panic!("Cannot prune Modified tree"),
@@ -168,7 +168,7 @@ mod test {
         assert!(pruned.tree().is_none());
         assert_eq!(pruned.hash(), &[0; 20]);
         assert_eq!(pruned.height(), 1);
-        assert!(pruned.to_pruned().is_pruned());
+        assert!(pruned.into_pruned().is_pruned());
 
         assert!(!modified.is_pruned());
         assert!(modified.is_modified());
@@ -182,7 +182,7 @@ mod test {
         assert!(stored.tree().is_some());
         assert_eq!(stored.hash(), &[0; 20]);
         assert_eq!(stored.height(), 1);
-        assert!(stored.to_pruned().is_pruned());
+        assert!(stored.into_pruned().is_pruned());
     }
 
     #[test]
@@ -197,11 +197,11 @@ mod test {
 
     #[test]
     #[should_panic]
-    fn modified_to_pruned() {
+    fn modified_into_pruned() {
         Link::Modified {
             pending_writes: 1,
             child_heights: (1, 1),
             tree: Tree::new(vec![0], vec![1])
-        }.to_pruned();
+        }.into_pruned();
     }
 }

@@ -32,8 +32,12 @@ pub fn assert_tree_invariants(tree: &Tree) {
         assert!(!right.is_modified());
     }
 
-    tree.child(true).map(|left| assert_tree_invariants(left));
-    tree.child(false).map(|right| assert_tree_invariants(right));
+    if let Some(left) = tree.child(true) {
+        assert_tree_invariants(left);
+    }
+    if let Some(right) = tree.child(false) {
+        assert_tree_invariants(right);
+    }
 }
 
 pub fn apply_memonly_unchecked(tree: Tree, batch: &Batch) -> Tree {

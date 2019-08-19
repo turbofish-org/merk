@@ -238,11 +238,11 @@ impl Tree {
         let (prune_left, prune_right) = c.prune(&self);
         if prune_left {
             self.inner.left = self.inner.left.take()
-                .map(|link| link.to_pruned());
+                .map(|link| link.into_pruned());
         }
         if prune_right {
             self.inner.right = self.inner.right.take()
-                .map(|link| link.to_pruned());
+                .map(|link| link.into_pruned());
         }
 
         Ok(())

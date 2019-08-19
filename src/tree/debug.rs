@@ -3,6 +3,7 @@ use colored::Colorize;
 use super::{Tree, Link};
 
 impl Debug for Tree {
+    // TODO: unwraps should be results that bubble up
     fn fmt(&self, f: &mut Formatter) -> Result {
         fn traverse(
             f: &mut Formatter,
@@ -27,7 +28,7 @@ impl Debug for Tree {
             if depth > 0 {
                 // draw ancestor's vertical lines
                 for (low, high) in stack.iter().take(depth-1) {
-                    let draw_line = cursor.key() > &low && cursor.key() < &high;
+                    let draw_line = cursor.key() > low && cursor.key() < high;
                     write!(
                         f,
                         "{}",
@@ -69,7 +70,7 @@ impl Debug for Tree {
             if depth > 0 {
                 // draw ancestor's vertical lines
                 for (low, high) in stack.iter().take(depth-1) {
-                    let draw_line = link.key() > &low && link.key() < &high;
+                    let draw_line = link.key() > low && link.key() < high;
                     write!(
                         f,
                         "{}",

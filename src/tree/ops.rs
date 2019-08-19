@@ -108,37 +108,36 @@ impl<S> Walker<S>
     }
 
     fn recurse(
-        mut self,
+        self,
         batch: &Batch,
         mid: usize,
         exclusive: bool
     ) -> Result<Option<Self>> {
         let left_batch = &batch[..mid];
-        let right_batch = match exclusive {
-            true => &batch[mid + 1..],
-            false => &batch[mid..]
+        let right_batch = if exclusive {
+            &batch[mid + 1..]
+        } else {
+            &batch[mid..]
         };
         
-        let _self = match left_batch.is_empty() {
-            false => {
-                self
-                    .walk(true, |maybe_left|
-                        Self::apply_to(maybe_left, left_batch)
-                    )?
-                    .maybe_balance()?
-            },
-            true => self
+        let _self = if !left_batch.is_empty() {
+            self
+                .walk(true, |maybe_left|
+                    Self::apply_to(maybe_left, left_batch)
+                )?
+                .maybe_balance()?
+        } else {
+            self
         };
 
-        let _self = match right_batch.is_empty() {
-            false => {
-                _self
-                    .walk(false, |maybe_right|
-                        Self::apply_to(maybe_right, right_batch)
-                    )?
-                    .maybe_balance()?
-            },
-            true => _self
+        let _self = if !right_batch.is_empty() {
+            _self
+                .walk(false, |maybe_right|
+                    Self::apply_to(maybe_right, right_batch)
+                )?
+                .maybe_balance()?
+        } else {
+            _self
         };
 
         Ok(Some(_self))
@@ -149,7 +148,7 @@ impl<S> Walker<S>
         self.tree().balance_factor()
     }
 
-    fn maybe_balance(mut self) -> Result<Self> {
+    fn maybe_balance(self) -> Result<Self> {
         let balance_factor = self.balance_factor();
         if balance_factor.abs() <= 1 {
             return Ok(self);
@@ -167,7 +166,7 @@ impl<S> Walker<S>
         _self.rotate(left)
     }
 
-    fn rotate(mut self, left: bool) -> Result<Self> {
+    fn rotate(self, left: bool) -> Result<Self> {
         unsafe {
             let (_self, child) = self.detach_expect(left)?;
             let (child, maybe_grandchild) = child.detach(!left)?;
@@ -184,7 +183,7 @@ impl<S> Walker<S>
         }
     }
 
-    pub fn remove(mut self) -> Result<Option<Self>> {
+    pub fn remove(self) -> Result<Option<Self>> {
         let tree = self.tree();
         let has_left = tree.link(true).is_some();
         let has_right = tree.link(false).is_some();
@@ -210,7 +209,7 @@ impl<S> Walker<S>
         Ok(maybe_tree)
     }
 
-    fn promote_edge(mut self, left: bool, attach: Self) -> Result<Self> {
+    fn promote_edge(self, left: bool, attach: Self) -> Result<Self> {
         let (edge, maybe_child) = self.remove_edge(left)?;
         let tree = edge
             .attach(left, maybe_child)
@@ -218,7 +217,7 @@ impl<S> Walker<S>
         Ok(tree)
     }
 
-    fn remove_edge(mut self, left: bool) -> Result<(Self, Option<Self>)> {
+    fn remove_edge(self, left: bool) -> Result<(Self, Option<Self>)> {
         Ok(if self.tree().link(left).is_some() {
             let (tree, child) = unsafe { self.detach_expect(left)? };
             let (edge, maybe_child) = child.remove_edge(left)?;
