@@ -90,9 +90,9 @@ impl<S> Walker<S>
                         }
                     };
                     let maybe_tree = self.remove()?;
-                    let maybe_walker = wrap(Self::apply_to(maybe_tree, &batch[..index])?);
-                    let maybe_walker = wrap(Self::apply_to(maybe_walker, &batch[index + 1..])?);
-                    return Ok(maybe_walker);
+                    let maybe_tree = wrap(Self::apply_to(maybe_tree, &batch[..index])?);
+                    let maybe_tree = wrap(Self::apply_to(maybe_tree, &batch[index + 1..])?);
+                    return Ok(maybe_tree);
                 }
             }
         } else {
@@ -212,8 +212,8 @@ impl<S> Walker<S>
     fn promote_edge(self, left: bool, attach: Self) -> Result<Self> {
         let (edge, maybe_child) = self.remove_edge(left)?;
         let tree = edge
-            .attach(left, maybe_child)
-            .attach(!left, Some(attach));
+            .attach(!left, maybe_child)
+            .attach(left, Some(attach));
         Ok(tree)
     }
 
