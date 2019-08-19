@@ -218,13 +218,15 @@ impl<S> Walker<S>
     }
 
     fn remove_edge(self, left: bool) -> Result<(Self, Option<Self>)> {
-        Ok(if self.tree().link(left).is_some() {
+        if self.tree().link(left).is_some() {
+            // this node is not the edge, recurse
             let (tree, child) = unsafe { self.detach_expect(left)? };
             let (edge, maybe_child) = child.remove_edge(left)?;
-            (edge, Some(tree.attach(left, maybe_child)))
+            Ok((edge, Some(tree.attach(left, maybe_child))))
         } else {
-            (self, None)
-        })
+            // this node is the edge, detach its child if present
+            unsafe { self.detach(!left) }
+        }
     }
 }
 
