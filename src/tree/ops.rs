@@ -343,6 +343,19 @@ mod test {
         println!("{:?}", walker.tree());
     }
 
+    #[test]
+    fn delete_recursive_2() {
+        let tree = make_tree_seq(10);
+        let batch = [ del_entry(7), del_entry(9) ]; 
+        let walker = Walker::new(tree, PanicSource {})
+            .apply(&batch)
+            .expect("apply errored")
+            .expect("should be Some");
+        // TODO: assert set of keys are correct
+
+        println!("{:?}", walker.tree());
+    }
+
 
     #[test]
     fn apply_empty_none() {
