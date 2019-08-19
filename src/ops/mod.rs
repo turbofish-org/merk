@@ -82,12 +82,18 @@ impl<S> Walker<S>
                 // TODO: take vec from batch so we don't need to clone
                 Put(value) => self.with_value(value.to_vec()),
                 Delete => {
+                    // TODO: we shouldn't have to do this as 2 different calls to apply
+                    let source = self.clone_source();
+                    let wrap = |maybe_tree| {
+                        match maybe_tree {
+                            Some(tree) => Some(Self::new(tree, source.clone())),
+                            None => None
+                        }
+                    };
                     let maybe_tree = self.remove()?;
-                    if let Some(tree) = maybe_tree {
-                        tree
-                    } else {
-                        return Ok(None);
-                    }
+                    let maybe_walker = wrap(Self::apply_to(maybe_tree, &batch[..index])?);
+                    let maybe_walker = wrap(Self::apply_to(maybe_walker, &batch[index + 1..])?);
+                    return Ok(maybe_walker);
                 }
             }
         } else {
