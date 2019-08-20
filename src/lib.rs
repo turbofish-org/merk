@@ -5,6 +5,10 @@ extern crate rocksdb;
 extern crate colored;
 extern crate byteorder;
 extern crate rand;
+extern crate jemallocator;
+
+#[global_allocator] 
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 mod error;
 pub mod tree;
