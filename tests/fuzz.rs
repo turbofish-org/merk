@@ -22,6 +22,11 @@ fn fuzz_17391518417409062786() {
     fuzz_case(17391518417409062786);
 }
 
+#[test]
+fn fuzz_396148930387069749() {
+    fuzz_case(396148930387069749);
+}
+
 pub fn fuzz_case(seed: u64) {
     let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
     let initial_size = (rng.gen::<u64>() % 10) + 1;

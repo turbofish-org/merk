@@ -219,7 +219,10 @@ impl<S> Walker<S>
             // this node is not the edge, recurse
             let (tree, child) = unsafe { self.detach_expect(left)? };
             let (edge, maybe_child) = child.remove_edge(left)?;
-            Ok((edge, Some(tree.attach(left, maybe_child))))
+            let tree = tree
+                .attach(left, maybe_child)
+                .maybe_balance()?;
+            Ok((edge, Some(tree)))
         } else {
             // this node is the edge, detach its child if present
             unsafe { self.detach(!left) }
