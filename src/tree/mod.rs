@@ -6,6 +6,7 @@ mod encoding;
 mod commit;
 mod debug;
 mod ops;
+mod iter;
 
 use std::cmp::max;
 

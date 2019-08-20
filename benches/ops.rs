@@ -3,7 +3,6 @@
 extern crate test;
 
 use test::Bencher;
-use merk::*;
 use merk::test_utils::*;
 use merk::owner::Owner;
 

@@ -55,6 +55,21 @@ pub fn apply_memonly(tree: Tree, batch: &Batch) -> Tree {
     tree
 }
 
+pub fn apply_to_memonly(maybe_tree: Option<Tree>, batch: &Batch) -> Option<Tree> {
+    match maybe_tree {
+        Some(tree) => Some(apply_memonly(tree, batch)),
+        None => {
+            Walker::<PanicSource>::apply_to(None, batch)
+                .expect("apply failed")
+                .map(|mut tree| {
+                    tree.commit(&mut NoopCommit {}).expect("commit failed");
+                    assert_tree_invariants(&tree);
+                    tree
+                })
+        }
+    }
+}
+
 pub fn put_entry(n: u64) -> BatchEntry {
     let mut key = vec![0; 0];
     key.write_u64::<BigEndian>(n)
@@ -111,13 +126,59 @@ pub fn make_del_batch_rand(size: u64, seed: u64) -> Vec<BatchEntry> {
     batch
 }
 
+pub fn random_value(size: usize) -> Vec<u8> {
+    let mut value = Vec::with_capacity(size);
+    let mut rng = thread_rng();
+    rng.fill_bytes(&mut value[..]);
+    value
+}
+
+pub fn make_mixed_batch_rand(maybe_tree: Option<&Tree>, size: u64) -> Vec<BatchEntry> {
+    let mut batch = Vec::with_capacity(size.try_into().unwrap());
+
+    let get_random_key = || {
+        let mut rng = thread_rng();
+        let tree = maybe_tree.as_ref().unwrap();
+        let entries: Vec<_> = tree.iter().collect();
+        let index = rng.gen::<u64>() as usize % entries.len();
+        entries[index].0.clone()
+    };
+
+    let insert = || {
+        (random_value(2), Op::Put(random_value(2)))
+    };
+    let update = || {
+        let key = get_random_key();
+        (key.to_vec(), Op::Put(random_value(2)))
+    };
+    let delete = || {
+        let key = get_random_key();
+        (key.to_vec(), Op::Delete)
+    };
+
+    let mut rng = thread_rng();
+    for _ in 0..size {
+        let entry = if maybe_tree.is_some() {
+            let kind = rng.gen::<u64>() % 3;
+            if kind == 0 { insert() }
+            else if kind == 1 { update() }
+            else { delete() }
+        } else {
+            insert()
+        };
+        batch.push(entry);
+    }
+    batch.sort_by(|a, b| a.0.cmp(&b.0));
+    batch
+}
+
 pub fn make_tree_rand(
     node_count: u64,
     batch_size: u64,
     initial_seed: u64
 ) -> Tree {
-    assert!(node_count > batch_size);
-    assert!(node_count % batch_size == 0);
+    assert!(node_count >= batch_size);
+    assert!((node_count % batch_size) == 0);
 
     let value = vec![123; 60];
     let mut tree = Tree::new(vec![0; 20], value.clone());

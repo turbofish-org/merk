@@ -232,9 +232,16 @@ impl<S> Walker<S>
 
 #[cfg(test)]
 mod test {
+    use rand::prelude::*;
     use super::*;
     use crate::tree::*;
-    use crate::test_utils::{make_tree_seq, del_entry};
+    use crate::test_utils::{
+        make_tree_seq,
+        make_tree_rand,
+        del_entry,
+        make_mixed_batch_rand,
+        apply_to_memonly
+    };
 
     #[test]
     fn simple_insert() {
@@ -358,11 +365,30 @@ mod test {
         println!("{:?}", walker.tree());
     }
 
-
     #[test]
     fn apply_empty_none() {
         let maybe_tree = Walker::<PanicSource>::apply_to(None, &vec![])
             .expect("apply_to failed");
         assert!(maybe_tree.is_none());
+    }
+
+    #[test]
+    fn fuzz() {
+        let mut rng = thread_rng();
+
+        for i in 0..1000 {
+            println!("i:{}", i);
+            let initial_size = rng.gen::<u64>() % 32;
+            let seed = rng.gen::<u64>();
+            let mut maybe_tree = Some(make_tree_rand(initial_size, initial_size, seed));
+
+            for j in 0..4 {
+                let batch_size = rng.gen::<u64>() % 8;
+                println!("j:{} {}", j, batch_size);
+                let batch = make_mixed_batch_rand(maybe_tree.as_ref(), batch_size);
+                println!("applying");
+                maybe_tree = apply_to_memonly(maybe_tree, &batch);
+            }
+        }
     }
 }
