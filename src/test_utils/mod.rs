@@ -133,45 +133,6 @@ pub fn random_value(size: usize) -> Vec<u8> {
     value
 }
 
-pub fn make_mixed_batch_rand(maybe_tree: Option<&Tree>, size: u64) -> Vec<BatchEntry> {
-    let mut batch = Vec::with_capacity(size.try_into().unwrap());
-
-    let get_random_key = || {
-        let mut rng = thread_rng();
-        let tree = maybe_tree.as_ref().unwrap();
-        let entries: Vec<_> = tree.iter().collect();
-        let index = rng.gen::<u64>() as usize % entries.len();
-        entries[index].0.clone()
-    };
-
-    let insert = || {
-        (random_value(2), Op::Put(random_value(2)))
-    };
-    let update = || {
-        let key = get_random_key();
-        (key.to_vec(), Op::Put(random_value(2)))
-    };
-    let delete = || {
-        let key = get_random_key();
-        (key.to_vec(), Op::Delete)
-    };
-
-    let mut rng = thread_rng();
-    for _ in 0..size {
-        let entry = if maybe_tree.is_some() {
-            let kind = rng.gen::<u64>() % 3;
-            if kind == 0 { insert() }
-            else if kind == 1 { update() }
-            else { delete() }
-        } else {
-            insert()
-        };
-        batch.push(entry);
-    }
-    batch.sort_by(|a, b| a.0.cmp(&b.0));
-    batch
-}
-
 pub fn make_tree_rand(
     node_count: u64,
     batch_size: u64,
