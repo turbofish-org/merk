@@ -5,7 +5,7 @@ use rand::prelude::*;
 use merk::tree::*;
 use merk::test_utils::*;
 
-const ITERATIONS: usize = 1_000;
+const ITERATIONS: usize = 2_000;
 
 #[test]
 fn fuzz() {
