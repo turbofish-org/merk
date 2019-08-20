@@ -53,7 +53,7 @@ fn update_1m_10k_seq_memonly(b: &mut Bencher) {
 
 #[bench]
 fn update_1m_10k_rand_memonly(b: &mut Bencher) {
-    let initial_size = 1_000_000;
+    let initial_size = 1_010_000;
     let batch_size = 10_000;
 
     let mut tree = Owner::new(make_tree_rand(initial_size, batch_size, 0));
@@ -66,35 +66,36 @@ fn update_1m_10k_rand_memonly(b: &mut Bencher) {
     });
 }
 
+// NOTE: disabled because it's so fast that we always delete the whole tree
+// #[bench]
+// fn delete_1m_1k_seq_memonly(b: &mut Bencher) {
+//     let initial_size = 1_010_000;
+//     let batch_size = 1_000;
+
+//     let mut tree = Owner::new(make_tree_seq(initial_size));
+
+//     let mut i = 0;
+//     b.iter(|| {
+//         if i >= (initial_size / batch_size) {
+//             println!("WARNING: too many bench iterations, whole tree deleted");
+//             return;
+//         }
+//         let batch = make_del_batch_seq((i * batch_size)..((i+1) * batch_size));
+//         tree.own(|tree| apply_memonly_unchecked(tree, &batch));
+//         i = i + 1;
+//     });
+// }
+
 #[bench]
-fn delete_6m_6k_seq_memonly(b: &mut Bencher) {
-    let initial_size = 2_000_000;
-    let batch_size = 2_000;
-
-    let mut tree = Owner::new(make_tree_seq(initial_size));
-
-    let mut i = 0;
-    b.iter(|| {
-        if i > (initial_size / batch_size) {
-            println!("WARNING: too many bench iterations, whole tree deleted");
-            return;
-        }
-        let batch = make_del_batch_seq((i * batch_size)..((i+1) * batch_size));
-        tree.own(|tree| apply_memonly_unchecked(tree, &batch));
-        i = i + 1;
-    });
-}
-
-#[bench]
-fn delete_6m_6k_rand_memonly(b: &mut Bencher) {
-    let initial_size = 2_000_000;
+fn delete_1m_2k_rand_memonly(b: &mut Bencher) {
+    let initial_size = 1_002_000;
     let batch_size = 2_000;
 
     let mut tree = Owner::new(make_tree_rand(initial_size, batch_size, 0));
 
     let mut i = 0;
     b.iter(|| {
-        if i > (initial_size / batch_size) {
+        if i >= (initial_size / batch_size) {
             println!("WARNING: too many bench iterations, whole tree deleted");
             return;
         }
