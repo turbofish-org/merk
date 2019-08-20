@@ -83,11 +83,8 @@ impl<S> Walker<S>
                 Delete => {
                     // TODO: we shouldn't have to do this as 2 different calls to apply
                     let source = self.clone_source();
-                    let wrap = |maybe_tree| {
-                        match maybe_tree {
-                            Some(tree) => Some(Self::new(tree, source.clone())),
-                            None => None
-                        }
+                    let wrap = |maybe_tree: Option<Tree>| {
+                        maybe_tree.map(|tree| Self::new(tree, source.clone()))
                     };
                     let maybe_tree = self.remove()?;
                     let maybe_tree = wrap(Self::apply_to(maybe_tree, &batch[..index])?);
@@ -125,7 +122,6 @@ impl<S> Walker<S>
                 .walk(true, |maybe_left|
                     Self::apply_to(maybe_left, left_batch)
                 )?
-                .maybe_balance()?
         } else {
             self
         };
@@ -135,10 +131,11 @@ impl<S> Walker<S>
                 .walk(false, |maybe_right|
                     Self::apply_to(maybe_right, right_batch)
                 )?
-                .maybe_balance()?
         } else {
             _self
         };
+
+        let _self = _self.maybe_balance()?;
 
         Ok(Some(_self))
     }
@@ -211,10 +208,10 @@ impl<S> Walker<S>
 
     fn promote_edge(self, left: bool, attach: Self) -> Result<Self> {
         let (edge, maybe_child) = self.remove_edge(left)?;
-        let tree = edge
+        edge
             .attach(!left, maybe_child)
-            .attach(left, Some(attach));
-        Ok(tree)
+            .attach(left, Some(attach))
+            .maybe_balance()
     }
 
     fn remove_edge(self, left: bool) -> Result<(Self, Option<Self>)> {
