@@ -1,5 +1,6 @@
 #![feature(drain_filter)]
 
+use std::cell::RefCell;
 use rand::prelude::*;
 use merk::tree::*;
 use merk::test_utils::*;
@@ -10,39 +11,56 @@ const ITERATIONS: usize = 1_000;
 fn fuzz() {
     let mut rng = thread_rng();
 
-    for i in 0..ITERATIONS {
-        let initial_size = (rng.gen::<u64>() % 16) + 1;
+    for _ in 0..ITERATIONS {
         let seed = rng.gen::<u64>();
-        let mut maybe_tree = Some(make_tree_rand(initial_size, initial_size, seed));
-        println!("====== i:{} ======", i);
-        println!("{:?}\n", maybe_tree.as_ref().unwrap());
+        fuzz_case(seed);
+    }
+}
 
-        for j in 0..4 {
-            let batch_size = (rng.gen::<u64>() % 5) + 1;
-            let batch = make_batch(maybe_tree.as_ref(), batch_size);
-            println!("   === j:{} ===", j);
-            println!("{} {:?}", batch.len(), batch);
-            maybe_tree = apply_to_memonly(maybe_tree, &batch);
-            if let Some(tree) = &maybe_tree {
-                println!("{:?}", &tree);
-            } else {
-                println!("(Empty tree)");
-            }
-            println!("\n");
+#[test]
+fn fuzz_17391518417409062786() {
+    fuzz_case(17391518417409062786);
+}
+
+pub fn fuzz_case(seed: u64) {
+    let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
+    let initial_size = (rng.gen::<u64>() % 10) + 1;
+    let mut maybe_tree = Some(make_tree_rand(initial_size, initial_size, seed));
+    println!("====== MERK FUZZ ======");
+    println!("SEED: {}", seed);
+    println!("{:?}", maybe_tree.as_ref().unwrap());
+
+    for j in 0..3 {
+        let batch_size = (rng.gen::<u64>() % 3) + 1;
+        let batch = make_batch(maybe_tree.as_ref(), batch_size, rng.gen::<u64>());
+        println!("BATCH {}", j);
+        println!("{:?}", batch);
+        maybe_tree = apply_to_memonly(maybe_tree, &batch);
+        if let Some(tree) = &maybe_tree {
+            println!("{:?}", &tree);
+        } else {
+            println!("(Empty tree)");
         }
     }
 }
 
-
-pub fn make_batch(maybe_tree: Option<&Tree>, size: u64) -> Vec<BatchEntry> {
+pub fn make_batch(maybe_tree: Option<&Tree>, size: u64, seed: u64) -> Vec<BatchEntry> {
+    let rng: RefCell<SmallRng> = RefCell::new(
+        SeedableRng::seed_from_u64(seed)
+    );
     let mut batch = Vec::with_capacity(size as usize);
 
     let get_random_key = || {
-        let mut rng = thread_rng();
         let tree = maybe_tree.as_ref().unwrap();
         let entries: Vec<_> = tree.iter().collect();
-        let index = rng.gen::<u64>() as usize % entries.len();
+        let index = rng.borrow_mut().gen::<u64>() as usize % entries.len();
         entries[index].0.clone()
+    };
+
+    let random_value = |size| {
+        let mut value = vec![0; size];
+        rng.borrow_mut().fill_bytes(&mut value[..]);
+        value
     };
 
     let insert = || {
@@ -57,10 +75,9 @@ pub fn make_batch(maybe_tree: Option<&Tree>, size: u64) -> Vec<BatchEntry> {
         (key.to_vec(), Op::Delete)
     };
 
-    let mut rng = thread_rng();
     for _ in 0..size {
         let entry = if maybe_tree.is_some() {
-            let kind = rng.gen::<u64>() % 3;
+            let kind = rng.borrow_mut().gen::<u64>() % 3;
             if kind == 0 { insert() }
             else if kind == 1 { update() }
             else { delete() }
@@ -84,11 +101,4 @@ pub fn make_batch(maybe_tree: Option<&Tree>, size: u64) -> Vec<BatchEntry> {
             should_yield
         })
         .collect::<Vec<_>>()
-}
-
-pub fn random_value(size: usize) -> Vec<u8> {
-    let mut value = vec![0; size];
-    let mut rng = thread_rng();
-    rng.fill_bytes(&mut value[..]);
-    value
 }
