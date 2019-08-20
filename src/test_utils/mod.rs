@@ -63,6 +63,7 @@ pub fn apply_to_memonly(maybe_tree: Option<Tree>, batch: &Batch) -> Option<Tree>
                 .expect("apply failed")
                 .map(|mut tree| {
                     tree.commit(&mut NoopCommit {}).expect("commit failed");
+                    println!("{:?}", &tree);
                     assert_tree_invariants(&tree);
                     tree
                 })
@@ -124,13 +125,6 @@ pub fn make_del_batch_rand(size: u64, seed: u64) -> Vec<BatchEntry> {
     }
     batch.sort_by(|a, b| a.0.cmp(&b.0));
     batch
-}
-
-pub fn random_value(size: usize) -> Vec<u8> {
-    let mut value = Vec::with_capacity(size);
-    let mut rng = thread_rng();
-    rng.fill_bytes(&mut value[..]);
-    value
 }
 
 pub fn make_tree_rand(
