@@ -11,7 +11,7 @@ fn fuzz() {
     let mut rng = thread_rng();
 
     for i in 0..ITERATIONS {
-        let initial_size = rng.gen::<u64>() % 16;
+        let initial_size = (rng.gen::<u64>() % 16) + 1;
         let seed = rng.gen::<u64>();
         let mut maybe_tree = Some(make_tree_rand(initial_size, initial_size, seed));
         println!("====== i:{} ======", i);
