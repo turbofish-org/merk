@@ -56,19 +56,17 @@ pub fn apply_memonly(tree: Tree, batch: &Batch) -> Tree {
 }
 
 pub fn apply_to_memonly(maybe_tree: Option<Tree>, batch: &Batch) -> Option<Tree> {
-    match maybe_tree {
-        Some(tree) => Some(apply_memonly(tree, batch)),
-        None => {
-            Walker::<PanicSource>::apply_to(None, batch)
-                .expect("apply failed")
-                .map(|mut tree| {
-                    tree.commit(&mut NoopCommit {}).expect("commit failed");
-                    println!("{:?}", &tree);
-                    assert_tree_invariants(&tree);
-                    tree
-                })
-        }
-    }
+    let maybe_walker = maybe_tree.map(|tree| {
+        Walker::<PanicSource>::new(tree, PanicSource {})
+    });
+    Walker::<PanicSource>::apply_to(maybe_walker, batch)
+        .expect("apply failed")
+        .map(|mut tree| {
+            tree.commit(&mut NoopCommit {}).expect("commit failed");
+            println!("{:?}", &tree);
+            assert_tree_invariants(&tree);
+            tree
+        })
 }
 
 pub fn put_entry(n: u64) -> BatchEntry {
