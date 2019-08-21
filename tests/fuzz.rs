@@ -1,11 +1,16 @@
 #![feature(drain_filter)]
 
 use std::cell::RefCell;
+use std::collections::BTreeMap;
+use std::iter::FromIterator;
 use rand::prelude::*;
 use merk::tree::*;
+use merk::Batch;
 use merk::test_utils::*;
 
 const ITERATIONS: usize = 2_000;
+
+type Map = BTreeMap<Vec<u8>, Vec<u8>>;
 
 #[test]
 fn fuzz() {
@@ -30,7 +35,9 @@ fn fuzz_396148930387069749() {
 pub fn fuzz_case(seed: u64) {
     let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
     let initial_size = (rng.gen::<u64>() % 10) + 1;
-    let mut maybe_tree = Some(make_tree_rand(initial_size, initial_size, seed));
+    let tree = make_tree_rand(initial_size, initial_size, seed);
+    let mut map = Map::from_iter(tree.iter());
+    let mut maybe_tree = Some(tree);
     println!("====== MERK FUZZ ======");
     println!("SEED: {}", seed);
     println!("{:?}", maybe_tree.as_ref().unwrap());
@@ -41,6 +48,8 @@ pub fn fuzz_case(seed: u64) {
         println!("BATCH {}", j);
         println!("{:?}", batch);
         maybe_tree = apply_to_memonly(maybe_tree, &batch);
+        apply_to_map(&mut map, &batch);
+        assert_map(maybe_tree.as_ref(), &map);
         if let Some(tree) = &maybe_tree {
             println!("{:?}", &tree);
         } else {
@@ -106,4 +115,36 @@ pub fn make_batch(maybe_tree: Option<&Tree>, size: u64, seed: u64) -> Vec<BatchE
             should_yield
         })
         .collect::<Vec<_>>()
+}
+
+pub fn apply_to_map(map: &mut Map, batch: &Batch) {
+    for entry in batch.iter() {
+        match entry {
+            (key, Op::Put(value)) => {
+                map.insert(key.to_vec(), value.to_vec());
+            },
+            (key, Op::Delete) => {
+                map.remove(key);
+            }
+        }
+    }
+}
+
+pub fn assert_map(maybe_tree: Option<&Tree>, map: &Map) {
+    if map.is_empty() {
+        assert!(maybe_tree.is_none(), "expected tree to be None");
+        return;
+    }
+
+    let tree = maybe_tree.expect("expected tree to be Some");
+
+    let mut count = 0;
+    for (key, tree_value) in tree.iter() {
+        let map_value = map.get(key.as_slice())
+            .expect("expected value");
+        assert_eq!(tree_value, *map_value);
+        count += 1;
+    }
+
+    assert_eq!(count, map.len());
 }
