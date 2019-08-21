@@ -117,27 +117,25 @@ impl<S> Walker<S>
             &batch[mid..]
         };
         
-        let _self = if !left_batch.is_empty() {
-            self
-                .walk(true, |maybe_left|
-                    Self::apply_to(maybe_left, left_batch)
-                )?
+        let tree = if !left_batch.is_empty() {
+            self.walk(true, |maybe_left|
+                Self::apply_to(maybe_left, left_batch)
+            )?
         } else {
             self
         };
 
-        let _self = if !right_batch.is_empty() {
-            _self
-                .walk(false, |maybe_right|
-                    Self::apply_to(maybe_right, right_batch)
-                )?
+        let tree = if !right_batch.is_empty() {
+            tree.walk(false, |maybe_right|
+                Self::apply_to(maybe_right, right_batch)
+            )?
         } else {
-            _self
+            tree
         };
 
-        let _self = _self.maybe_balance()?;
+        let tree = tree.maybe_balance()?;
 
-        Ok(Some(_self))
+        Ok(Some(tree))
     }
 
     #[inline]
@@ -325,7 +323,7 @@ mod test {
     fn delete_deep() {
         let tree = make_tree_seq(50);
         let batch = [ del_entry(5) ]; 
-        let walker = Walker::new(tree, PanicSource {})
+        Walker::new(tree, PanicSource {})
             .apply(&batch)
             .expect("apply errored")
             .expect("should be Some");
@@ -336,13 +334,11 @@ mod test {
     fn delete_recursive() {
         let tree = make_tree_seq(50);
         let batch = [ del_entry(29), del_entry(34) ]; 
-        let walker = Walker::new(tree, PanicSource {})
+        Walker::new(tree, PanicSource {})
             .apply(&batch)
             .expect("apply errored")
             .expect("should be Some");
         // TODO: assert set of keys are correct
-
-        println!("{:?}", walker.tree());
     }
 
     #[test]
