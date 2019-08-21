@@ -232,7 +232,6 @@ impl<S> Walker<S>
 
 #[cfg(test)]
 mod test {
-    use rand::prelude::*;
     use super::*;
     use crate::tree::*;
     use crate::test_utils::{make_tree_seq, del_entry};

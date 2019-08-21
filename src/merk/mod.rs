@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
@@ -37,24 +36,24 @@ impl Merk {
         Ok(node.value().to_vec())
     }
 
-    pub fn apply(&mut self, batch: &mut Batch) -> Result<()> {
-        // sort batch and ensure there are no duplicate keys
-        let mut duplicate = false;
-        batch.sort_by(|a, b| {
-            let cmp = a.0.cmp(&b.0);
-            if let Ordering::Equal = cmp {
-                duplicate = true;
+    pub fn apply(&mut self, batch: &Batch) -> Result<()> {
+        // ensure keys in batch are sorted and unique
+        let mut maybe_prev_key = None;
+        for (key, _) in batch.iter() {
+            if let Some(prev_key) = maybe_prev_key {
+                if prev_key > *key {
+                    bail!("Keys in batch must be sorted");
+                } else if prev_key == *key {
+                    bail!("Keys in batch must be unique");
+                }
             }
-            cmp
-        });
-        if duplicate {
-            bail!("Batch must not have duplicate keys");
+            maybe_prev_key = Some(key.to_vec());
         }
 
-        self.apply_unchecked(batch)
+        unsafe { self.apply_unchecked(batch) }
     }
 
-    pub fn apply_unchecked(&mut self, batch: &Batch) -> Result<()> {
+    pub unsafe fn apply_unchecked(&mut self, batch: &Batch) -> Result<()> {
         let maybe_walker = self.tree.take()
             .map(|tree| Walker::new(tree, self.source()));
 
@@ -202,14 +201,14 @@ mod test {
     use crate::test_utils::*;
 
     #[test]
-    fn simple_insert_apply_unchecked() {
+    fn simple_insert_apply() {
         let batch_size = 20;
 
         let path = thread::current().name().unwrap().to_owned();
         let mut merk = TempMerk::open(path).expect("failed to open merk");
 
-        let mut batch = make_batch_seq(0..batch_size);
-        merk.apply_unchecked(&mut batch).expect("apply failed");
+        let batch = make_batch_seq(0..batch_size);
+        merk.apply(&batch).expect("apply failed");
 
         assert_tree_invariants(merk.tree().expect("expected tree"));
     }
@@ -222,11 +221,11 @@ mod test {
         let mut merk = TempMerk::open(path).expect("failed to open merk");
 
         let batch = make_batch_seq(0..batch_size);
-        merk.apply_unchecked(&batch).expect("apply failed");
+        merk.apply(&batch).expect("apply failed");
         assert_tree_invariants(merk.tree().expect("expected tree"));
 
         let batch = make_batch_seq(batch_size..(batch_size*2));
-        merk.apply_unchecked(&batch).expect("apply failed");
+        merk.apply(&batch).expect("apply failed");
         assert_tree_invariants(merk.tree().expect("expected tree"));
     }
 
@@ -241,7 +240,7 @@ mod test {
         for i in 0..(tree_size / batch_size) {
             println!("i:{}", i);
             let batch = make_batch_rand(batch_size, i);
-            merk.apply_unchecked(&batch).expect("apply failed");
+            merk.apply(&batch).expect("apply failed");
 
         }
     }
