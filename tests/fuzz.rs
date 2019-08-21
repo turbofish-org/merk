@@ -138,13 +138,12 @@ pub fn assert_map(maybe_tree: Option<&Tree>, map: &Map) {
 
     let tree = maybe_tree.expect("expected tree to be Some");
 
-    let mut count = 0;
-    for (key, tree_value) in tree.iter() {
-        let map_value = map.get(key.as_slice())
-            .expect("expected value");
-        assert_eq!(tree_value, *map_value);
-        count += 1;
+    let map_iter = map.iter();
+    let tree_iter = tree.iter();
+    for (tree_kv, map_kv) in tree_iter.zip(map_iter) {
+        assert_eq!(tree_kv.0, *map_kv.0);
+        assert_eq!(tree_kv.1, *map_kv.1);
     }
 
-    assert_eq!(count, map.len());
+    assert_eq!(tree.iter().count(), map.len());
 }
