@@ -12,7 +12,8 @@ pub enum Link {
     Modified {
         pending_writes: usize,
         child_heights: (u8, u8),
-        tree: Tree
+        tree: Tree,
+        deleted_keys: Vec<Vec<u8>>
     },
     Stored {
         hash: Hash,
@@ -31,7 +32,8 @@ impl Link {
         Link::Modified {
             pending_writes,
             child_heights: tree.child_heights(),
-            tree
+            tree,
+            deleted_keys: vec![]
         }
     }
 
@@ -159,7 +161,7 @@ mod test {
         let tree = || Tree::new(vec![0], vec![1]);
 
         let pruned = Link::Pruned { hash, child_heights, key };
-        let modified = Link::Modified { pending_writes, child_heights, tree: tree() };
+        let modified = Link::Modified { pending_writes, child_heights, tree: tree(), deleted_keys: vec![] };
         let stored = Link::Stored { hash, child_heights, tree: tree() };
 
         assert!(pruned.is_pruned());
@@ -191,7 +193,8 @@ mod test {
         Link::Modified {
             pending_writes: 1,
             child_heights: (1, 1),
-            tree: Tree::new(vec![0], vec![1])
+            tree: Tree::new(vec![0], vec![1]),
+            deleted_keys: vec![]
         }.hash();
     }
 
@@ -201,7 +204,8 @@ mod test {
         Link::Modified {
             pending_writes: 1,
             child_heights: (1, 1),
-            tree: Tree::new(vec![0], vec![1])
+            tree: Tree::new(vec![0], vec![1]),
+            deleted_keys: vec![]
         }.into_pruned();
     }
 }
