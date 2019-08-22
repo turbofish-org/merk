@@ -16,13 +16,13 @@ fn insert_1m_2k_seq_rocksdb_noprune(b: &mut Bencher) {
 
     for i in 0..(initial_size / batch_size) {
         let batch = make_batch_seq((i * batch_size)..((i+1) * batch_size));
-        merk.apply_unchecked(&batch).expect("apply failed");
+        unsafe { merk.apply_unchecked(&batch).expect("apply failed") };
     }
 
     let mut i = initial_size / batch_size;
     b.iter(|| {
         let batch = make_batch_seq((i * batch_size)..((i+1) * batch_size));
-        merk.apply_unchecked(&batch).expect("apply failed");
+        unsafe { merk.apply_unchecked(&batch).expect("apply failed") };
         i += 1;
     });
 }
@@ -37,13 +37,13 @@ fn insert_1m_2k_rand_rocksdb_noprune(b: &mut Bencher) {
 
     for i in 0..(initial_size / batch_size) {
         let batch = make_batch_rand(batch_size, i);
-        merk.apply_unchecked(&batch).expect("apply failed");
+        unsafe { merk.apply_unchecked(&batch).expect("apply failed") };
     }
 
     let mut i = initial_size / batch_size;
     b.iter(|| {
         let batch = make_batch_rand(batch_size, i);
-        merk.apply_unchecked(&batch).expect("apply failed");
+        unsafe { merk.apply_unchecked(&batch).expect("apply failed") };
         i += 1;
     });
 }
@@ -58,13 +58,13 @@ fn update_1m_2k_seq_rocksdb_noprune(b: &mut Bencher) {
 
     for i in 0..(initial_size / batch_size) {
         let batch = make_batch_seq((i * batch_size)..((i+1) * batch_size));
-        merk.apply_unchecked(&batch).expect("apply failed");
+        unsafe { merk.apply_unchecked(&batch).expect("apply failed") };
     }
 
     let mut i = 0;
     b.iter(|| {
         let batch = make_batch_seq((i * batch_size)..((i+1) * batch_size));
-        merk.apply_unchecked(&batch).expect("apply failed");
+        unsafe { merk.apply_unchecked(&batch).expect("apply failed") };
         i = (i + 1) % (initial_size / batch_size);
     });
 }
@@ -79,13 +79,13 @@ fn update_1m_2k_rand_rocksdb_noprune(b: &mut Bencher) {
 
     for i in 0..(initial_size / batch_size) {
         let batch = make_batch_rand(batch_size, i);
-        merk.apply_unchecked(&batch).expect("apply failed");
+        unsafe { merk.apply_unchecked(&batch).expect("apply failed") };
     }
 
     let mut i = 0;
     b.iter(|| {
         let batch = make_batch_rand(batch_size, i);
-        merk.apply_unchecked(&batch).expect("apply failed");
+        unsafe { merk.apply_unchecked(&batch).expect("apply failed") };
         i = (i + 1) % (initial_size / batch_size);
     });
 }
@@ -100,7 +100,7 @@ fn delete_1m_2k_rand_rocksdb_noprune(b: &mut Bencher) {
 
     for i in 0..(initial_size / batch_size) {
         let batch = make_batch_rand(batch_size, i);
-        merk.apply_unchecked(&batch).expect("apply failed");
+        unsafe { merk.apply_unchecked(&batch).expect("apply failed") };
     }
 
     let mut i = 0;
@@ -110,7 +110,7 @@ fn delete_1m_2k_rand_rocksdb_noprune(b: &mut Bencher) {
             return;
         }
         let batch = make_del_batch_rand(batch_size, i);
-        merk.apply_unchecked(&batch).expect("apply failed");
+        unsafe { merk.apply_unchecked(&batch).expect("apply failed") };
         i = (i + 1) % (initial_size / batch_size);
     });
 }
