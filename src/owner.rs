@@ -1,0 +1,55 @@
+use std::ops::{Deref, DerefMut};
+
+pub struct Owner<T> {
+    inner: Option<T>
+}
+
+impl<T> Owner<T> {
+    pub fn new(value: T) -> Owner<T> {
+        Owner { inner: Some(value) }
+    }
+
+    pub fn own<F: FnOnce(T) -> T>(&mut self, f: F) {
+        let old_value = unwrap(self.inner.take());
+        let new_value = f(old_value);
+        self.inner = Some(new_value);
+    }
+
+    pub fn own_return<R, F>(&mut self, f: F) -> R
+        where
+            R: Sized,
+            F: FnOnce(T) -> (T, R)
+    {
+        let old_value = unwrap(self.inner.take());
+        let (new_value, return_value) = f(old_value);
+        self.inner = Some(new_value);
+        return_value
+    }
+
+    pub fn into_inner(mut self) -> T {
+        unwrap(self.inner.take())
+    }
+}
+
+impl<T> Deref for Owner<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        unwrap(self.inner.as_ref())
+    }
+}
+
+impl<T> DerefMut for Owner<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        unwrap(self.inner.as_mut())
+    }
+}
+
+fn unwrap<T>(option: Option<T>) -> T {
+    match option {
+        Some(value) => value,
+        None => unreachable!("value should be Some")
+    }
+}
+
+// TODO: unit tests

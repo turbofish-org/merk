@@ -1,26 +1,21 @@
-#![feature(trait_alias)]
-
 #[macro_use]
 extern crate error_chain;
-#[macro_use]
-extern crate serde_derive;
-extern crate bincode;
 extern crate blake2_rfc;
-extern crate colored;
-extern crate hex;
-extern crate num_cpus;
 extern crate rocksdb;
-extern crate serde;
+extern crate colored;
+extern crate byteorder;
+extern crate rand;
+extern crate jemallocator;
 
-mod test_util;
-mod ops;
-mod proof;
-mod tree;
+#[global_allocator] 
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 mod error;
+pub mod tree;
 mod merk;
+pub mod test_utils;
+pub mod owner;
 
-// collect all internal module exports and re-export as root module
-pub use crate::error::*;
-pub use crate::merk::*;
-pub use crate::tree::*;
-pub use crate::proof::*;
+pub use error::{Error, Result};
+pub use self::merk::Merk;
+pub use tree::{Batch, BatchEntry, Op, PanicSource};
