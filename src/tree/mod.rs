@@ -10,7 +10,7 @@ mod iter;
 
 use std::cmp::max;
 
-pub use walk::{Walker, Fetch};
+pub use walk::{Walker, RefWalker, Fetch};
 use super::error::Result;
 pub use commit::{Commit, NoopCommit};
 use kv::KV;
@@ -83,6 +83,15 @@ impl Tree {
         match self.link(left) {
             None => None,
             Some(link) => link.tree()
+        }
+    }
+
+    pub fn child_mut(&mut self, left: bool) -> Option<&mut Self> {
+        match self.slot_mut(left) {
+            None => None,
+            Some(Link::Pruned { .. }) => None,
+            Some(Link::Stored { tree, .. }) => Some(&mut tree),
+            Some(Link::Modified { tree, .. }) => Some(&mut tree)
         }
     }
 
@@ -246,6 +255,23 @@ impl Tree {
         }
 
         Ok(())
+    }
+
+    pub fn load<S: Fetch>(&mut self, left: bool, source: &S) -> Result<()> {
+        // TODO: return Err instead of panic?
+        let link = self.link(left).expect("Expected link");
+        let (child_heights, hash) = match link {
+            Link::Pruned { child_heights, hash, .. } => (child_heights, hash),
+            _ => panic!("Expected Some(Link::Pruned)")
+        };
+
+        let tree = source.fetch(link)?;
+        debug_assert_eq!(tree.key(), link.key());
+        self.slot_mut(left) = Some(Link::Stored {
+            tree,
+            hash,
+            child_heights
+        });
     }
 }
 

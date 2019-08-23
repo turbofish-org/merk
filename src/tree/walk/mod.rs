@@ -1,6 +1,8 @@
 mod fetch;
+mod ref_walker;
 
 pub use fetch::Fetch;
+pub use ref_walker::RefWalker;
 use crate::error::Result;
 use super::{Tree, Link};
 use crate::owner::Owner;
