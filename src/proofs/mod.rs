@@ -43,7 +43,7 @@ impl<'a, S> RefWalker<'a, S>
         Node::KVHash(self.tree().kv_hash().clone())
     }
 
-    pub(crate) fn create_proof(
+    pub fn create_proof(
         &mut self,
         keys: &[Vec<u8>],
     ) -> Result<(
