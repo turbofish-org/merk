@@ -1,3 +1,5 @@
+mod encoding;
+
 use std::collections::LinkedList;
 use crate::error::Result;
 use crate::tree::{Tree, Link, RefWalker, Hash, Fetch};
@@ -122,7 +124,6 @@ impl<'a, S> RefWalker<'a, S>
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test_utils::{make_tree_seq, seq_key};
     use crate::tree::{PanicSource, RefWalker};
 
     fn make_3_node_tree() -> Tree {
