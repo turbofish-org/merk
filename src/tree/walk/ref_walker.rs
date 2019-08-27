@@ -5,7 +5,7 @@ use super::super::{Tree, Link};
 pub struct RefWalker<'a, S>
     where S: Fetch + Sized + Clone + Send
 {
-    tree: &'a Tree,
+    tree: &'a mut Tree,
     source: S
 }
 
@@ -13,14 +13,14 @@ impl<'a, S> RefWalker<'a, S>
     where S: Fetch + Sized + Clone + Send
 {
     pub fn new(tree: &'a mut Tree, source: S) -> Self {
-        Walker { tree, source }
+        RefWalker { tree, source }
     }
 
-    pub fn tree(&self) -> &'a Tree {
+    pub fn tree(&self) -> &Tree {
         self.tree
     }
 
-    pub fn walk(&mut self, left: bool) -> Result<Option<Self>> {
+    pub fn walk<'b>(&'b mut self, left: bool) -> Result<Option<RefWalker<'b, S>>> {
         let link = match self.tree.link(left) {
             None => return Ok(None),
             Some(link) => link
@@ -34,19 +34,25 @@ impl<'a, S> RefWalker<'a, S>
             }
         }
 
-        Ok(self.tree.child_mut(left))
+        let child = self.tree.child_mut(left).unwrap();
+        Ok(Some(RefWalker::new(child, self.source.clone())))
     }
 
-    pub fn walk_expect(&self, left: bool) -> Result<Self> {
+    pub fn walk_expect<'b>(&'b mut self, left: bool) -> Result<RefWalker<'b, S>> {
+        let maybe_child = self.walk(left)?;
 
+        if let Some(child) = maybe_child {
+            Ok(child)
+        } else {
+            panic!(
+                "Expected {} child, got None",
+                if left { "left" } else { "right" }
+            );
+        }
     }
 
-    pub fn tree(&self) -> &Tree {
-        &self.tree
-    }
-
-    fn wrap(&self, tree: Tree) -> Self {
-        Walker::new(tree, self.source.clone())
+    fn wrap(&self, tree: &'a mut Tree) -> Self {
+        RefWalker::new(tree, self.clone_source())
     }
 
     pub fn clone_source(&self) -> S {

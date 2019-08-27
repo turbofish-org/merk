@@ -15,7 +15,7 @@ use super::error::Result;
 pub use commit::{Commit, NoopCommit};
 use kv::KV;
 pub use link::Link;
-use hash::{Hash, node_hash, NULL_HASH};
+pub use hash::{Hash, node_hash, NULL_HASH};
 pub use ops::{Batch, BatchEntry, PanicSource, Op};
 
 struct TreeInner {
@@ -71,6 +71,11 @@ impl Tree {
     }
 
     #[inline]
+    pub fn kv_hash(&self) -> &Hash {
+        self.inner.kv.hash()
+    }
+
+    #[inline]
     pub fn link(&self, left: bool) -> Option<&Link> {
         if left {
             self.inner.left.as_ref()
@@ -87,11 +92,11 @@ impl Tree {
     }
 
     pub fn child_mut(&mut self, left: bool) -> Option<&mut Self> {
-        match self.slot_mut(left) {
+        match self.slot_mut(left).as_mut() {
             None => None,
             Some(Link::Pruned { .. }) => None,
-            Some(Link::Stored { tree, .. }) => Some(&mut tree),
-            Some(Link::Modified { tree, .. }) => Some(&mut tree)
+            Some(Link::Stored { tree, .. }) => Some(tree),
+            Some(Link::Modified { tree, .. }) => Some(tree)
         }
     }
 
@@ -267,11 +272,13 @@ impl Tree {
 
         let tree = source.fetch(link)?;
         debug_assert_eq!(tree.key(), link.key());
-        self.slot_mut(left) = Some(Link::Stored {
+        *self.slot_mut(left) = Some(Link::Stored {
             tree,
-            hash,
-            child_heights
+            hash: *hash,
+            child_heights: *child_heights
         });
+
+        Ok(())
     }
 }
 

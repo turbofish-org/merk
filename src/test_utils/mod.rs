@@ -69,18 +69,19 @@ pub fn apply_to_memonly(maybe_tree: Option<Tree>, batch: &Batch) -> Option<Tree>
         })
 }
 
-pub fn put_entry(n: u64) -> BatchEntry {
+pub fn seq_key(n: u64) -> Vec<u8> {
     let mut key = vec![0; 0];
     key.write_u64::<BigEndian>(n)
         .expect("writing to key failed");
-    (key, Op::Put(vec![123; 60]))
+    key
+}
+
+pub fn put_entry(n: u64) -> BatchEntry {
+    (seq_key(n), Op::Put(vec![123; 60]))
 }
 
 pub fn del_entry(n: u64) -> BatchEntry {
-    let mut key = vec![0; 0];
-    key.write_u64::<BigEndian>(n)
-        .expect("writing to key failed");
-    (key, Op::Delete)
+    (seq_key(n), Op::Delete)
 }
 
 pub fn make_batch_seq(range: Range<u64>) -> Vec<BatchEntry> {
