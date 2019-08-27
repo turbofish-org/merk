@@ -2,7 +2,7 @@
 
 **Matt Bell ([@mappum](https://twitter.com/mappum))** • [Nomic Hodlings, Inc.](https://nomic.io)
 
-v0.0.0 - *June 27, 2019*
+v0.0.1 - *August 27, 2019*
 
 ## Introduction
 
@@ -35,7 +35,7 @@ In the backing key/value store, nodes are stored using their key/value pair key 
 
 Storing nodes by key rather than by hash is an important optimization, and is the reason why inner nodes each have a key/value pair. The implication is that reading a key does not require traversing through the tree structure but only requires a single read in the backing key/value store, meaning there is practically no overhead versus using the backing store without a tree structure. Additionally, we can efficiently iterate through nodes in the tree in their in-order traversal just by iterating by key in the backing store (which RocksDB and LevelDB are optimized for).
 
-This means we lose the "I" compared to the IAVL library - immutability. Since now we operate on the tree nodes in-place in the backing store, we don't by default have views of past states of the tree. However, in our implementation we replicate this functionality with RocksDB's snapshot and checkpoint features which provide a consistent view of the store at a certain point in history - either ephemerally in memory or persistently on disk.
+This means we lose the "I" compared to the IAVL library - immutability. Since now we operate on the tree nodes in-place in the backing store, we don't by default have views of past states of the tree. However, **in** our implementation we replicate this functionality with RocksDB's snapshot and checkpoint features which provide a consistent view of the store at a certain point in history - either ephemerally in memory or persistently on disk.
 
 ### Operations
 
@@ -114,12 +114,17 @@ Nodes can generate proofs for a set of keys by traversing through the tree from 
         - Partition the batch into left and right sub-batches at index `i` (excluding index `i`)
       - If this node's key is not found in the batch, but could be inserted at index `i` maintaining sorted order:
         - Partition the batch into left and right sub-batches at index `i`
-    - Recurse left: if it exists, query the left child using the left sub-batch (appending some operators to the proof)
+    - **Recurse left:** If there is a left child:
+      - If the left sub-batch is not empty, query the left child  (appending operators to the proof)
+      - If the left sub-batch is empty, append `Push(Hash(left_child_hash))` to the proof
     - Append proof operator:
-      - If this node's key is in the batch, append `Push(KV(key, value))` to the proof
-      - If this node's key is not in the batch, append `Push(KVHash(kv_hash))` to the proof
+      - If this node's key is in the batch, or if the left sub-batch was not empty and no left child exists, or if the right sub-batch is not empty and no right child exists,or if the left child's right edge queried a non-existent key, or if the right child's left edge queried a non-existent key, append `Push(KV(key, value))` to the proof
+      - Otherwise, append `Push(KVHash(kv_hash))` to the proof
     - If the left child exists, append `Parent` to the proof
-    - Recurse right: if it exists, query the right child using the right sub-batch (appending some operators to the proof), then append `Child` to the proof
+    - **Recurse right:** If there is a right child:
+      - If the right sub-batch is not empty, query the right child (appending operators to the proof)
+      - If the right sub-batch is empty, append `Push(Hash(left_child_hash))` to the proof
+      - Append `Child` to the proof
 
 
 Since RocksDB allows concurrent reading from a consistent snapshot/checkpoint, nodes can concurrently generate proofs on all cores to service a higher volume of queries, even if our algorithm isn't designed for concurrency.
