@@ -2,7 +2,7 @@
 
 **Matt Bell ([@mappum](https://twitter.com/mappum))** • [Nomic Hodlings, Inc.](https://nomic.io)
 
-v0.0.1 - *August 27, 2019*
+v0.0.3 - *August 28, 2019*
 
 ## Introduction
 
@@ -135,12 +135,12 @@ We can efficiently encode these proofs by encoding each operator as follows:
 ```
 Push(Hash(hash)) => 0x01 <20-byte hash>
 Push(KVHash(hash)) => 0x02 <20-byte hash>
-Push(KV(key, value)) => 0x03 <1-byte key length> <n-byte key> <4-byte value length> <n-byte value>
+Push(KV(key, value)) => 0x03 <1-byte key length> <n-byte key> <2-byte value length> <n-byte value>
 Parent => 0x10
 Child => 0x11
 ```
 
-This results in a compact binary representation, with a very small space overhead (roughly 2 bytes per node in the proof, plus 5 bytes per key/value pair).
+This results in a compact binary representation, with a very small space overhead (roughly 2 bytes per node in the proof (1 byte for the `Push` operator type flag, and 1 byte for a `Parent` or `Child` operator), plus 3 bytes per key/value pair (1 byte for the key length, and 2 bytes for the value length)).
 
 #### Efficient Proofs for Ranges of Keys
 
