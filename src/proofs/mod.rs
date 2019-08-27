@@ -25,7 +25,7 @@ impl Link {
             Link::Pruned { hash, .. } => hash,
             Link::Stored { hash, .. } => hash
         };
-        Node::Hash(hash.clone())
+        Node::Hash(*hash)
     }
 }
 
@@ -40,7 +40,7 @@ impl<'a, S> RefWalker<'a, S>
     }
 
     fn to_kvhash_node(&self) -> Node {
-        Node::KVHash(self.tree().kv_hash().clone())
+        Node::KVHash(*self.tree().kv_hash())
     }
 
     pub fn create_proof(
@@ -70,8 +70,8 @@ impl<'a, S> RefWalker<'a, S>
         );
 
         proof.push_back(match search {
-            Ok(index) => Op::Push(self.to_kv_node()),
-            Err(index) => {
+            Ok(_) => Op::Push(self.to_kv_node()),
+            Err(_) => {
                 if left_absence.1 || right_absence.0 {
                     Op::Push(self.to_kv_node())
                 } else {

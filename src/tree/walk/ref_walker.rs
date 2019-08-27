@@ -51,10 +51,6 @@ impl<'a, S> RefWalker<'a, S>
         }
     }
 
-    fn wrap(&self, tree: &'a mut Tree) -> Self {
-        RefWalker::new(tree, self.clone_source())
-    }
-
     pub fn clone_source(&self) -> S {
         self.source.clone()
     }
