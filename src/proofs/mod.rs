@@ -163,6 +163,7 @@ mod test {
         assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([7; 20]))));
         assert_eq!(iter.next(), Some(&Op::Child));
         assert!(iter.next().is_none());
+        assert_eq!(absence, (false, false));
     }
 
     #[test]
@@ -181,6 +182,7 @@ mod test {
         assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([7; 20]))));
         assert_eq!(iter.next(), Some(&Op::Child));
         assert!(iter.next().is_none());
+        assert_eq!(absence, (false, false));
     }
 
     #[test]
@@ -199,6 +201,7 @@ mod test {
         assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([7; 20]))));
         assert_eq!(iter.next(), Some(&Op::Child));
         assert!(iter.next().is_none());
+        assert_eq!(absence, (false, false));
     }
 
     #[test]
@@ -217,6 +220,7 @@ mod test {
         assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![7], vec![7]))));
         assert_eq!(iter.next(), Some(&Op::Child));
         assert!(iter.next().is_none());
+        assert_eq!(absence, (false, false));
     }
 
     #[test]
@@ -235,6 +239,7 @@ mod test {
         assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![7], vec![7]))));
         assert_eq!(iter.next(), Some(&Op::Child));
         assert!(iter.next().is_none());
+        assert_eq!(absence, (false, false));
     }
 
     #[test]
@@ -253,6 +258,7 @@ mod test {
         assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![7], vec![7]))));
         assert_eq!(iter.next(), Some(&Op::Child));
         assert!(iter.next().is_none());
+        assert_eq!(absence, (false, true));
     }
 
     #[test]
@@ -271,6 +277,7 @@ mod test {
         assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![7], vec![7]))));
         assert_eq!(iter.next(), Some(&Op::Child));
         assert!(iter.next().is_none());
+        assert_eq!(absence, (false, false));
     }
 
     #[test]
@@ -377,6 +384,7 @@ mod test {
         assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([9; 20]))));
         assert_eq!(iter.next(), Some(&Op::Child));
         assert!(iter.next().is_none());
+        assert_eq!(absence, (false, false));
     }
 }
 
