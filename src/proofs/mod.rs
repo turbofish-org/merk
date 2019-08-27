@@ -125,19 +125,152 @@ mod test {
     use crate::test_utils::{make_tree_seq, seq_key};
     use crate::tree::{PanicSource, RefWalker};
 
+    fn make_3_node_tree() -> Tree {
+        Tree::from_fields(
+            vec![5], vec![5], [105; 20],
+            Some(Link::Stored {
+                child_heights: (0, 0),
+                hash: [3; 20],
+                tree: Tree::from_fields(
+                    vec![3], vec![3], [103; 20],
+                    None, None
+                )
+            }),
+            Some(Link::Stored {
+                child_heights: (0, 0),
+                hash: [7; 20],
+                tree: Tree::from_fields(
+                    vec![7], vec![7], [107; 20],
+                    None, None
+                )
+            })
+        )
+    }
+
     #[test]
-    fn simple_proof() {
-        let mut tree = make_tree_seq(20);
+    fn empty_proof() {
+        let mut tree = make_3_node_tree();
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
 
-        let (proof, absence) = walker.create_proof(vec![
-            seq_key(4),
-            seq_key(5),
-            seq_key(10),
-            seq_key(100)
-        ].as_slice()).expect("create_proof errored");
+        let (proof, absence) = walker
+            .create_proof(vec![].as_slice())
+            .expect("create_proof errored");
 
-        println!("{:#?}", proof);
+        let mut iter = proof.iter();
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([3; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([105; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([7; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn root_proof() {
+        let mut tree = make_3_node_tree();
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+
+        let (proof, absence) = walker
+            .create_proof(vec![vec![5]].as_slice())
+            .expect("create_proof errored");
+
+        let mut iter = proof.iter();
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([3; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![5], vec![5]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([7; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn leaf_proof() {
+        let mut tree = make_3_node_tree();
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+
+        let (proof, absence) = walker
+            .create_proof(vec![vec![3]].as_slice())
+            .expect("create_proof errored");
+
+        let mut iter = proof.iter();
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![3], vec![3]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([105; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([7; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn double_leaf_proof() {
+        let mut tree = make_3_node_tree();
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+
+        let (proof, absence) = walker
+            .create_proof(vec![vec![3], vec![7]].as_slice())
+            .expect("create_proof errored");
+
+        let mut iter = proof.iter();
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![3], vec![3]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([105; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![7], vec![7]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn all_nodes_proof() {
+        let mut tree = make_3_node_tree();
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+
+        let (proof, absence) = walker
+            .create_proof(vec![vec![3], vec![5], vec![7]].as_slice())
+            .expect("create_proof errored");
+
+        let mut iter = proof.iter();
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![3], vec![3]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![5], vec![5]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![7], vec![7]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn global_edge_absence_proof() {
+        let mut tree = make_3_node_tree();
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+
+        let (proof, absence) = walker
+            .create_proof(vec![vec![8]].as_slice())
+            .expect("create_proof errored");
+
+        let mut iter = proof.iter();
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([3; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([105; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![7], vec![7]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn absence_proof() {
+        let mut tree = make_3_node_tree();
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+
+        let (proof, absence) = walker
+            .create_proof(vec![vec![6]].as_slice())
+            .expect("create_proof errored");
+
+        let mut iter = proof.iter();
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([3; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![5], vec![5]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![7], vec![7]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert!(iter.next().is_none());
     }
 
     #[test]
