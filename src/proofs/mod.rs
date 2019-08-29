@@ -1,4 +1,5 @@
 mod encoding;
+mod verify;
 
 use std::collections::LinkedList;
 use crate::error::Result;
