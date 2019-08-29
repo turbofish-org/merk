@@ -1,7 +1,16 @@
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
-use crate::tree::{Tree, Link, Fetch, Walker, Commit, Batch};
+use crate::tree::{
+    Tree,
+    Link,
+    Fetch,
+    Walker,
+    RefWalker,
+    Commit,
+    Batch
+};
+use crate::proofs::encode_into;
 
 // TODO: use a column family or something to keep the root key separate
 const ROOT_KEY_KEY: [u8; 12] = *b"\00\00root\00\00";
@@ -69,6 +78,39 @@ impl Merk {
         drop(self.db);
         rocksdb::DB::destroy(&opts, &self.path)?;
         Ok(())
+    }
+
+    pub fn prove(&mut self, query: &[Vec<u8>]) -> Result<Vec<u8>> {
+        // ensure keys in query are sorted and unique
+        let mut maybe_prev_key = None;
+        for key in query.iter() {
+            if let Some(prev_key) = maybe_prev_key {
+                if prev_key > *key {
+                    bail!("Keys in query must be sorted");
+                } else if prev_key == *key {
+                    bail!("Keys in query must be unique");
+                }
+            }
+            maybe_prev_key = Some(key.to_vec());
+        }
+
+        unsafe { self.prove_unchecked(query) }
+    }
+
+    pub unsafe fn prove_unchecked(&mut self, query: &[Vec<u8>]) -> Result<Vec<u8>> {
+        let mut tree = match self.tree.take() {
+            None => bail!("Cannot create proof for empty tree"),
+            Some(tree) => tree
+        };
+
+        let mut ref_walker = RefWalker::new(&mut tree, self.source());
+        let (proof, _) = ref_walker.create_proof(query)?;
+
+        self.tree = Some(tree);
+
+        let mut bytes = Vec::with_capacity(128);
+        encode_into(proof.iter(), &mut bytes);
+        Ok(bytes)
     }
 
     fn commit(&mut self) -> Result<()> {
