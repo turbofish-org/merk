@@ -76,6 +76,16 @@ impl Op {
     }
 }
 
+pub fn encode_into<'a, T: Iterator<Item=&'a Op>>(ops: T, output: &mut Vec<u8>) {
+    for op in ops {
+        op.encode_into(output);
+    }
+}
+
+pub fn encoding_length<'a, T: Iterator<Item=&'a Op>>(ops: T) -> usize {
+    ops.map(|op| op.encoding_length()).sum()
+}
+
 #[cfg(test)]
 mod test {
     use super::super::{Op, Node};

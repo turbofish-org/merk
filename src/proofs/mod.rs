@@ -3,6 +3,7 @@ mod encoding;
 use std::collections::LinkedList;
 use crate::error::Result;
 use crate::tree::{Tree, Link, RefWalker, Hash, Fetch};
+pub use encoding::{encode_into, encoding_length};
 
 #[derive(Debug, PartialEq)]
 pub enum Op {
