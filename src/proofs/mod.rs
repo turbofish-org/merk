@@ -387,6 +387,10 @@ mod test {
         assert_eq!(iter.next(), Some(&Op::Child));
         assert!(iter.next().is_none());
         assert_eq!(absence, (false, false));
+
+        let mut bytes = vec![];
+        encode_into(proof.iter(), &mut bytes);
+        assert_eq!(bytes, vec![3, 1, 1, 1, 0, 1, 3, 1, 2, 1, 0, 2, 16, 3, 1, 3, 1, 0, 3, 3, 1, 4, 1, 0, 4, 16, 17, 2, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 16, 1, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 17]);
     }
 }
 
