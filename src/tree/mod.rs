@@ -15,7 +15,7 @@ use super::error::Result;
 pub use commit::{Commit, NoopCommit};
 use kv::KV;
 pub use link::Link;
-pub use hash::{Hash, node_hash, NULL_HASH, HASH_LENGTH};
+pub use hash::{Hash, kv_hash, node_hash, NULL_HASH, HASH_LENGTH};
 pub use ops::{Batch, BatchEntry, PanicSource, Op};
 
 struct TreeInner {
