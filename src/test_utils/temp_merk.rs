@@ -1,5 +1,7 @@
-use std::path::Path;
+use std::env::temp_dir;
 use std::ops::{Deref, DerefMut};
+use std::path::Path;
+use std::time::SystemTime;
 use crate::{Merk, Result};
 
 pub struct TempMerk {
@@ -10,6 +12,16 @@ impl TempMerk {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<TempMerk> {
         let inner = Some(Merk::open(path)?);
         Ok(TempMerk { inner })
+    }
+
+    pub fn new() -> Result<TempMerk> {
+        let time = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let mut path = temp_dir();
+        path.push(format!("merk-temp–{}", time));
+        TempMerk::open(path)
     }
 }
 
