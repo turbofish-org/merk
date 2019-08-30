@@ -23,6 +23,8 @@ pub struct Merk {
 }
 
 impl Merk {
+    /// Opens a store with the specified file path. If no store exists at that
+    /// path, one will be created.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Merk> {
         let db_opts = default_db_opts();
         let mut path_buf = PathBuf::new();
@@ -38,6 +40,11 @@ impl Merk {
         Ok(Merk { tree, db, path: path_buf })
     }
 
+    /// Gets a value for the given key. Returns an `Err` if the key is not found
+    /// or something else goes wrong.
+    ///
+    /// Note that this is essentially the same as a normal RocksDB `get`, so
+    /// should be a fast operation and has almost no tree overhead.
     pub fn get(&self, key: &[u8]) -> Result<Vec<u8>> {
         // TODO: ignore other fields when reading from node bytes
         let node = get_node(&self.db, key)?;
@@ -45,6 +52,26 @@ impl Merk {
         Ok(node.value().to_vec())
     }
 
+    /// Applies a batch of operations (puts and deletes) to the tree.
+    ///
+    /// This will fail if the keys in `batch` are not sorted and unique. This
+    /// check creates some overhead, so if you are sure your batch is sorted and
+    /// unique you can use the unsafe `apply_unchecked` for a small performance
+    /// gain.
+    ///
+    /// # Example
+    /// ```
+    /// # let mut store = merk::test_utils::TempMerk::new().unwrap();
+    /// # store.apply(&[(vec![4,5,6], Op::Put(vec![0]))]).unwrap();
+    /// 
+    /// use merk::Op;
+    ///
+    /// let batch = &[
+    ///     (vec![1, 2, 3], Op::Put(vec![4, 5, 6])), // puts value [4,5,6] to key [1,2,3]
+    ///     (vec![4, 5, 6], Op::Delete) // deletes key [4,5,6]
+    /// ];
+    /// store.apply(batch).unwrap();
+    /// ```
     pub fn apply(&mut self, batch: &Batch) -> Result<()> {
         // ensure keys in batch are sorted and unique
         let mut maybe_prev_key = None;
@@ -62,6 +89,27 @@ impl Merk {
         unsafe { self.apply_unchecked(batch) }
     }
 
+
+    /// Applies a batch of operations (puts and deletes) to the tree.
+    ///
+    /// This is unsafe because the keys in `batch` must be sorted and unique -
+    /// if they are not, there will be undefined behavior. For a safe version of
+    /// this method which checks to ensure the batch is sorted and unique, see
+    /// `apply`.
+    ///
+    /// # Example
+    /// ```
+    /// # let mut store = merk::test_utils::TempMerk::new().unwrap();
+    /// # store.apply(&[(vec![4,5,6], Op::Put(vec![0]))]).unwrap();
+    /// 
+    /// use merk::Op;
+    ///
+    /// let batch = &[
+    ///     (vec![1, 2, 3], Op::Put(vec![4, 5, 6])), // puts value [4,5,6] to key [1,2,3]
+    ///     (vec![4, 5, 6], Op::Delete) // deletes key [4,5,6]
+    /// ];
+    /// unsafe { store.apply_unchecked(batch).unwrap() };
+    /// ```
     pub unsafe fn apply_unchecked(&mut self, batch: &Batch) -> Result<()> {
         let maybe_walker = self.tree.take()
             .map(|tree| Walker::new(tree, self.source()));
@@ -73,6 +121,7 @@ impl Merk {
         self.commit()
     }
 
+    /// Closes the store and deletes all data from disk.
     pub fn destroy(self) -> Result<()> {
         let opts = default_db_opts();
         drop(self.db);
@@ -80,6 +129,18 @@ impl Merk {
         Ok(())
     }
 
+    /// Creates a Merkle proof for the list of queried keys. For each key in the
+    /// query, if the key is found in the store then the value will be proven to
+    /// be in the tree. For each key in the query that does not exist in the
+    /// tree, its absence will be proven by including boundary keys.
+    ///
+    /// The proof returned is in an encoded format which can be verified with
+    /// `merk::verify`.
+    ///
+    /// This will fail if the keys in `query` are not sorted and unique. This
+    /// check adds some overhead, so if you are sure your batch is sorted and
+    /// unique you can use the unsafe `prove_unchecked` for a small performance
+    /// gain.
     pub fn prove(&mut self, query: &[Vec<u8>]) -> Result<Vec<u8>> {
         // ensure keys in query are sorted and unique
         let mut maybe_prev_key = None;
@@ -97,6 +158,18 @@ impl Merk {
         unsafe { self.prove_unchecked(query) }
     }
 
+    /// Creates a Merkle proof for the list of queried keys. For each key in the
+    /// query, if the key is found in the store then the value will be proven to
+    /// be in the tree. For each key in the query that does not exist in the
+    /// tree, its absence will be proven by including boundary keys.
+    ///
+    /// The proof returned is in an encoded format which can be verified with
+    /// `merk::verify`.
+    ///
+    /// This is unsafe because the keys in `query` must be sorted and unique -
+    /// if they are not, there will be undefined behavior. For a safe version of
+    /// this method which checks to ensure the batch is sorted and unique, see
+    /// `prove`.
     pub unsafe fn prove_unchecked(&mut self, query: &[Vec<u8>]) -> Result<Vec<u8>> {
         let mut tree = match self.tree.take() {
             None => bail!("Cannot create proof for empty tree"),
@@ -140,31 +213,6 @@ impl Merk {
         opts.set_sync(false);
         opts.disable_wal(true);
         self.db.write_opt(batch, &opts)?;
-
-        Ok(())
-    }
-
-    pub fn map_range<F: FnMut(Tree)>(
-        &self,
-        start: &[u8],
-        end: &[u8],
-        f: &mut F
-    ) -> Result<()> {
-        let iter = self.db.iterator(
-            rocksdb::IteratorMode::From(
-                start,
-                rocksdb::Direction::Forward
-            )
-        );
-
-        for (key, value) in iter {
-            let node = Tree::decode(&key, &value)?;
-            f(node);
-
-            if key[..] >= end[..] {
-                break;
-            }
-        }
 
         Ok(())
     }
