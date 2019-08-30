@@ -3,6 +3,7 @@ use crate::error::Result;
 use super::{Tree, Link, Walker, Fetch};
 use Op::*;
 
+/// An operation to be applied to a key in the store.
 pub enum Op {
     Put(Vec<u8>),
     Delete
@@ -23,6 +24,8 @@ pub type BatchEntry = (Vec<u8>, Op);
 /// A mapping of keys and operations. Keys should be sorted and unique.
 pub type Batch = [BatchEntry];
 
+/// A source of data which panics when called. Useful when creating a store
+/// which always keeps the state in memory.
 #[derive(Clone)]
 pub struct PanicSource {}
 impl Fetch for PanicSource {

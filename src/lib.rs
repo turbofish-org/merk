@@ -23,4 +23,12 @@ pub mod owner;
 
 pub use error::{Error, Result};
 pub use self::merk::Merk;
-pub use tree::{Batch, BatchEntry, Op, PanicSource};
+pub use tree::{
+  Batch,
+  BatchEntry,
+  Op,
+  PanicSource,
+  Hash,
+  HASH_LENGTH
+};
+
