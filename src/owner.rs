@@ -18,7 +18,8 @@ impl<T> Owner<T> {
     ///
     /// # Example
     /// ```
-    /// # struct SomeType()
+    /// # use merk::owner::Owner;
+    /// # struct SomeType();
     /// # impl SomeType {
     /// #     fn method_which_requires_ownership(self) -> SomeType { self }
     /// # }
@@ -44,6 +45,7 @@ impl<T> Owner<T> {
     ///
     /// # Example
     /// ```
+    /// # use merk::owner::Owner;
     /// let mut owner = Owner::new(123);
     /// let doubled = owner.own_return(|n| (n, n * 2));
     /// ```

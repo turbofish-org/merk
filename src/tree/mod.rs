@@ -7,6 +7,7 @@ mod commit;
 mod debug;
 mod ops;
 mod iter;
+mod fuzz_tests;
 
 use std::cmp::max;
 

@@ -1,12 +1,10 @@
-#![feature(drain_filter)]
-
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::iter::FromIterator;
 use rand::prelude::*;
-use merk::tree::*;
-use merk::Batch;
-use merk::test_utils::*;
+use crate::*;
+use crate::tree::*;
+use crate::test_utils::*;
 
 const ITERATIONS: usize = 2_000;
 
@@ -32,7 +30,7 @@ fn fuzz_396148930387069749() {
     fuzz_case(396148930387069749);
 }
 
-pub fn fuzz_case(seed: u64) {
+fn fuzz_case(seed: u64) {
     let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
     let initial_size = (rng.gen::<u64>() % 10) + 1;
     let tree = make_tree_rand(initial_size, initial_size, seed);
@@ -58,7 +56,7 @@ pub fn fuzz_case(seed: u64) {
     }
 }
 
-pub fn make_batch(maybe_tree: Option<&Tree>, size: u64, seed: u64) -> Vec<BatchEntry> {
+fn make_batch(maybe_tree: Option<&Tree>, size: u64, seed: u64) -> Vec<BatchEntry> {
     let rng: RefCell<SmallRng> = RefCell::new(
         SeedableRng::seed_from_u64(seed)
     );
@@ -104,20 +102,21 @@ pub fn make_batch(maybe_tree: Option<&Tree>, size: u64, seed: u64) -> Vec<BatchE
 
     // remove dupes
     let mut maybe_prev_key: Option<Vec<u8>> = None;
-    batch
-        .drain_filter(|entry| {
-            let should_yield = if let Some(prev_key) = &maybe_prev_key {
-                *prev_key != entry.0
-            } else {
-                true
-            };
-            maybe_prev_key = Some(entry.0.clone());
-            should_yield
-        })
-        .collect::<Vec<_>>()
+    let mut deduped_batch = Vec::with_capacity(batch.len());
+    for entry in batch {
+        if let Some(prev_key) = &maybe_prev_key {
+            if *prev_key == entry.0 {
+                continue;
+            }
+        }
+
+        maybe_prev_key = Some(entry.0.clone());
+        deduped_batch.push(entry);
+    }
+    deduped_batch
 }
 
-pub fn apply_to_map(map: &mut Map, batch: &Batch) {
+fn apply_to_map(map: &mut Map, batch: &Batch) {
     for entry in batch.iter() {
         match entry {
             (key, Op::Put(value)) => {
@@ -130,7 +129,7 @@ pub fn apply_to_map(map: &mut Map, batch: &Batch) {
     }
 }
 
-pub fn assert_map(maybe_tree: Option<&Tree>, map: &Map) {
+fn assert_map(maybe_tree: Option<&Tree>, map: &Map) {
     if map.is_empty() {
         assert!(maybe_tree.is_none(), "expected tree to be None");
         return;

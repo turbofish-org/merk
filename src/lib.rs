@@ -11,11 +11,15 @@ extern crate jemallocator;
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 mod error;
-pub mod tree;
 mod merk;
+mod tree;
+mod proofs;
+
+/// Various helpers useful for tests or benchmarks.
 pub mod test_utils;
+/// Provides a container type that allows temporarily taking ownership of a value.
+// TODO: move this into its own crate
 pub mod owner;
-pub mod proofs;
 
 pub use error::{Error, Result};
 pub use self::merk::Merk;
