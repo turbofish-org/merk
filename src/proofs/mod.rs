@@ -70,7 +70,6 @@ impl<'a, S> RefWalker<'a, S>
         Node::KVHash(*self.tree().kv_hash())
     }
 
-    // TODO: rename, this, expose a wrapped method without the (bool, bool)
     /// Generates a proof for the list of queried keys. Returns a tuple
     /// containing the generated proof operators, and a tuple representing if
     /// any keys were queried were less than the left edge or greater than the

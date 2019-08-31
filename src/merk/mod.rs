@@ -8,7 +8,9 @@ use crate::tree::{
     Walker,
     RefWalker,
     Commit,
-    Batch
+    Batch,
+    Hash,
+    NULL_HASH
 };
 use crate::proofs::encode_into;
 
@@ -50,6 +52,13 @@ impl Merk {
         let node = get_node(&self.db, key)?;
         // TODO: don't reallocate
         Ok(node.value().to_vec())
+    }
+
+    /// Returns the root hash of the tree (a digest for the entire store which
+    /// proofs can be checked against). If the tree is empty, returns the null
+    /// hash (zero-filled).
+    pub fn root_hash(&self) -> Hash {
+        self.tree.as_ref().map_or(NULL_HASH, |tree| tree.hash())
     }
 
     /// Applies a batch of operations (puts and deletes) to the tree.
@@ -301,6 +310,7 @@ mod test {
         merk.apply(&batch).expect("apply failed");
 
         assert_tree_invariants(merk.tree().expect("expected tree"));
+        assert_eq!(merk.root_hash(), [217, 218, 163, 74, 119, 133, 165, 247, 140, 194, 85, 70, 28, 33, 61, 148, 118, 231, 134, 111]);
     }
 
     #[test]
