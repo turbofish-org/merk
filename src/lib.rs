@@ -34,4 +34,5 @@ pub use tree::{
   Hash,
   HASH_LENGTH
 };
+pub use proofs::verify as verify_proof;
 

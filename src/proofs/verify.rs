@@ -91,6 +91,15 @@ impl Tree {
 }
 
 /// Verifies the encoded proof with the given query and expected hash.
+///
+/// Every key in `keys` is checked to either have a key/value pair in the proof,
+/// or to have its absence in the tree proven.
+///
+/// Returns `Err` if the proof is invalid, or a list of proven values associated
+/// with `keys`. For example, if `keys` contains keys `A` and `B`, the returned
+/// list will contain 2 elements, the value of `A` and the value of `B`. Keys
+/// proven to be absent in the tree will have an entry of `None`, keys that have
+/// a proven value will have an entry of `Some(value)`.
 pub fn verify(
     bytes: &[u8],
     keys: &[Vec<u8>],

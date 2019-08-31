@@ -3,13 +3,13 @@ mod verify;
 
 use std::collections::LinkedList;
 use crate::error::Result;
-use crate::tree::{Tree, Link, RefWalker, Hash, Fetch};
-pub use encoding::{encode_into, encoding_length};
+use crate::tree::{Link, RefWalker, Hash, Fetch};
+pub(crate) use encoding::{encode_into, encoding_length};
 pub use verify::verify;
 
 /// A proof operator, executed to verify the data in a Merkle proof.
 #[derive(Debug, PartialEq)]
-pub enum Op {
+pub(crate) enum Op {
     /// Pushes a node on the stack.
     Push(Node),
 
@@ -27,7 +27,7 @@ pub enum Op {
 /// A selected piece of data about a single tree node, to be contained in a
 /// `Push` operator in a proof.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Node {
+pub(crate) enum Node {
     /// Represents the hash of a tree node.
     Hash(Hash),
 
@@ -74,7 +74,7 @@ impl<'a, S> RefWalker<'a, S>
     /// containing the generated proof operators, and a tuple representing if
     /// any keys were queried were less than the left edge or greater than the
     /// right edge, respectively.
-    pub fn create_proof(
+    pub(crate) fn create_proof(
         &mut self,
         keys: &[Vec<u8>],
     ) -> Result<(
@@ -155,7 +155,7 @@ impl<'a, S> RefWalker<'a, S>
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::tree::{PanicSource, RefWalker};
+    use crate::tree::{Tree, PanicSource, RefWalker};
 
     fn make_3_node_tree() -> Tree {
         Tree::from_fields(

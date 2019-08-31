@@ -7,7 +7,7 @@ use crate::error::Result;
 // TODO: Encode, Decode traits
 
 impl Op {
-    pub fn encode_into(&self, output: &mut Vec<u8>) {
+    pub(crate) fn encode_into(&self, output: &mut Vec<u8>) {
         match self {
             Op::Push(Node::Hash(hash)) => {
                 output.push(0x01);
@@ -30,7 +30,7 @@ impl Op {
         }
     }
 
-    pub fn encoding_length(&self) -> usize {
+    pub(crate) fn encoding_length(&self) -> usize {
         match self {
             Op::Push(Node::Hash(_)) => 1 + HASH_LENGTH,
             Op::Push(Node::KVHash(_)) => 1 + HASH_LENGTH,
@@ -40,7 +40,7 @@ impl Op {
         }
     }
 
-    pub fn decode(bytes: &[u8]) -> Result<Self> {
+    pub(crate) fn decode(bytes: &[u8]) -> Result<Self> {
         Ok(match bytes[0] {
             0x01 => {
                 let mut hash = [0; HASH_LENGTH];
@@ -76,13 +76,13 @@ impl Op {
     }
 }
 
-pub fn encode_into<'a, T: Iterator<Item=&'a Op>>(ops: T, output: &mut Vec<u8>) {
+pub(crate) fn encode_into<'a, T: Iterator<Item=&'a Op>>(ops: T, output: &mut Vec<u8>) {
     for op in ops {
         op.encode_into(output);
     }
 }
 
-pub fn encoding_length<'a, T: Iterator<Item=&'a Op>>(ops: T) -> usize {
+pub(crate) fn encoding_length<'a, T: Iterator<Item=&'a Op>>(ops: T) -> usize {
     ops.map(|op| op.encoding_length()).sum()
 }
 
