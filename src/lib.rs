@@ -1,3 +1,5 @@
+#![feature(test)]
+
 #[macro_use]
 extern crate error_chain;
 extern crate blake2_rfc;

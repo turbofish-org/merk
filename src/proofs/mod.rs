@@ -1,5 +1,6 @@
 mod encoding;
 mod verify;
+mod bench;
 
 use std::collections::LinkedList;
 use crate::error::Result;

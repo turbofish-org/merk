@@ -8,6 +8,7 @@ mod debug;
 mod ops;
 mod iter;
 mod fuzz_tests;
+mod encoding_bench;
 
 use std::cmp::max;
 

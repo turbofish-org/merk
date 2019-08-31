@@ -1,11 +1,9 @@
-#![feature(test)]
-
 extern crate test;
 
 use test::Bencher;
-use merk::test_utils::*;
-use merk::tree::*;
-use merk::proofs::*;
+use crate::test_utils::*;
+use crate::tree::*;
+use crate::proofs::*;
 
 #[bench]
 fn proof_1m_1_memonly(b: &mut Bencher) {

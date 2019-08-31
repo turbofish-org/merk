@@ -1,10 +1,8 @@
-#![feature(test)]
-
 extern crate test;
 
 use test::Bencher;
-use merk::test_utils::*;
-use merk::tree::Tree;
+use crate::test_utils::*;
+use crate::tree::Tree;
 
 #[bench]
 fn tree_encode_into(b: &mut Bencher) {
