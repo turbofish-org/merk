@@ -19,17 +19,26 @@ pub use link::Link;
 pub use hash::{Hash, kv_hash, node_hash, NULL_HASH, HASH_LENGTH};
 pub use ops::{Batch, BatchEntry, PanicSource, Op};
 
+/// The fields of the `Tree` type, stored on the heap.
 struct TreeInner {
     kv: KV,
     left: Option<Link>,
     right: Option<Link>
 }
 
+/// A binary AVL tree data structure, with Merkle hashes.
+///
+/// Trees' inner fields are stored on the heap so that nodes can recursively
+/// link to each other, and so we can detach nodes from their parents, then
+/// reattach without allocating or freeing heap memory.
 pub struct Tree {
     inner: Box<TreeInner>
 }
 
 impl Tree {
+    /// Creates a new `Tree` with the given key and value, and no children.
+    /// 
+    /// Hashes the key/value pair and initializes the `kv_hash` field.
     pub fn new(key: Vec<u8>, value: Vec<u8>) -> Self {
         Tree {
             inner: Box::new(TreeInner {
@@ -40,6 +49,8 @@ impl Tree {
         }
     }
 
+    /// Creates a `Tree` by supplying all the raw struct fields (mainly useful
+    /// for testing). The `kv_hash` and `Link`s are not ensured to be correct.
     pub fn from_fields(
         key: Vec<u8>,
         value: Vec<u8>,
@@ -56,26 +67,33 @@ impl Tree {
         }
     }
 
+    /// Returns the root node's key as a slice.
     #[inline]
     pub fn key(&self) -> &[u8] {
         self.inner.kv.key()
     }
 
+    /// Consumes the tree and returns its root node's key, without having to
+    /// clone or allocate.
     #[inline]
     pub fn take_key(self) -> Vec<u8> {
         self.inner.kv.take_key()
     }
 
+    /// Returns the root node's value as a slice.
     #[inline]
     pub fn value(&self) -> &[u8] {
         self.inner.kv.value()
     }
 
+    /// Returns the hash of the root node's key/value pair.
     #[inline]
     pub fn kv_hash(&self) -> &Hash {
         self.inner.kv.hash()
     }
 
+    /// Returns a reference to the root node's `Link` on the given side, if any.
+    /// If there is no child, returns `None`.
     #[inline]
     pub fn link(&self, left: bool) -> Option<&Link> {
         if left {
@@ -85,6 +103,8 @@ impl Tree {
         }
     }
 
+    /// Returns a reference to the root node's child on the given side, if any.
+    /// If there is no child, returns `None`.
     pub fn child(&self, left: bool) -> Option<&Self> {
         match self.link(left) {
             None => None,
@@ -92,6 +112,8 @@ impl Tree {
         }
     }
 
+    /// Returns a mutable reference to the root node's child on the given side,
+    /// if any. If there is no child, returns `None`.
     pub fn child_mut(&mut self, left: bool) -> Option<&mut Self> {
         match self.slot_mut(left).as_mut() {
             None => None,
@@ -101,11 +123,14 @@ impl Tree {
         }
     }
 
+    /// Returns the hash of the root node's child on the given side, if any. If
+    /// there is no child, returns the null hash (zero-filled).
     pub fn child_hash(&self, left: bool) -> &Hash {
         self.link(left)
             .map_or(&NULL_HASH, |link| link.hash())
     }
 
+    /// Computes and returns the hash of the root node.
     pub fn hash(&self) -> Hash {
         node_hash(
             self.inner.kv.hash(),
@@ -114,6 +139,8 @@ impl Tree {
         )
     }
 
+    /// Returns the number of pending writes for the child on the given side, if
+    /// any. If there is no child, returns 0.
     pub fn child_pending_writes(&self, left: bool) -> usize {
         match self.link(left) {
             Some(Link::Modified { pending_writes, .. }) => *pending_writes,
@@ -121,6 +148,8 @@ impl Tree {
         }
     }
 
+    /// Returns the height of the child on the given side, if any. If there is
+    /// no child, returns 0.
     pub fn child_height(&self, left: bool) -> u8 {
         self.link(left)
             .map_or(0, |child| child.height())
@@ -134,6 +163,9 @@ impl Tree {
         )
     }
 
+    /// Returns the height of the tree (the number of levels). For example, a
+    /// single node has height 1, a node with a single descendant has height 2,
+    /// etc.
     #[inline]
     pub fn height(&self) -> u8 {
         1 + max(
@@ -142,6 +174,10 @@ impl Tree {
         )
     }
 
+    /// Returns the balance factor of the root node. This is the difference
+    /// between the height of the right child (if any) and the height of the
+    /// left child (if any). For example, a balance factor of 2 means the right
+    /// subtree is 2 levels taller than the left subtree.
     #[inline]
     pub fn balance_factor(&self) -> i8 {
         let left_height = self.child_height(true) as i8;
@@ -149,6 +185,10 @@ impl Tree {
         right_height - left_height
     }
 
+    /// Attaches the child (if any) to the root node on the given side. Creates
+    /// a `Link` of variant `Link::Modified` which contains the child.
+    ///
+    /// Panics if there is already a child on the given side.
     pub fn attach(mut self, left: bool, maybe_child: Option<Self>) -> Self {
         debug_assert_ne!(
             Some(self.key()),
@@ -169,7 +209,12 @@ impl Tree {
         self
     }
 
-    pub unsafe fn detach(mut self, left: bool) -> (Self, Option<Self>) {
+    /// Detaches the child on the given side (if any) from the root node, and
+    /// returns `(root_node, maybe_child)`.
+    ///
+    /// One will usually want to reattach (see `attach`) a child on the same
+    /// side after applying some operation to the detached child.
+    pub fn detach(mut self, left: bool) -> (Self, Option<Self>) {
         let maybe_child = match self.slot_mut(left).take() {
             None => None,
             Some(Link::Pruned { .. }) => None,
@@ -180,7 +225,14 @@ impl Tree {
         (self, maybe_child)
     }
 
-    pub unsafe fn detach_expect(self, left: bool) -> (Self, Self) {
+    /// Detaches the child on the given side from the root node, and
+    /// returns `(root_node, child)`.
+    /// 
+    /// Panics if there is no child on the given side.
+    ///
+    /// One will usually want to reattach (see `attach`) a child on the same
+    /// side after applying some operation to the detached child.
+    pub fn detach_expect(self, left: bool) -> (Self, Self) {
         let (parent, maybe_child) = self.detach(left);
 
         if let Some(child) = maybe_child {
@@ -193,20 +245,30 @@ impl Tree {
         }
     }
 
+    /// Detaches the child on the given side and passes it into `f`, which must
+    /// return a new child (either the same child, a new child to take its
+    /// place, or `None` to explicitly keep the slot empty).
+    ///
+    /// This is the same as `detach`, but with the function interface to enforce
+    /// at compile-time that an explicit final child value is returned. This is
+    /// less error prone that detaching with `detach` and reattaching with
+    /// `attach`.
     pub fn walk<F>(self, left: bool, f: F) -> Self
         where F: FnOnce(Option<Self>) -> Option<Self>
     {
-        let (tree, maybe_child) = unsafe { self.detach(left) };
+        let (tree, maybe_child) = self.detach(left);
         tree.attach(left, f(maybe_child))
     }
 
+    /// Like `walk`, but panics if there is no child on the given side.
     pub fn walk_expect<F>(self, left: bool, f: F) -> Self
         where F: FnOnce(Self) -> Option<Self>
     {
-        let (tree, child) = unsafe { self.detach_expect(left) };
+        let (tree, child) = self.detach_expect(left);
         tree.attach(left, f(child))
     }
 
+    /// Returns a mutable reference to the child slot for the given side.
     #[inline]
     fn slot_mut(&mut self, left: bool) -> &mut Option<Link> {
         if left {
@@ -216,12 +278,21 @@ impl Tree {
         }
     }
 
+    /// Replaces the root node's value with the given value and returns the
+    /// modified `Tree`.
     #[inline]
     pub fn with_value(mut self, value: Vec<u8>) -> Self {
         self.inner.kv = self.inner.kv.with_value(value);
         self
     }
 
+    /// Called to finalize modifications to a tree, recompute its hashes, and
+    /// write the updated nodes to a backing store.
+    ///
+    /// Traverses through the tree, computing hashes for all modified links and
+    /// replacing them with `Link::Stored` variants, writes out all changes to
+    /// the given `Commit` object's `write` method, and calls the its `prune`
+    /// method to test whether or not to keep or prune nodes from memory.
     pub fn commit<C: Commit>(&mut self, c: &mut C) -> Result<()> {
         // TODO: make this method less ugly
         // TODO: call write in-order for better performance in writing batch to db?
@@ -263,6 +334,9 @@ impl Tree {
         Ok(())
     }
 
+    /// Fetches the child on the given side using the given data source, and
+    /// places it in the child slot (upgrading the link from `Link::Pruned` to
+    /// `Link::Stored`).
     pub fn load<S: Fetch>(&mut self, left: bool, source: &S) -> Result<()> {
         // TODO: return Err instead of panic?
         let link = self.link(left).expect("Expected link");

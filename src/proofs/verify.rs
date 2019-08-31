@@ -2,6 +2,8 @@ use super::{Op, Node};
 use crate::tree::{NULL_HASH, Hash, kv_hash, node_hash};
 use crate::error::Result;
 
+/// A binary tree data structure used to represent a select subset of a tree
+/// when verifying Merkle proofs.
 struct Tree {
     node: Node,
     left: Option<Box<Tree>>,
@@ -15,6 +17,7 @@ impl From<Node> for Tree {
 }
 
 impl Tree {
+    /// Returns an immutable reference to the child on the given side, if any.
     fn child(&self, left: bool) -> Option<&Box<Tree>> {
         if left {
             self.left.as_ref()
@@ -23,6 +26,7 @@ impl Tree {
         }
     }
 
+    /// Returns a mutable reference to the child on the given side, if any.
     fn child_mut(&mut self, left: bool) -> &mut Option<Box<Tree>> {
         if left {
             &mut self.left
@@ -31,6 +35,8 @@ impl Tree {
         }
     }
 
+    /// Attaches the child to the `Tree`'s given side, and calculates its hash.
+    /// Panics if there is already a child attached to this side.
     fn attach(&mut self, left: bool, child: Tree) -> Result<()> {
         if self.child(left).is_some() {
             bail!("Tried to attach to left child, but it is already Some");
@@ -42,6 +48,8 @@ impl Tree {
         Ok(())
     }
 
+    /// Gets the already-computed hash for this tree node. Panics if the hash
+    /// has not already been calculated.
     #[inline]
     fn hash(&self) -> Hash {
         match self.node {
@@ -50,12 +58,17 @@ impl Tree {
         }
     }
 
+    /// Returns the already-computed hash for this tree node's child on the
+    /// given side, if any. If there is no child, returns the null hash
+    /// (zero-filled).
     #[inline]
     fn child_hash(&self, left: bool) -> Hash {
         self.child(left)
             .map_or(NULL_HASH, |c| c.hash())
     }
 
+    /// Consumes the tree node, calculates its hash, and returns a `Node::Hash`
+    /// variant.
     fn into_hash(self) -> Tree {
         fn to_hash_node(tree: &Tree, kv_hash: Hash) -> Node {
             let hash = node_hash(
@@ -77,6 +90,7 @@ impl Tree {
     }
 }
 
+/// Verifies the encoded proof with the given query and expected hash.
 pub fn verify(
     bytes: &[u8],
     keys: &[Vec<u8>],

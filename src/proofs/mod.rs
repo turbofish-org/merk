@@ -7,21 +7,40 @@ use crate::tree::{Tree, Link, RefWalker, Hash, Fetch};
 pub use encoding::{encode_into, encoding_length};
 pub use verify::verify;
 
+/// A proof operator, executed to verify the data in a Merkle proof.
 #[derive(Debug, PartialEq)]
 pub enum Op {
+    /// Pushes a node on the stack.
     Push(Node),
+
+    /// Pops the top stack item as `parent`. Pops the next top stack item as
+    /// `child`. Attaches `child` as the left child of `parent`. Pushes the
+    /// updated `parent` back on the stack.
     Parent,
+
+    /// Pops the top stack item as `child`. Pops the next top stack item as
+    /// `parent`. Attaches `child` as the right child of `parent`. Pushes the
+    /// updated `parent` back on the stack.
     Child
 }
 
+/// A selected piece of data about a single tree node, to be contained in a
+/// `Push` operator in a proof.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
+    /// Represents the hash of a tree node.
     Hash(Hash),
+
+    /// Represents the hash of the key/value pair of a tree node.
     KVHash(Hash),
+
+    /// Represents the key and value of a tree node.
     KV(Vec<u8>, Vec<u8>)
 }
 
 impl Link {
+    /// Creates a `Node::Hash` from this link. Panics if the link is of variant
+    /// `Link::Modified` since its hash has not yet been computed.
     fn to_hash_node(&self) -> Node {
         let hash = match self {
             Link::Modified { .. } => {
@@ -37,6 +56,7 @@ impl Link {
 impl<'a, S> RefWalker<'a, S>
     where S: Fetch + Sized + Send + Clone
 {
+    /// Creates a `Node::KV` from the key/value pair of the root node.
     fn to_kv_node(&self) -> Node {
         Node::KV(
             self.tree().key().to_vec(),
@@ -44,10 +64,17 @@ impl<'a, S> RefWalker<'a, S>
         )
     }
 
+    /// Creates a `Node::KVHash` from the hash of the key/value pair of the root
+    /// node.
     fn to_kvhash_node(&self) -> Node {
         Node::KVHash(*self.tree().kv_hash())
     }
 
+    // TODO: rename, this, expose a wrapped method without the (bool, bool)
+    /// Generates a proof for the list of queried keys. Returns a tuple
+    /// containing the generated proof operators, and a tuple representing if
+    /// any keys were queried were less than the left edge or greater than the
+    /// right edge, respectively.
     pub fn create_proof(
         &mut self,
         keys: &[Vec<u8>],
@@ -100,6 +127,8 @@ impl<'a, S> RefWalker<'a, S>
         ))
     }
 
+    /// Similar to `create_proof`. Recurses into the child on the given side and
+    /// generates a proof for the queried keys.
     fn create_child_proof(
         &mut self,
         left: bool,

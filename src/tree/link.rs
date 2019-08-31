@@ -3,18 +3,31 @@ use super::hash::Hash;
 use super::Tree;
 
 // TODO: optimize memory footprint
+
+/// Represents a reference to a child tree node. Links may or may not contain
+/// the child's `Tree` instance (storing its key if not).
 pub enum Link {
+    /// Represents a child tree node which has been pruned from memory, only
+    /// retaining its key. The child node can always be fetched from the backing
+    /// store by this key when necessary.
     Pruned {
         hash: Hash,
         child_heights: (u8, u8),
         key: Vec<u8>
     },
+
+    /// Represents a tree node which has been modified since the `Tree`'s last
+    /// commit. The child's hash is not stored since it has not yet been
+    /// recomputed. The child's `Tree` instance is stored in the link.
     Modified {
         pending_writes: usize,
         child_heights: (u8, u8),
         tree: Tree,
         deleted_keys: Vec<Vec<u8>>
     },
+
+    /// Represents a tree node which has not been modified, has an up-to-date
+    /// hash, and which is being retained in memory.
     Stored {
         hash: Hash,
         child_heights: (u8, u8),
@@ -23,6 +36,7 @@ pub enum Link {
 }
 
 impl Link {
+    /// Creates a `Link::Modified` from the given `Tree`.
     #[inline]
     pub fn from_modified_tree(tree: Tree) -> Self {
         let pending_writes = 1
@@ -37,10 +51,13 @@ impl Link {
         }
     }
 
+    /// Creates a `Link::Modified` from the given tree, if any. If `None`,
+    /// returns `None`.
     pub fn maybe_from_modified_tree(maybe_tree: Option<Tree>) -> Option<Self> {
         maybe_tree.map(Link::from_modified_tree)
     }
 
+    /// Returns `true` if the link is of the `Link::Pruned` variant.
     #[inline]
     pub fn is_pruned(&self) -> bool {
         match self {
@@ -49,6 +66,7 @@ impl Link {
         }
     }
 
+    /// Returns `true` if the link is of the `Link::Modified` variant.
     #[inline]
     pub fn is_modified(&self) -> bool {
         match self {
@@ -57,6 +75,7 @@ impl Link {
         }
     }
 
+    /// Returns `true` if the link is of the `Link::Stored` variant.
     #[inline]
     pub fn is_stored(&self) -> bool {
         match self {
@@ -65,6 +84,7 @@ impl Link {
         }
     }
 
+    /// Returns the key of the tree referenced by this link, as a slice.
     pub fn key(&self) -> &[u8] {
         match self {
             Link::Pruned { key, .. } => key.as_slice(),
@@ -73,6 +93,8 @@ impl Link {
         }
     }
 
+    /// Returns the `Tree` instance of the tree referenced by the link. If the
+    /// link is of variant `Link::Pruned`, the returned value will be `None`.
     pub fn tree(&self) -> Option<&Tree> {
         match self {
             // TODO: panic for Pruned, don't return Option?
@@ -82,6 +104,9 @@ impl Link {
         }
     }
 
+    /// Returns the hash of the tree referenced by the link. Panics if link is
+    /// of variant `Link::Modified` since we have not yet recomputed the tree's
+    /// hash.
     pub fn hash(&self) -> &Hash {
         match self {
             Link::Modified { .. } => panic!("Cannot get hash from modified link"),
@@ -90,6 +115,9 @@ impl Link {
         }
     }
 
+    /// Returns the height of the children of the tree referenced by the link,
+    /// if any (note: not the height of the referenced tree itself). Return
+    /// value is `(left_child_height, right_child_height)`.
     pub fn height(&self) -> u8 {
         let (left_height, right_height) = match self {
             Link::Pruned { child_heights, .. } => *child_heights,
@@ -99,6 +127,7 @@ impl Link {
         1 + max(left_height, right_height)
     }
     
+    /// Returns the balance factor of the tree referenced by the link.
     #[inline]
     pub fn balance_factor(&self) -> i8 {
         let (left_height, right_height) = match self {
@@ -109,6 +138,8 @@ impl Link {
         right_height as i8 - left_height as i8
     }
 
+    /// Consumes the link and converts to variant `Link::Pruned`. Panics if the
+    /// link is of variant `Link::Modified`.
     pub fn into_pruned(self) -> Self {
         match self {
             Link::Pruned { .. } => self,

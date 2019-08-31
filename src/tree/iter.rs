@@ -1,11 +1,19 @@
 use super::Tree;
 
+/// An entry stored on an `Iter`'s stack, containing a reference to a `Tree`,
+/// and its traversal state.
+///
+/// The `traversed` field represents whether or not the left child, self, and
+/// right child have been visited, respectively (`(left, self, right)`).
 struct StackItem<'a> {
     tree: &'a Tree,
     traversed: (bool, bool, bool)
 }
 
 impl<'a> StackItem<'a> {
+    /// Creates a new `StackItem` for the given tree. The `traversed` state will
+    /// be `false` since the children and self have not been visited yet, but
+    /// will default to `true` for sides that do not have a child.
     fn new(tree: &'a Tree) -> Self {
         StackItem {
             tree,
@@ -17,6 +25,7 @@ impl<'a> StackItem<'a> {
         }
     }
 
+    /// Gets a tuple to yield from an `Iter`, `(key, value)`.
     fn to_entry(&self) -> (Vec<u8>, Vec<u8>) {
         (
             self.tree.key().to_vec(),
@@ -25,11 +34,14 @@ impl<'a> StackItem<'a> {
     }
 }
 
+/// An iterator which yields the key/value pairs of the tree, in order, skipping
+/// any parts of the tree which are pruned (not currently retained in memory).
 pub struct Iter<'a> {
     stack: Vec<StackItem<'a>>
 }
 
 impl<'a> Iter<'a> {
+    /// Creates a new iterator for the given tree.
     pub fn new(tree: &'a Tree) -> Self {
         let stack = vec![ StackItem::new(tree) ];
         Iter { stack }
@@ -37,6 +49,8 @@ impl<'a> Iter<'a> {
 }
 
 impl<'a> Tree {
+    /// Creates an iterator which yields `(key, value)` tuples for all of the
+    /// tree's nodes which are retained in memory (skipping pruned subtrees). 
     pub fn iter(&'a self) -> Iter<'a> {
         Iter::new(self)
     }
@@ -45,6 +59,7 @@ impl<'a> Tree {
 impl<'a> Iterator for Iter<'a> {
     type Item = (Vec<u8>, Vec<u8>);
 
+    /// Traverses to and yields the next key/value pair, in key order.
     fn next(&mut self) -> Option<Self::Item> {
         if self.stack.is_empty() {
             return None;

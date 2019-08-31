@@ -5,6 +5,7 @@ use super::hash::{Hash, kv_hash};
 //       field to save even more. also might be possible to combine key
 //       field and value field.
 
+/// Contains a key/value pair, and the hash of the key/value pair.
 pub struct KV {
     key: Vec<u8>,
     value: Vec<u8>,
@@ -12,6 +13,7 @@ pub struct KV {
 }
 
 impl KV {
+    /// Creates a new `KV` with the given key and value and computes its hash.
     #[inline]
     pub fn new(key: Vec<u8>, value: Vec<u8>) -> Self {
         // TODO: length checks?
@@ -19,11 +21,15 @@ impl KV {
         KV { key, value, hash }
     }
 
+    /// Creates a new `KV` with the given key, value, and hash. The hash is not
+    /// checked to be correct for the given key/value.
     #[inline]
     pub fn from_fields(key: Vec<u8>, value: Vec<u8>, hash: Hash) -> Self {
         KV { key, value, hash }
     }
 
+    /// Replaces the `KV`'s value with the given value, updates the hash, and
+    /// returns the modified `KV`.
     #[inline]
     pub fn with_value(mut self, value: Vec<u8>) -> Self {
         // TODO: length check?
@@ -32,21 +38,25 @@ impl KV {
         self
     }
 
+    /// Returns the key as a slice.
     #[inline]
     pub fn key(&self) -> &[u8] {
         self.key.as_slice()
     }
     
+    /// Returns the value as a slice.
     #[inline]
     pub fn value(&self) -> &[u8] {
         self.value.as_slice()
     }
 
+    /// Returns the hash.
     #[inline]
     pub fn hash(&self) -> &Hash {
         &self.hash
     }
 
+    /// Consumes the `KV` and returns its key without allocating or cloning.
     #[inline]
     pub fn take_key(self) -> Vec<u8> {
         self.key

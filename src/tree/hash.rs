@@ -13,7 +13,7 @@ pub type Hash = [u8; HASH_LENGTH];
 
 /// Hashes a key/value pair.
 ///
-/// **NOTE:** This will panic if the key is longert than 255 bytes, or the value
+/// **NOTE:** This will panic if the key is longer than 255 bytes, or the value
 /// is longer than 65,535 bytes.
 pub fn kv_hash(key: &[u8], value: &[u8]) -> Hash {
     // TODO: result instead of panic

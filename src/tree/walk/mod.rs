@@ -7,6 +7,8 @@ use crate::error::Result;
 use super::{Tree, Link};
 use crate::owner::Owner;
 
+/// Allows traversal of a `Tree`, fetching from the given source when traversing
+/// to a pruned node, detaching children as they are traversed.
 pub struct Walker<S>
     where S: Fetch + Sized + Clone + Send
 {
@@ -17,10 +19,13 @@ pub struct Walker<S>
 impl<S> Walker<S>
     where S: Fetch + Sized + Clone + Send
 {
+    /// Creates a `Walker` with the given tree and source.
     pub fn new(tree: Tree, source: S) -> Self {
         Walker { tree: Owner::new(tree), source }
     }
 
+    /// Similar to `Tree#detach`, but yields a `Walker` which fetches from the
+    /// same source as `self`. Returned tuple is `(updated_self, maybe_child_walker)`.
     pub unsafe fn detach(mut self, left: bool) -> Result<(Self, Option<Self>)> {
         let link = match self.tree.link(left) {
             None => return Ok((self, None)),
@@ -45,6 +50,8 @@ impl<S> Walker<S>
         Ok((self, Some(child)))
     }
 
+    /// Similar to `Tree#detach_expect`, but yields a `Walker` which fetches
+    /// from the same source as `self`. Returned tuple is `(updated_self, child_walker)`.
     pub unsafe fn detach_expect(self, left: bool) -> Result<(Self, Self)> {
         let (walker, maybe_child) = self.detach(left)?;
         if let Some(child) = maybe_child {
@@ -57,6 +64,8 @@ impl<S> Walker<S>
         }
     }
 
+    /// Similar to `Tree#walk`, but yields a `Walker` which fetches from the
+    /// same source as `self`.
     pub fn walk<F, T>(self, left: bool, f: F) -> Result<Self>
         where
             F: FnOnce(Option<Self>) -> Result<Option<T>>,
@@ -68,6 +77,8 @@ impl<S> Walker<S>
         Ok(walker)
     }
 
+    /// Similar to `Tree#walk_expect` but yields a `Walker` which fetches from
+    /// the same source as `self`.
     pub fn walk_expect<F, T>(self, left: bool, f: F) -> Result<Self>
         where
             F: FnOnce(Self) -> Result<Option<T>>,
@@ -79,22 +90,29 @@ impl<S> Walker<S>
         Ok(walker)
     }
 
+    /// Returns an immutable reference to the `Tree` wrapped by this walker.
     pub fn tree(&self) -> &Tree {
         &self.tree
     }
 
+    /// Consumes the `Walker` and returns the `Tree` it wraps.
     pub fn into_inner(self) -> Tree {
         self.tree.into_inner()
     }
 
+    /// Takes a `Tree` and returns a `Walker` which fetches from the same source
+    /// as `self`.
     fn wrap(&self, tree: Tree) -> Self {
         Walker::new(tree, self.source.clone())
     }
 
+    /// Returns a clone of this `Walker`'s source.
     pub fn clone_source(&self) -> S {
         self.source.clone()
     }
 
+    /// Similar to `Tree#attach`, but can also take a `Walker` since it
+    /// implements `Into<Tree`>.
     pub fn attach<T>(mut self, left: bool, maybe_child: Option<T>) -> Self
         where T: Into<Tree>
     {
@@ -104,6 +122,7 @@ impl<S> Walker<S>
         self
     }
 
+    /// Similar to `Tree#with_value`.
     pub fn with_value(mut self, value: Vec<u8>) -> Self {
         self.tree.own(|t| t.with_value(value));
         self

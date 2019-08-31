@@ -8,6 +8,7 @@ use crate::error::Result;
 impl Link {
     // TODO: encode_recursive_into? doesn't convert into pruned
 
+    /// Pushes a bianry encoding of the `Link` into the given byte vector.
     pub fn encode_into(&self, output: &mut Vec<u8>) {
         let (hash, key, (left_height, right_height)) = match self {
             Link::Pruned { hash, key, child_heights } => (hash, key.as_slice(), child_heights),
@@ -24,6 +25,7 @@ impl Link {
         output.push(*right_height);
     }
 
+    /// Returns the size of the `Link`'s binary encoding, in bytes.
     pub fn encoding_length(&self) -> usize {
         match self {
             Link::Pruned { key, .. } => { 1 + key.len() + 20 + 2 },
@@ -32,6 +34,7 @@ impl Link {
         }
     }
 
+    /// Decodes a `Link` from its binary encoding.
     pub fn decode(bytes: &[u8]) -> Result<Link> {
         let mut offset = 0;
 
@@ -53,6 +56,7 @@ impl Link {
 }
 
 impl Tree {
+    /// Pushes a bianry encoding of the `Tree` into the given byte vector.
     pub fn encode_into(&self, output: &mut Vec<u8>) {
         let value_len = self.value().len();
         // TODO: use byteorder package
@@ -73,6 +77,7 @@ impl Tree {
         }
     }
 
+    /// Returns the size of the `Tree`'s binary encoding, in bytes.
     pub fn encoding_length(&self) -> usize {
         2 + // value length
         self.inner.kv.value().len() + // value bytes
@@ -81,6 +86,7 @@ impl Tree {
         self.link(false).map_or(1, |link| link.encoding_length())
     }
 
+    /// Decodes a `Tree` from its binary encoding.
     pub fn decode(key: &[u8], bytes: &[u8]) -> Result<Tree> {
         let mut offset = 0;
 

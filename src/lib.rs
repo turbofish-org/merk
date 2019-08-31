@@ -10,11 +10,14 @@ extern crate jemallocator;
 #[global_allocator] 
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
+/// Error and Result types.
 mod error;
+/// The top-level store API.
 mod merk;
+/// The core tree data structure.
 mod tree;
+/// Algorithms for generating and verifying Merkle proofs.
 mod proofs;
-
 /// Various helpers useful for tests or benchmarks.
 pub mod test_utils;
 /// Provides a container type that allows temporarily taking ownership of a value.
