@@ -10,8 +10,6 @@ Merk is a crypto key/value store - more specifically, it's a Merkle AVL tree bui
 
 Its priorities are performance and reliability. While Merk was designed to be the state database for blockchains, it can also be used anywhere an auditable key/value store is needed.
 
-**NOTE:** This crate is still in early development and not fully implemented yet.
-
 ### FEATURES:
 - **Fast reads/writes** - Reads have no overhead compared to a normal RocksDB store, and writes are optimized for batch operations (e.g. blocks in a blockchain).
 - **Fast proof generation** - Since Merk implements an AVL tree rather than a trie, it is very efficient to create and verify proofs for ranges of keys.
@@ -37,36 +35,75 @@ use merk::*;
 let mut merk = Merk::open("./merk.db").unwrap();
 
 // apply some operations
-let mut batch: Vec<TreeBatchEntry> = vec![
+let batch = [
     (b"key", Op::Put(b"value")),
     (b"key2", Op::Put(b"value2")),
     (b"key3", Op::Put(b"value3")),
     (b"key4", Op::Delete)
 ];
-merk.apply(&mut batch).unwrap();
+merk.apply(&batch).unwrap();
 ```
 
 ## Status
 
-Merk is currently experimental but developing fast, and is intended to be used in production soon in [LotionJS](https://github.com/nomic-io/lotion).
+Merk is intended to be used in production soon in [LotionJS](https://github.com/nomic-io/lotion).
 
 ## Benchmarks
 
-Average performance on my 2017 Macbook Pro, on a store with at least 1M keys, with no concurrency:
-- *Random inserts:* ~22,000 per second
-- *Random updates:* ~19,000 per second
-- *Random reads:* ~117,000 per second
-- *Random deletes:* ~15,000 per second
-- *Sequential inserts:* ~181,000 per second
-- *Sequential updates:* ~174,000 per second
-- *Sequential reads:* ~350,000 per second
-- *Sequential deletes:* ~148,000 per second
-- *RAM usage:* ~30MB average, ~60MB max
+Benchmarks are measured on a 1M node tree.
 
-This is just the first pass - we can do much better!
+### 2017 Macbook Pro
 
-*TODO: generate more scientific benchmarks, with comparisons to alternatives*
+**Pruned (no state kept in memory)**
+
+*RAM usage:* ~20MB average, ~26MB max
+
+| Test | Ops per second |
+| -------- | ------ |
+| Random inserts | 23,000 |
+| Random updates | 32,000 |
+| Random deletes | 26,000 |
+| Random reads | 210,000 |
+| Random proof generation | 222,000 |
+
+**Cached (all state kept in memory)**
+
+*RAM usage:* ~400MB average, ~1.1GB max
+
+| Test | Ops per second |
+| -------- | ------ |
+| Random inserts | 58,000 |
+| Random updates | 81,000 |
+| Random deletes | 72,000 |
+| Random reads | 190,000 |
+| Random proof generation | 311,000 |
+
+### i9-9900K Desktop
+
+**Pruned (no state kept in memory)**
+
+*RAM usage:* ~20MB average, ~26MB max
+
+| Test | Ops per second |
+| -------- | ------ |
+| Random inserts | 40,000 |
+| Random updates | 55,000 |
+| Random deletes | 45,000 |
+| Random reads | 383,000 |
+| Random proof generation | 480,000 |
+
+**Cached (all state kept in memory)**
+
+*RAM usage:* ~400MB average, ~1.1GB max
+
+| Test | Ops per second |
+| -------- | ------ |
+| Random inserts | 93,000 |
+| Random updates | 123,000 |
+| Random deletes | 111,000 |
+| Random reads | 373,000 |
+| Random proof generation | 497,000 |
 
 ## Algorithm Details
 
-*TODO*
+The algorithms are based on AVL, but optimized for batches of operations and random fetches from the backing store. Read about the algorithms here: https://github.com/nomic-io/merk/blob/develop/docs/algorithms.md
