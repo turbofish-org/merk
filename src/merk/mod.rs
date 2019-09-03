@@ -205,9 +205,14 @@ impl Merk {
             let mut committer = MerkCommitter::new(tree.height(), 1);
             tree.commit(&mut committer)?;
 
+            // TODO: move this to MerkCommitter impl
             committer.batch.sort_by(|a, b| a.0.cmp(&b.0));
-            for (key, value) in committer.batch {
-                batch.put(key, value)?;
+            for (key, maybe_value) in committer.batch {
+                if let Some(value) = maybe_value {
+                    batch.put(key, value)?;
+                } else {
+                    batch.delete(key)?;
+                }
             }
 
             // update pointer to root node
@@ -247,7 +252,7 @@ impl<'a> Fetch for MerkSource<'a> {
 }
 
 struct MerkCommitter {
-    batch: Vec<(Vec<u8>, Vec<u8>)>,
+    batch: Vec<(Vec<u8>, Option<Vec<u8>>)>,
     height: u8,
     levels: u8
 }
@@ -262,7 +267,12 @@ impl Commit for MerkCommitter {
     fn write(&mut self, tree: &Tree) -> Result<()> {
         let mut buf = Vec::with_capacity(tree.encoding_length());
         tree.encode_into(&mut buf);
-        self.batch.push((tree.key().to_vec(), buf));
+        self.batch.push((tree.key().to_vec(), Some(buf)));
+        Ok(())
+    }
+
+    fn delete(&mut self, key: Vec<u8>) -> Result<()> {
+        self.batch.push((key, None));
         Ok(())
     }
 
