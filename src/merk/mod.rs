@@ -309,6 +309,7 @@ fn default_db_opts() -> rocksdb::Options {
 mod test {
     use std::thread;
     use crate::test_utils::*;
+    use crate::Op;
 
     #[test]
     fn simple_insert_apply() {
@@ -354,5 +355,20 @@ mod test {
             merk.apply(&batch).expect("apply failed");
 
         }
+    }
+
+    #[test]
+    fn actual_deletes() {
+        let path = thread::current().name().unwrap().to_owned();
+        let mut merk = TempMerk::open(path).expect("failed to open merk");
+
+        let batch = make_batch_rand(10, 1);
+        merk.apply(&batch).expect("apply failed");
+
+        let key = batch.first().unwrap().0.clone();
+        merk.apply(&[ (key.clone(), Op::Delete) ]).unwrap();
+
+        let value = merk.db.get(key.as_slice()).unwrap();
+        assert!(value.is_none());
     }
 }
