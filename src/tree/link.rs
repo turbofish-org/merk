@@ -22,8 +22,7 @@ pub enum Link {
     Modified {
         pending_writes: usize,
         child_heights: (u8, u8),
-        tree: Tree,
-        deleted_keys: Vec<Vec<u8>>
+        tree: Tree
     },
 
     /// Represents a tree node which has not been modified, has an up-to-date
@@ -46,8 +45,7 @@ impl Link {
         Link::Modified {
             pending_writes,
             child_heights: tree.child_heights(),
-            tree,
-            deleted_keys: vec![]
+            tree
         }
     }
 
@@ -192,7 +190,7 @@ mod test {
         let tree = || Tree::new(vec![0], vec![1]);
 
         let pruned = Link::Pruned { hash, child_heights, key };
-        let modified = Link::Modified { pending_writes, child_heights, tree: tree(), deleted_keys: vec![] };
+        let modified = Link::Modified { pending_writes, child_heights, tree: tree() };
         let stored = Link::Stored { hash, child_heights, tree: tree() };
 
         assert!(pruned.is_pruned());
@@ -224,8 +222,7 @@ mod test {
         Link::Modified {
             pending_writes: 1,
             child_heights: (1, 1),
-            tree: Tree::new(vec![0], vec![1]),
-            deleted_keys: vec![]
+            tree: Tree::new(vec![0], vec![1])
         }.hash();
     }
 
@@ -235,8 +232,7 @@ mod test {
         Link::Modified {
             pending_writes: 1,
             child_heights: (1, 1),
-            tree: Tree::new(vec![0], vec![1]),
-            deleted_keys: vec![]
+            tree: Tree::new(vec![0], vec![1])
         }.into_pruned();
     }
 }

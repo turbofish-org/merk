@@ -181,8 +181,7 @@ mod test {
             Some(Link::Modified {
                 pending_writes: 1,
                 child_heights: (123, 124),
-                tree: Tree::new(vec![2], vec![3]),
-                deleted_keys: vec![]
+                tree: Tree::new(vec![2], vec![3])
             }),
             None
         );
