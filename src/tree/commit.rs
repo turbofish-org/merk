@@ -4,7 +4,7 @@ use super::Tree;
 /// To be used when committing a tree (writing it to a store after applying the
 /// changes).
 pub trait Commit {
-    /// Called once per node when a finalized tree is to be written to a
+    /// Called once per updated node when a finalized tree is to be written to a
     /// backing store or cache.
     fn write(&mut self, tree: &Tree) -> Result<()>;
 

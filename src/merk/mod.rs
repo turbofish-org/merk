@@ -1,3 +1,4 @@
+use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
@@ -124,10 +125,11 @@ impl Merk {
             .map(|tree| Walker::new(tree, self.source()));
 
         // TODO: will return set of deleted keys
-        self.tree = Walker::apply_to(maybe_walker, batch)?;
+        let (maybe_tree, deleted_keys) = Walker::apply_to(maybe_walker, batch)?;
+        self.tree = maybe_tree;
 
         // commit changes to db
-        self.commit()
+        self.commit(deleted_keys)
     }
 
     /// Closes the store and deletes all data from disk.
@@ -195,7 +197,7 @@ impl Merk {
         Ok(bytes)
     }
 
-    fn commit(&mut self) -> Result<()> {
+    fn commit(&mut self, deleted_keys: LinkedList<Vec<u8>>) -> Result<()> {
         // TODO: concurrent commit
 
         let mut batch = rocksdb::WriteBatch::default();
@@ -205,9 +207,18 @@ impl Merk {
             let mut committer = MerkCommitter::new(tree.height(), 1);
             tree.commit(&mut committer)?;
 
+            for key in deleted_keys {
+                committer.batch.push((key, None));
+            }
+
+            // TODO: move this to MerkCommitter impl
             committer.batch.sort_by(|a, b| a.0.cmp(&b.0));
-            for (key, value) in committer.batch {
-                batch.put(key, value)?;
+            for (key, maybe_value) in committer.batch {
+                if let Some(value) = maybe_value {
+                    batch.put(key, value)?;
+                } else {
+                    batch.delete(key)?;
+                }
             }
 
             // update pointer to root node
@@ -247,7 +258,7 @@ impl<'a> Fetch for MerkSource<'a> {
 }
 
 struct MerkCommitter {
-    batch: Vec<(Vec<u8>, Vec<u8>)>,
+    batch: Vec<(Vec<u8>, Option<Vec<u8>>)>,
     height: u8,
     levels: u8
 }
@@ -262,7 +273,7 @@ impl Commit for MerkCommitter {
     fn write(&mut self, tree: &Tree) -> Result<()> {
         let mut buf = Vec::with_capacity(tree.encoding_length());
         tree.encode_into(&mut buf);
-        self.batch.push((tree.key().to_vec(), buf));
+        self.batch.push((tree.key().to_vec(), Some(buf)));
         Ok(())
     }
 
@@ -298,6 +309,7 @@ fn default_db_opts() -> rocksdb::Options {
 mod test {
     use std::thread;
     use crate::test_utils::*;
+    use crate::Op;
 
     #[test]
     fn simple_insert_apply() {
@@ -343,5 +355,20 @@ mod test {
             merk.apply(&batch).expect("apply failed");
 
         }
+    }
+
+    #[test]
+    fn actual_deletes() {
+        let path = thread::current().name().unwrap().to_owned();
+        let mut merk = TempMerk::open(path).expect("failed to open merk");
+
+        let batch = make_batch_rand(10, 1);
+        merk.apply(&batch).expect("apply failed");
+
+        let key = batch.first().unwrap().0.clone();
+        merk.apply(&[ (key.clone(), Op::Delete) ]).unwrap();
+
+        let value = merk.db.get(key.as_slice()).unwrap();
+        assert!(value.is_none());
     }
 }

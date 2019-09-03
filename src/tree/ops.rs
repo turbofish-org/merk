@@ -1,3 +1,4 @@
+use std::collections::LinkedList;
 use std::fmt;
 use crate::error::Result;
 use super::{Tree, Link, Walker, Fetch};
@@ -45,17 +46,22 @@ impl<S> Walker<S>
     pub fn apply_to(
         maybe_tree: Option<Self>,
         batch: &Batch
-    ) -> Result<Option<Tree>> {
-        let maybe_walker = if batch.is_empty() {
-            maybe_tree
+    ) -> Result<(Option<Tree>, LinkedList<Vec<u8>>)> {
+        let (maybe_walker, deleted_keys) = if batch.is_empty() {
+            (maybe_tree, LinkedList::default())
         } else {
             match maybe_tree {
-                None => return Self::build(batch),
+                None => return Ok((
+                    Self::build(batch)?,
+                    LinkedList::default()
+                )),
                 Some(tree) => tree.apply(batch)?
             }
         };
 
-        Ok(maybe_walker.map(|walker| walker.into_inner()))
+        let maybe_tree = maybe_walker
+            .map(|walker| walker.into_inner());
+        Ok((maybe_tree, deleted_keys))
     }
 
     /// Builds a `Tree` from a batch of inserts. Fails if the batch contains a
@@ -79,6 +85,7 @@ impl<S> Walker<S>
         let mid_walker = Walker::new(mid_tree, PanicSource {});
         Ok(mid_walker
             .recurse(batch, mid_index, true)?
+            .0 // use walker, ignore deleted_keys since it should be empty
             .map(|w| w.into_inner()))
     }
 
@@ -86,7 +93,10 @@ impl<S> Walker<S>
     /// `Walker<S>::apply`_to, but requires a populated tree.
     ///
     /// Keys in batch must be sorted and unique.
-    fn apply(self, batch: &Batch) -> Result<Option<Self>> {
+    fn apply(
+        self,
+        batch: &Batch
+    ) -> Result<(Option<Self>, LinkedList<Vec<u8>>)> {
         // binary search to see if this node's key is in the batch, and to split
         // into left and right batches
         let search = batch.binary_search_by(
@@ -103,10 +113,21 @@ impl<S> Walker<S>
                     let wrap = |maybe_tree: Option<Tree>| {
                         maybe_tree.map(|tree| Self::new(tree, source.clone()))
                     };
+                    let key = self.tree().key().to_vec();
                     let maybe_tree = self.remove()?;
-                    let maybe_tree = wrap(Self::apply_to(maybe_tree, &batch[..index])?);
-                    let maybe_tree = wrap(Self::apply_to(maybe_tree, &batch[index + 1..])?);
-                    return Ok(maybe_tree);
+
+                    let (maybe_tree, mut deleted_keys) =
+                        Self::apply_to(maybe_tree, &batch[..index])?;
+                    let maybe_walker = wrap(maybe_tree);
+
+                    let (maybe_tree, mut deleted_keys_right) =
+                        Self::apply_to(maybe_walker, &batch[index + 1..])?;
+                    let maybe_walker = wrap(maybe_tree);
+
+                    deleted_keys.append(&mut deleted_keys_right);
+                    deleted_keys.push_back(key);
+
+                    return Ok((maybe_walker, deleted_keys));
                 }
             }
         } else {
@@ -131,7 +152,7 @@ impl<S> Walker<S>
         batch: &Batch,
         mid: usize,
         exclusive: bool
-    ) -> Result<Option<Self>> {
+    ) -> Result<(Option<Self>, LinkedList<Vec<u8>>)> {
         let left_batch = &batch[..mid];
         let right_batch = if exclusive {
             &batch[mid + 1..]
@@ -139,25 +160,33 @@ impl<S> Walker<S>
             &batch[mid..]
         };
         
+        let mut deleted_keys = LinkedList::default();
+
         let tree = if !left_batch.is_empty() {
-            self.walk(true, |maybe_left|
-                Self::apply_to(maybe_left, left_batch)
-            )?
+            self.walk(true, |maybe_left| {
+                let (maybe_left, mut deleted_keys_left) =
+                    Self::apply_to(maybe_left, left_batch)?;
+                deleted_keys.append(&mut deleted_keys_left);
+                Ok(maybe_left)
+            })?
         } else {
             self
         };
 
         let tree = if !right_batch.is_empty() {
-            tree.walk(false, |maybe_right|
-                Self::apply_to(maybe_right, right_batch)
-            )?
+            tree.walk(false, |maybe_right| {
+                let (maybe_right, mut deleted_keys_right) =
+                    Self::apply_to(maybe_right, right_batch)?;
+                deleted_keys.append(&mut deleted_keys_right);
+                Ok(maybe_right)
+            })?
         } else {
             tree
         };
 
         let tree = tree.maybe_balance()?;
 
-        Ok(Some(tree))
+        Ok((Some(tree), deleted_keys))
     }
 
     /// Gets the wrapped tree's balance factor.
@@ -213,8 +242,6 @@ impl<S> Walker<S>
         let has_left = tree.link(true).is_some();
         let has_right = tree.link(false).is_some();
         let left = tree.child_height(true) > tree.child_height(false);
-
-        // TODO: propagate up deleted keys?
 
         let maybe_tree = unsafe {
             if has_left && has_right {
@@ -273,7 +300,8 @@ mod test {
         make_tree_seq,
         del_entry,
         apply_memonly,
-        assert_tree_invariants
+        assert_tree_invariants,
+        seq_key
     };
 
     #[test]
@@ -285,12 +313,13 @@ mod test {
             )
         ];
         let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
-        let walker = Walker::new(tree, PanicSource {})
+        let (maybe_walker, deleted_keys) = Walker::new(tree, PanicSource {})
             .apply(&batch)
-            .expect("apply errored")
-            .expect("should be Some");
+            .expect("apply errored");
+        let walker = maybe_walker.expect("should be Some");
         assert_eq!(walker.tree().key(), b"foo");
         assert_eq!(walker.into_inner().child(false).unwrap().key(), b"foo2");
+        assert!(deleted_keys.is_empty());
     }
 
     #[test]
@@ -302,14 +331,15 @@ mod test {
             )
         ];
         let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
-        let walker = Walker::new(tree, PanicSource {})
+        let (maybe_walker, deleted_keys) = Walker::new(tree, PanicSource {})
             .apply(&batch)
-            .expect("apply errored")
-            .expect("should be Some");
+            .expect("apply errored");
+        let walker = maybe_walker.expect("should be Some");
         assert_eq!(walker.tree().key(), b"foo");
         assert_eq!(walker.tree().value(), b"bar2");
         assert!(walker.tree().link(true).is_none());
         assert!(walker.tree().link(false).is_none());
+        assert!(deleted_keys.is_empty());
     }
 
     #[test]
@@ -327,14 +357,16 @@ mod test {
                 tree: Tree::new(b"foo2".to_vec(), b"bar2".to_vec())
             })
         );
-        let walker = Walker::new(tree, PanicSource {})
+        let (maybe_walker, deleted_keys) = Walker::new(tree, PanicSource {})
             .apply(&batch)
-            .expect("apply errored")
-            .expect("should be Some");
+            .expect("apply errored");
+        let walker = maybe_walker.expect("should be Some");
         assert_eq!(walker.tree().key(), b"foo");
         assert_eq!(walker.tree().value(), b"bar");
         assert!(walker.tree().link(true).is_none());
         assert!(walker.tree().link(false).is_none());
+        assert_eq!(deleted_keys.len(), 1);
+        assert_eq!(*deleted_keys.front().unwrap(), b"foo2");
     }
 
     #[test]
@@ -355,63 +387,70 @@ mod test {
             (b"foo".to_vec(), Op::Delete)
         ];
         let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
-        let walker = Walker::new(tree, PanicSource {})
+        let (maybe_walker, deleted_keys) = Walker::new(tree, PanicSource {})
             .apply(&batch)
             .expect("apply errored");
-        assert!(walker.is_none());
+        assert!(maybe_walker.is_none());
+        assert_eq!(deleted_keys.len(), 1);
+        assert_eq!(deleted_keys.front().unwrap(), b"foo");
     }
 
     #[test]
     fn delete_deep() {
         let tree = make_tree_seq(50);
         let batch = [ del_entry(5) ]; 
-        Walker::new(tree, PanicSource {})
+        let (maybe_walker, deleted_keys) = Walker::new(tree, PanicSource {})
             .apply(&batch)
-            .expect("apply errored")
-            .expect("should be Some");
-        // TODO: assert set of keys are correct
+            .expect("apply errored");
+        maybe_walker.expect("should be Some");
+        assert_eq!(deleted_keys.len(), 1);
+        assert_eq!(*deleted_keys.front().unwrap(), seq_key(5));
     }
 
     #[test]
     fn delete_recursive() {
         let tree = make_tree_seq(50);
         let batch = [ del_entry(29), del_entry(34) ]; 
-        Walker::new(tree, PanicSource {})
+        let (maybe_walker, mut deleted_keys) = Walker::new(tree, PanicSource {})
             .apply(&batch)
-            .expect("apply errored")
-            .expect("should be Some");
-        // TODO: assert set of keys are correct
+            .expect("apply errored");
+        maybe_walker.expect("should be Some");
+        assert_eq!(deleted_keys.len(), 2);
+        assert_eq!(deleted_keys.pop_front().unwrap(), seq_key(29));
+        assert_eq!(deleted_keys.pop_front().unwrap(), seq_key(34));
     }
 
     #[test]
     fn delete_recursive_2() {
         let tree = make_tree_seq(10);
         let batch = [ del_entry(7), del_entry(9) ]; 
-        let walker = Walker::new(tree, PanicSource {})
+        let (maybe_walker, deleted_keys) = Walker::new(tree, PanicSource {})
             .apply(&batch)
-            .expect("apply errored")
-            .expect("should be Some");
-        // TODO: assert set of keys are correct
-
-        println!("{:?}", walker.tree());
+            .expect("apply errored");
+        maybe_walker.expect("should be Some");
+        let mut deleted_keys: Vec<&Vec<u8>> = deleted_keys.iter().collect();
+        deleted_keys.sort_by(|a, b| a.cmp(&b));
+        assert_eq!(deleted_keys, vec![ &seq_key(7), &seq_key(9) ]);
     }
 
     #[test]
     fn apply_empty_none() {
-        let maybe_tree = Walker::<PanicSource>::apply_to(None, &vec![])
+        let (maybe_tree, deleted_keys) = Walker::<PanicSource>::apply_to(None, &vec![])
             .expect("apply_to failed");
         assert!(maybe_tree.is_none());
+        assert!(deleted_keys.is_empty());
     }
 
     #[test]
     fn insert_empty_single() {
         let batch = vec![ (vec![0], Op::Put(vec![1])) ];
-        let tree = Walker::<PanicSource>::apply_to(None, &batch)
-            .expect("apply_to failed")
-            .expect("expected tree");
+        let (maybe_tree, deleted_keys) = Walker::<PanicSource>::apply_to(None, &batch)
+            .expect("apply_to failed");
+        let tree = maybe_tree.expect("expected tree");
         assert_eq!(tree.key(), &[0]);
         assert_eq!(tree.value(), &[1]);
         assert_tree_invariants(&tree);
+        assert!(deleted_keys.is_empty());
     }
 
     #[test]
