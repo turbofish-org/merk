@@ -50,9 +50,13 @@ Merk is intended to be used in production soon in [LotionJS](https://github.com/
 
 ## Benchmarks
 
-Benchmarks are measured on a 1M node tree.
+Benchmarks are measured on a 1M node tree, each node having a key length of 16 bytes and value length of 40 bytes. All tests are single-threaded (not counting RocksDB background threads).
+
+You can test these yourself by running `cargo bench`.
 
 ### 2017 Macbook Pro
+
+*(Using 1 Merk thread and 4 RocksDB compaction threads)*
 
 **Pruned (no state kept in memory)**
 
@@ -79,6 +83,8 @@ Benchmarks are measured on a 1M node tree.
 | Random proof generation | 311,000 |
 
 ### i9-9900K Desktop
+
+*(Using 1 Merk thread and 16 RocksDB compaction threads)*
 
 **Pruned (no state kept in memory)**
 
