@@ -8,10 +8,6 @@ pub trait Commit {
     /// backing store or cache.
     fn write(&mut self, tree: &Tree) -> Result<()>;
 
-    /// Called once per deleted node when a finalized tree is to be written to a
-    /// backing store or cache.
-    fn delete(&mut self, key: Vec<u8>) -> Result<()>;
-
     /// Called once per node after writing a node and its children. The returned
     /// tuple specifies whether or not to prune the left and right child nodes,
     /// respectively. For example, returning `(true, true)` will prune both
@@ -26,10 +22,6 @@ pub trait Commit {
 pub struct NoopCommit {}
 impl Commit for NoopCommit {
     fn write(&mut self, _tree: &Tree) -> Result<()> {
-        Ok(())
-    }
-
-    fn delete(&mut self, _key: Vec<u8>) -> Result<()> {
         Ok(())
     }
 

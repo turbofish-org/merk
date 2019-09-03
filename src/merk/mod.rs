@@ -1,3 +1,4 @@
+use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
@@ -124,10 +125,11 @@ impl Merk {
             .map(|tree| Walker::new(tree, self.source()));
 
         // TODO: will return set of deleted keys
-        self.tree = Walker::apply_to(maybe_walker, batch)?;
+        let (maybe_tree, deleted_keys) = Walker::apply_to(maybe_walker, batch)?;
+        self.tree = maybe_tree;
 
         // commit changes to db
-        self.commit()
+        self.commit(deleted_keys)
     }
 
     /// Closes the store and deletes all data from disk.
@@ -195,7 +197,7 @@ impl Merk {
         Ok(bytes)
     }
 
-    fn commit(&mut self) -> Result<()> {
+    fn commit(&mut self, deleted_keys: LinkedList<Vec<u8>>) -> Result<()> {
         // TODO: concurrent commit
 
         let mut batch = rocksdb::WriteBatch::default();
@@ -204,6 +206,10 @@ impl Merk {
             // TODO: configurable committer
             let mut committer = MerkCommitter::new(tree.height(), 1);
             tree.commit(&mut committer)?;
+
+            for key in deleted_keys {
+                committer.batch.push((key, None));
+            }
 
             // TODO: move this to MerkCommitter impl
             committer.batch.sort_by(|a, b| a.0.cmp(&b.0));
@@ -268,11 +274,6 @@ impl Commit for MerkCommitter {
         let mut buf = Vec::with_capacity(tree.encoding_length());
         tree.encode_into(&mut buf);
         self.batch.push((tree.key().to_vec(), Some(buf)));
-        Ok(())
-    }
-
-    fn delete(&mut self, key: Vec<u8>) -> Result<()> {
-        self.batch.push((key, None));
         Ok(())
     }
 
