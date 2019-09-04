@@ -134,8 +134,9 @@ impl Merk {
     /// Closes the store and deletes all data from disk.
     pub fn destroy(self) -> Result<()> {
         let opts = default_db_opts();
-        drop(self.db);
-        rocksdb::DB::destroy(&opts, &self.path)?;
+        let path = self.path.clone();
+        drop(self);
+        rocksdb::DB::destroy(&opts, path)?;
         Ok(())
     }
 
@@ -242,6 +243,12 @@ impl Merk {
 
     fn tree(&self) -> Option<&Tree> {
         self.tree.as_ref()
+    }
+}
+
+impl Drop for Merk {
+    fn drop(&mut self) {
+        self.db.flush().unwrap();
     }
 }
 
