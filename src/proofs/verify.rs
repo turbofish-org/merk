@@ -18,11 +18,11 @@ impl From<Node> for Tree {
 
 impl Tree {
     /// Returns an immutable reference to the child on the given side, if any.
-    fn child(&self, left: bool) -> Option<&Box<Tree>> {
+    fn child(&self, left: bool) -> Option<&Tree> {
         if left {
-            self.left.as_ref()
+            self.left.as_ref().map(|c| c.as_ref())
         } else {
-            self.right.as_ref()
+            self.right.as_ref().map(|c| c.as_ref())
         }
     }
 
@@ -80,7 +80,7 @@ impl Tree {
         }
 
         match &self.node {
-            Node::Hash(hash) => self.node,
+            Node::Hash(_) => self.node,
             Node::KVHash(kv_hash) => to_hash_node(&self, *kv_hash),
             Node::KV(key, value) => {
                 let kv_hash = kv_hash(key.as_slice(), value.as_slice());
@@ -154,18 +154,18 @@ pub fn verify(
                 if let Node::KV(key, value) = &node_clone {
                     // keys should always be increasing
                     if let Some(Node::KV(last_key, _)) = &last_push {
-                        if key <= &last_key {
+                        if key <= last_key {
                             bail!("Incorrect key ordering");
                         }
                     }
 
                     loop {
-                        if key_index >= keys.len() || key < &keys[key_index] {
+                        if key_index >= keys.len() || *key < keys[key_index] {
                             break;
                         } else if key == &keys[key_index] {
                             // KV for queried key
                             output.push(Some(value.clone()));
-                        } else if key > &keys[key_index] {
+                        } else if *key > keys[key_index] {
                             match &last_push {
                                 None | Some(Node::KV(_, _)) => {
                                     // previous push was a boundary (global edge or lower key),

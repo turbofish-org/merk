@@ -4,7 +4,7 @@ mod verify;
 use std::collections::LinkedList;
 use crate::error::Result;
 use crate::tree::{Link, RefWalker, Hash, Fetch};
-pub(crate) use encoding::{encode_into, encoding_length};
+pub(crate) use encoding::encode_into;
 pub use verify::verify;
 
 /// A proof operator, executed to verify the data in a Merkle proof.
