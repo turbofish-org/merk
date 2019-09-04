@@ -197,6 +197,10 @@ impl Merk {
         Ok(bytes)
     }
 
+    pub fn flush(&self) -> Result<()> {
+        Ok(self.db.flush()?)
+    }
+
     fn commit(&mut self, deleted_keys: LinkedList<Vec<u8>>) -> Result<()> {
         // TODO: concurrent commit
 
