@@ -68,7 +68,7 @@ You can test these yourself by running `cargo bench`.
 | Random updates | 32,000 |
 | Random deletes | 26,000 |
 | Random reads | 210,000 |
-| Random proof generation | 222,000 |
+| Random proof generation | 133,000 |
 
 **Cached (all state kept in memory)**
 
@@ -79,7 +79,7 @@ You can test these yourself by running `cargo bench`.
 | Random inserts | 58,000 |
 | Random updates | 81,000 |
 | Random deletes | 72,000 |
-| Random reads | 190,000 |
+| Random reads | 1,565,000 |
 | Random proof generation | 311,000 |
 
 ### i9-9900K Desktop
@@ -96,7 +96,7 @@ You can test these yourself by running `cargo bench`.
 | Random updates | 55,000 |
 | Random deletes | 45,000 |
 | Random reads | 383,000 |
-| Random proof generation | 480,000 |
+| Random proof generation | 249,000 |
 
 **Cached (all state kept in memory)**
 
@@ -107,7 +107,7 @@ You can test these yourself by running `cargo bench`.
 | Random inserts | 93,000 |
 | Random updates | 123,000 |
 | Random deletes | 111,000 |
-| Random reads | 373,000 |
+| Random reads | 2,370,000 |
 | Random proof generation | 497,000 |
 
 ## Algorithm Details
