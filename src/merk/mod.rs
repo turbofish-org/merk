@@ -15,6 +15,8 @@ use crate::tree::{
 };
 use crate::proofs::encode_into;
 
+// TODO: not found errors shouldn't use debug formatter
+
 // TODO: use a column family or something to keep the root key separate
 const ROOT_KEY_KEY: [u8; 12] = *b"\00\00root\00\00";
 
@@ -36,7 +38,7 @@ impl Merk {
 
         // try to load root node
         let tree = match db.get_pinned(ROOT_KEY_KEY)? {
-            Some(root_key) => Some(get_node(&db, &root_key)?),
+            Some(root_key) => Some(fetch_node(&db, &root_key)?),
             None => None
         };
 
@@ -49,9 +51,32 @@ impl Merk {
     /// Note that this is essentially the same as a normal RocksDB `get`, so
     /// should be a fast operation and has almost no tree overhead.
     pub fn get(&self, key: &[u8]) -> Result<Vec<u8>> {
+        // TODO: should be in tree module
+        let mut cursor = match self.tree.as_ref() {
+            None => panic!("Key not found (tree is empty): '{:?}'", key),
+            Some(tree) => tree
+        };
+
+        loop {
+            if key == cursor.key() {
+                return Ok(cursor.value().to_vec());
+            }
+
+            let left = key < cursor.key();
+            let link = match cursor.link(left) {
+                None => panic!("Key not found: '{:?}'", key),
+                Some(link) => link
+            };
+
+            let maybe_child = link.tree();
+            match maybe_child {
+                None => break, // value is pruned, fall back to fetching from disk
+                Some(child) => cursor = child // traverse to child
+            }
+        }
+
         // TODO: ignore other fields when reading from node bytes
-        let node = get_node(&self.db, key)?;
-        // TODO: don't reallocate
+        let node = fetch_node(&self.db, key)?;
         Ok(node.value().to_vec())
     }
 
@@ -208,7 +233,7 @@ impl Merk {
 
         if let Some(tree) = &mut self.tree {
             // TODO: configurable committer
-            let mut committer = MerkCommitter::new(tree.height(), 1);
+            let mut committer = MerkCommitter::new(tree.height(), 100);
             tree.commit(&mut committer)?;
 
             for key in deleted_keys {
@@ -263,7 +288,7 @@ struct MerkSource<'a> {
 
 impl<'a> Fetch for MerkSource<'a> {
     fn fetch(&self, link: &Link) -> Result<Tree> {
-        get_node(&self.db, link.key())
+        fetch_node(&self.db, link.key())
     }
 }
 
@@ -294,7 +319,7 @@ impl Commit for MerkCommitter {
     }
 }
 
-fn get_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
+fn fetch_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
     let bytes = db.get_pinned(key)?;
     if let Some(bytes) = bytes {
         Tree::decode(key, &bytes)
