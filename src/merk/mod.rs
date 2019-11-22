@@ -15,8 +15,6 @@ use crate::tree::{
 };
 use crate::proofs::encode_into;
 
-// TODO: not found errors shouldn't use debug formatter
-
 // TODO: use a column family or something to keep the root key separate
 const ROOT_KEY_KEY: [u8; 12] = *b"\00\00root\00\00";
 
@@ -45,26 +43,25 @@ impl Merk {
         Ok(Merk { tree, db, path: path_buf })
     }
 
-    /// Gets a value for the given key. Returns an `Err` if the key is not found
-    /// or something else goes wrong.
+    /// Gets a value for the given key. If the key is not found, `None` is
+    /// returned.
     ///
     /// Note that this is essentially the same as a normal RocksDB `get`, so
     /// should be a fast operation and has almost no tree overhead.
-    pub fn get(&self, key: &[u8]) -> Result<Vec<u8>> {
-        // TODO: should be in tree module
+    pub fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let mut cursor = match self.tree.as_ref() {
-            None => panic!("Key not found (tree is empty): '{:?}'", key),
+            None => return Ok(None), // empty tree
             Some(tree) => tree
         };
 
         loop {
             if key == cursor.key() {
-                return Ok(cursor.value().to_vec());
+                return Ok(Some(cursor.value().to_vec()));
             }
 
             let left = key < cursor.key();
             let link = match cursor.link(left) {
-                None => panic!("Key not found: '{:?}'", key),
+                None => return Ok(None), // not found
                 Some(link) => link
             };
 
@@ -77,7 +74,7 @@ impl Merk {
 
         // TODO: ignore other fields when reading from node bytes
         let node = fetch_node(&self.db, key)?;
-        Ok(node.value().to_vec())
+        Ok(Some(node.value().to_vec()))
     }
 
     /// Returns the root hash of the tree (a digest for the entire store which
@@ -226,14 +223,14 @@ impl Merk {
         Ok(self.db.flush()?)
     }
 
-    fn commit(&mut self, deleted_keys: LinkedList<Vec<u8>>) -> Result<()> {
+    pub fn commit(&mut self, deleted_keys: LinkedList<Vec<u8>>) -> Result<()> {
         // TODO: concurrent commit
 
         let mut batch = rocksdb::WriteBatch::default();
 
         if let Some(tree) = &mut self.tree {
             // TODO: configurable committer
-            let mut committer = MerkCommitter::new(tree.height(), 100);
+            let mut committer = MerkCommitter::new(tree.height(), 1);
             tree.commit(&mut committer)?;
 
             for key in deleted_keys {
