@@ -166,5 +166,7 @@ fn prove_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
         }
         unsafe { merk.prove_unchecked(keys.as_slice()).expect("prove failed") };
         i = (i + 1) % (initial_size / batch_size);
+
+        merk.commit(std::collections::LinkedList::new()).unwrap();
     });
 }
