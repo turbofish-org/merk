@@ -42,6 +42,24 @@ impl Merk {
 
         Ok(Merk { tree, db, path: path_buf })
     }
+    // Opens a store with specified ColumnFamilyDescriptors
+    pub fn open_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<Merk>
+    where 
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
+        // move out boiler plate code
+        let db_opts = default_db_opts();
+        let mut path_buf = PathBuf::new();
+        path_buf.push(path);
+        let db = rocksdb::DB::open_cf_descriptors(&db_opts, &path_buf, cfs)?;
+        
+        let tree = match db.get_pinned(ROOT_KEY_KEY) ? {
+            Some(root_key) => Some(fetch_node(&db, &root_key)?),
+            None => None
+        };
+        Ok(Merk { tree, db, path: path_buf })
+    }
 
     /// Gets a value for the given key. If the key is not found, `None` is
     /// returned.
@@ -223,7 +241,7 @@ impl Merk {
         Ok(self.db.flush()?)
     }
 
-    pub fn commit(&mut self, deleted_keys: LinkedList<Vec<u8>>) -> Result<()> {
+    pub fn commit(&mut self, deleted_keys: LinkedList<Vec<u8>>, aux: &Batch) -> Result<()> {
         // TODO: concurrent commit
 
         let mut batch = rocksdb::WriteBatch::default();
@@ -252,6 +270,18 @@ impl Merk {
         } else {
             // empty tree, delete pointer to root
             batch.delete(ROOT_KEY_KEY)?;
+        }
+
+        if let Some(column_fam) = self.db.cf_handle("aux") {
+            for (key, value) in aux {
+                if let Some(value) = value {
+                    batch.put_cf(column_fam, key, value)?;
+                } else {
+                    batch.delete_cf(column_fam, key)?;
+                }
+            }
+        } else {
+            bail!("Column family does not exist.")
         }
 
         // write to db
