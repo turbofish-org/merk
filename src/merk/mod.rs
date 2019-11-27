@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
@@ -22,7 +23,7 @@ const ROOT_KEY_KEY: [u8; 4] = *b"root";
 
 /// A handle to a Merkle key/value store backed by RocksDB.
 pub struct Merk {
-    tree: Option<Tree>,
+    tree: Cell<Option<Tree>>,
     db: rocksdb::DB,
     path: PathBuf
 }
@@ -46,6 +47,7 @@ impl Merk {
             Some(root_key) => Some(fetch_node(&db, &root_key)?),
             None => None
         };
+        let tree = Cell::new(tree);
 
         Ok(Merk { tree, db, path: path_buf })
     }
@@ -62,39 +64,41 @@ impl Merk {
     /// Note that this is essentially the same as a normal RocksDB `get`, so
     /// should be a fast operation and has almost no tree overhead.
     pub fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
-        let mut cursor = match self.tree.as_ref() {
-            None => return Ok(None), // empty tree
-            Some(tree) => tree
-        };
-
-        loop {
-            if key == cursor.key() {
-                return Ok(Some(cursor.value().to_vec()));
-            }
-
-            let left = key < cursor.key();
-            let link = match cursor.link(left) {
-                None => return Ok(None), // not found
-                Some(link) => link
+        self.use_tree(|maybe_tree| {
+            let mut cursor = match maybe_tree {
+                None => return Ok(None), // empty tree
+                Some(tree) => tree
             };
 
-            let maybe_child = link.tree();
-            match maybe_child {
-                None => break, // value is pruned, fall back to fetching from disk
-                Some(child) => cursor = child // traverse to child
-            }
-        }
+            loop {
+                if key == cursor.key() {
+                    return Ok(Some(cursor.value().to_vec()));
+                }
 
-        // TODO: ignore other fields when reading from node bytes
-        let node = fetch_node(&self.db, key)?;
-        Ok(Some(node.value().to_vec()))
+                let left = key < cursor.key();
+                let link = match cursor.link(left) {
+                    None => return Ok(None), // not found
+                    Some(link) => link
+                };
+
+                let maybe_child = link.tree();
+                match maybe_child {
+                    None => break, // value is pruned, fall back to fetching from disk
+                    Some(child) => cursor = child // traverse to child
+                }
+            }
+
+            // TODO: ignore other fields when reading from node bytes
+            fetch_node(&self.db, key)
+                .map(|node| Some(node.value().to_vec()))
+        })
     }
 
     /// Returns the root hash of the tree (a digest for the entire store which
     /// proofs can be checked against). If the tree is empty, returns the null
     /// hash (zero-filled).
     pub fn root_hash(&self) -> Hash {
-        self.tree.as_ref().map_or(NULL_HASH, |tree| tree.hash())
+        self.use_tree(|tree| tree.map_or(NULL_HASH, |tree| tree.hash()))
     }
 
     /// Applies a batch of operations (puts and deletes) to the tree.
@@ -156,11 +160,11 @@ impl Merk {
     /// unsafe { store.apply_unchecked(batch, &[]).unwrap() };
     /// ```
     pub unsafe fn apply_unchecked(&mut self, batch: &Batch, aux: &Batch) -> Result<()> {
-        let maybe_walker = self.tree.take()
+        let maybe_walker = self.tree.take().take()
             .map(|tree| Walker::new(tree, self.source()));
 
         let (maybe_tree, deleted_keys) = Walker::apply_to(maybe_walker, batch)?;
-        self.tree = maybe_tree;
+        self.tree.set(maybe_tree);
 
         // commit changes to db
         self.commit(deleted_keys, aux)
@@ -187,7 +191,7 @@ impl Merk {
     /// check adds some overhead, so if you are sure your batch is sorted and
     /// unique you can use the unsafe `prove_unchecked` for a small performance
     /// gain.
-    pub fn prove(&mut self, query: &[Vec<u8>]) -> Result<Vec<u8>> {
+    pub fn prove(&self, query: &[Vec<u8>]) -> Result<Vec<u8>> {
         // ensure keys in query are sorted and unique
         let mut maybe_prev_key = None;
         for key in query.iter() {
@@ -216,20 +220,20 @@ impl Merk {
     /// if they are not, there will be undefined behavior. For a safe version of
     /// this method which checks to ensure the batch is sorted and unique, see
     /// `prove`.
-    pub unsafe fn prove_unchecked(&mut self, query: &[Vec<u8>]) -> Result<Vec<u8>> {
-        let mut tree = match self.tree.take() {
-            None => bail!("Cannot create proof for empty tree"),
-            Some(tree) => tree
-        };
+    pub unsafe fn prove_unchecked(&self, query: &[Vec<u8>]) -> Result<Vec<u8>> {
+        self.use_tree_mut(|maybe_tree| {
+            let tree = match maybe_tree {
+                None => bail!("Cannot create proof for empty tree"),
+                Some(tree) => tree
+            };
 
-        let mut ref_walker = RefWalker::new(&mut tree, self.source());
-        let (proof, _) = ref_walker.create_proof(query)?;
+            let mut ref_walker = RefWalker::new(tree, self.source());
+            let (proof, _) = ref_walker.create_proof(query)?;
 
-        self.tree = Some(tree);
-
-        let mut bytes = Vec::with_capacity(128);
-        encode_into(proof.iter(), &mut bytes);
-        Ok(bytes)
+            let mut bytes = Vec::with_capacity(128);
+            encode_into(proof.iter(), &mut bytes);
+            Ok(bytes)
+        })
     }
 
     pub fn flush(&self) -> Result<()> {
@@ -237,38 +241,42 @@ impl Merk {
     }
 
     pub fn commit(&mut self, deleted_keys: LinkedList<Vec<u8>>, aux: &Batch) -> Result<()> {
-        // TODO: concurrent commit
+        let internal_cf = self.db.cf_handle("internal").unwrap();
+        let aux_cf = self.db.cf_handle("aux").unwrap();
 
         let mut batch = rocksdb::WriteBatch::default();
-        let internal_cf = self.db.cf_handle("internal").unwrap();
-        
-        if let Some(tree) = &mut self.tree {
-            // TODO: configurable committer
-            let mut committer = MerkCommitter::new(tree.height(), 1);
-            tree.commit(&mut committer)?;
+        let mut to_batch = self.use_tree_mut(|maybe_tree| -> Result<Vec<(Vec<u8>, Option<Vec<u8>>)>> {
+            // TODO: concurrent commit
+            if let Some(tree) = maybe_tree {
+                // TODO: configurable committer
+                let mut committer = MerkCommitter::new(tree.height(), 1);
+                tree.commit(&mut committer)?;
 
-            for key in deleted_keys {
-                committer.batch.push((key, None));
+                // update pointer to root node
+                batch.put_cf(internal_cf, ROOT_KEY_KEY, tree.key())?;
+
+                Ok(committer.batch)
+            } else {
+                // empty tree, delete pointer to root
+                batch.delete_cf(internal_cf, ROOT_KEY_KEY)?;
+
+                Ok(vec![])
             }
+        })?;
 
-            // TODO: move this to MerkCommitter impl
-            committer.batch.sort_by(|a, b| a.0.cmp(&b.0));
-            for (key, maybe_value) in committer.batch {
-                if let Some(value) = maybe_value {
-                    batch.put(key, value)?;
-                } else {
-                    batch.delete(key)?;
-                }
+        // TODO: move this to MerkCommitter impl?
+        for key in deleted_keys {
+            to_batch.push((key, None));
+        }
+        to_batch.sort_by(|a, b| a.0.cmp(&b.0));
+        for (key, maybe_value) in to_batch {
+            if let Some(value) = maybe_value {
+                batch.put(key, value)?;
+            } else {
+                batch.delete(key)?;
             }
-
-            // update pointer to root node
-            batch.put_cf(internal_cf, ROOT_KEY_KEY, tree.key())?;
-        } else {
-            // empty tree, delete pointer to root
-            batch.delete_cf(internal_cf, ROOT_KEY_KEY)?;
         }
 
-        let aux_cf = self.db.cf_handle("aux").unwrap();
         for (key, value) in aux {
             match value {
                 Op::Put(value) => batch.put_cf(aux_cf, key, value)?,
@@ -289,8 +297,18 @@ impl Merk {
         MerkSource { db: &self.db }
     }
 
-    fn tree(&self) -> Option<&Tree> {
-        self.tree.as_ref()
+    fn use_tree<T>(&self, mut f: impl FnMut(Option<&Tree>) -> T) -> T {
+        let tree = self.tree.take();
+        let res = f(tree.as_ref());
+        self.tree.set(tree);
+        res
+    }
+
+    fn use_tree_mut<T>(&self, mut f: impl FnMut(Option<&mut Tree>) -> T) -> T {
+        let mut tree = self.tree.take();
+        let res = f(tree.as_mut());
+        self.tree.set(tree);
+        res
     }
 }
 
@@ -365,7 +383,14 @@ mod test {
     use crate::test_utils::*;
     use crate::Op;
 
-// TODO: Close and then reopen test
+    // TODO: Close and then reopen test
+
+    fn assert_invariants(merk: &TempMerk) {
+        merk.use_tree(|maybe_tree| {
+            let tree = maybe_tree.expect("expected tree");
+            assert_tree_invariants(tree);
+        })
+    }
 
     #[test]
     fn simple_insert_apply() {
@@ -377,7 +402,7 @@ mod test {
         let batch = make_batch_seq(0..batch_size);
         merk.apply(&batch, &[]).expect("apply failed");
 
-        assert_tree_invariants(merk.tree().expect("expected tree"));
+        assert_invariants(&merk);
         assert_eq!(merk.root_hash(), [217, 218, 163, 74, 119, 133, 165, 247, 140, 194, 85, 70, 28, 33, 61, 148, 118, 231, 134, 111]);
     }
 
@@ -390,11 +415,11 @@ mod test {
 
         let batch = make_batch_seq(0..batch_size);
         merk.apply(&batch, &[]).expect("apply failed");
-        assert_tree_invariants(merk.tree().expect("expected tree"));
+        assert_invariants(&merk);
 
         let batch = make_batch_seq(batch_size..(batch_size*2));
         merk.apply(&batch, &[]).expect("apply failed");
-        assert_tree_invariants(merk.tree().expect("expected tree"));
+        assert_invariants(&merk);
     }
 
     #[test]
