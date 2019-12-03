@@ -241,8 +241,8 @@ mod test {
         assert_eq!(tree.value(), &[1]);
         if let Some(Link::Pruned { key, child_heights, hash }) = tree.link(true) {
             assert_eq!(key, &[2]);
-            assert_eq!(*child_heights, (123 as u8, 124 as u8));
-            assert_eq!(hash, &[66; 20]);
+            assert_eq!(child_heights, &(123 as u8, 124 as u8));
+            assert_eq!(hash, &[66 as u8; 20]);
         } else {
             panic!("Expected Link::Pruned");
         }

@@ -1,5 +1,7 @@
 use std::convert::TryInto;
 
+use failure::bail;
+
 use super::{Op, Node};
 use crate::tree::HASH_LENGTH;
 use crate::error::Result;

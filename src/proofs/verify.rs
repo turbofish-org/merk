@@ -1,3 +1,4 @@
+use failure::bail;
 use super::{Op, Node};
 use crate::tree::{NULL_HASH, Hash, kv_hash, node_hash};
 use crate::error::Result;

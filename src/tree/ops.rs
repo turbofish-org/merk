@@ -1,5 +1,6 @@
 use std::collections::LinkedList;
 use std::fmt;
+use failure::bail;
 use crate::error::Result;
 use super::{Tree, Link, Walker, Fetch};
 use Op::*;

@@ -11,6 +11,8 @@ mod fuzz_tests;
 
 use std::cmp::max;
 
+use failure::bail;
+
 pub use walk::{Walker, RefWalker, Fetch};
 use super::error::Result;
 pub use commit::{Commit, NoopCommit};

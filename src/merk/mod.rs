@@ -2,6 +2,7 @@ use std::cell::Cell;
 use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
+use failure::bail;
 use rocksdb::ColumnFamilyDescriptor;
 
 use crate::error::Result;
