@@ -70,6 +70,7 @@ impl Merk {
         opts.set_allow_mmap_writes(true);
         opts.set_allow_mmap_reads(true);
         opts.create_missing_column_families(true);
+        opts.set_atomic_flush(true);
         // TODO: tune
         opts
     }
@@ -493,7 +494,7 @@ mod test {
 
         merk.crash().unwrap();
 
-        assert_eq!(merk.get_aux(&[2]).unwrap(), &[2]);
+        assert_eq!(merk.get_aux(&[2]).unwrap(), Some(vec![3]));
         merk.destroy().unwrap();
     }
 } 
