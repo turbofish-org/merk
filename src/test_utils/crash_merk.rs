@@ -17,10 +17,7 @@ impl CrashMerk {
     /// Opens a `CrashMerk` at the given file path, creating a new one if it does
     /// not exist.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<CrashMerk> {
-        let mut opts = Merk::default_db_opts();
-        opts.set_max_background_flushes(0);
-
-        let merk = Merk::open_opt(&path, opts)?;
+        let merk = Merk::open(&path)?;
         let inner = Some(ManuallyDrop::new(merk));
         Ok(CrashMerk { inner, path: path.as_ref().into() })
     }
@@ -47,6 +44,10 @@ impl CrashMerk {
 
     pub fn into_inner(self) -> Merk {
         ManuallyDrop::into_inner(self.inner.unwrap())
+    }
+
+    pub fn destroy(self) -> Result<()> {
+        self.into_inner().destroy()
     }
 }
 

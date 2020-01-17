@@ -392,6 +392,7 @@ mod test {
     use std::thread;
     use crate::test_utils::*;
     use crate::Op;
+    use super::Merk;
 
     // TODO: Close and then reopen test
 
@@ -470,5 +471,29 @@ mod test {
         merk.apply(&[], &[(vec![1,2,3], Op::Put(vec![4,5,6]))]).expect("apply failed");
         let val = merk.get_aux(&[1,2,3]).unwrap();
         assert_eq!(val, Some(vec![4,5,6]));
+    }
+
+    #[test]
+    fn simulated_crash() {
+        let path = thread::current().name().unwrap().to_owned();
+        let mut merk = CrashMerk::open(path).expect("failed to open merk");
+
+        merk.apply(
+            &[(vec![0], Op::Put(vec![1]))],
+            &[(vec![2], Op::Put(vec![3]))]
+        ).expect("apply failed");
+
+        // make enough changes so that main column family gets auto-flushed
+        for i in 0..250 {
+            merk.apply(
+                &make_batch_seq(i * 2_000..(i + 1) * 2_000),
+                &[]
+            ).expect("apply failed");
+        }
+
+        merk.crash().unwrap();
+
+        assert_eq!(merk.get_aux(&[2]).unwrap(), &[2]);
+        merk.destroy().unwrap();
     }
 } 
