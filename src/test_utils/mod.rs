@@ -1,3 +1,4 @@
+mod crash_merk;
 mod temp_merk;
 
 use std::ops::Range;
@@ -14,6 +15,7 @@ use crate::tree::{
     BatchEntry
 };
 
+pub use crash_merk::CrashMerk;
 pub use temp_merk::TempMerk;
 
 pub fn assert_tree_invariants(tree: &Tree) {
