@@ -33,12 +33,21 @@ impl Merk {
     /// Opens a store with the specified file path. If no store exists at that
     /// path, one will be created.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Merk> {
-        let db_opts = default_db_opts();
+        let db_opts = Merk::default_db_opts();
+        Merk::open_opt(path, db_opts)
+    }
+
+    /// Opens a store with the specified file path and the given options. If no
+    /// store exists at that path, one will be created.
+    pub fn open_opt<P>(path: P, db_opts: rocksdb::Options) -> Result<Merk>
+        where P: AsRef<Path>
+    {
         let mut path_buf = PathBuf::new();
         path_buf.push(path);
         let cfs = vec![
-            ColumnFamilyDescriptor::new("aux", default_db_opts()),
-            ColumnFamilyDescriptor::new("internal", default_db_opts())
+            // TODO: clone opts or take args
+            ColumnFamilyDescriptor::new("aux", Merk::default_db_opts()),
+            ColumnFamilyDescriptor::new("internal", Merk::default_db_opts())
         ];
         let db = rocksdb::DB::open_cf_descriptors(&db_opts, &path_buf, cfs)?;
 
@@ -51,6 +60,18 @@ impl Merk {
         let tree = Cell::new(tree);
 
         Ok(Merk { tree, db, path: path_buf })
+    }
+
+    pub fn default_db_opts() -> rocksdb::Options {
+        let mut opts = rocksdb::Options::default();
+        opts.create_if_missing(true);
+        opts.increase_parallelism(num_cpus::get() as i32);
+        // opts.set_advise_random_on_open(false);
+        opts.set_allow_mmap_writes(true);
+        opts.set_allow_mmap_reads(true);
+        opts.create_missing_column_families(true);
+        // TODO: tune
+        opts
     }
 
     /// Gets an auxiliary value. 
@@ -173,7 +194,7 @@ impl Merk {
 
     /// Closes the store and deletes all data from disk.
     pub fn destroy(self) -> Result<()> {
-        let opts = default_db_opts();
+        let opts = Merk::default_db_opts();
         let path = self.path.clone();
         drop(self);
         rocksdb::DB::destroy(&opts, path)?;
@@ -364,18 +385,6 @@ fn fetch_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
     } else {
         bail!("key not found: '{:?}'", key)
     }
-}
-
-fn default_db_opts() -> rocksdb::Options {
-    let mut opts = rocksdb::Options::default();
-    opts.create_if_missing(true);
-    opts.increase_parallelism(num_cpus::get() as i32);
-    // opts.set_advise_random_on_open(false);
-    opts.set_allow_mmap_writes(true);
-    opts.set_allow_mmap_reads(true);
-    opts.create_missing_column_families(true);
-    // TODO: tune
-    opts
 }
 
 #[cfg(test)]
