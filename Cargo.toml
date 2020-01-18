@@ -27,3 +27,4 @@ features = ["small_rng"]
 git = "https://github.com/mappum/rust-rocksdb"
 branch = "atomic_flush"
 default-features = false
+
