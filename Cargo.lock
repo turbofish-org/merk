@@ -325,9 +325,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "librocksdb-sys"
+name = "log"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14b6052be84e6b71ab17edffc2eeabf5c2c3ae1fdb464aae35ac50c67a44e1f7"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
+name = "mappum-librocksdb-sys"
 version = "6.7.0-alpha.1"
-source = "git+https://github.com/mappum/rust-rocksdb?branch=atomic_flush#90e20192be5e988ab4700409a4548648bb631841"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7d5e9e6f33067e2f193d8b5afad7d4151c3f06b0b05d46d02fcf920f13e93ab"
 dependencies = [
  "bindgen",
  "cc",
@@ -336,12 +346,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "log"
-version = "0.4.8"
+name = "mappum-rocksdb"
+version = "0.14.0-alpha.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14b6052be84e6b71ab17edffc2eeabf5c2c3ae1fdb464aae35ac50c67a44e1f7"
+checksum = "831da652522ed05a25342faff4b60da63b838bcac8fd3540b52afbe8f25cd55b"
 dependencies = [
- "cfg-if",
+ "libc",
+ "mappum-librocksdb-sys",
 ]
 
 [[package]]
@@ -360,9 +371,9 @@ dependencies = [
  "failure",
  "hex",
  "jemallocator",
+ "mappum-rocksdb",
  "num_cpus",
  "rand",
- "rocksdb",
  "time",
 ]
 
@@ -520,15 +531,6 @@ name = "regex-syntax"
 version = "0.6.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e734e891f5b408a29efbf8309e656876276f49ab6a6ac208600b4419bd893d90"
-
-[[package]]
-name = "rocksdb"
-version = "0.14.0-alpha.1"
-source = "git+https://github.com/mappum/rust-rocksdb?branch=atomic_flush#90e20192be5e988ab4700409a4548648bb631841"
-dependencies = [
- "libc",
- "librocksdb-sys",
-]
 
 [[package]]
 name = "rustc-demangle"

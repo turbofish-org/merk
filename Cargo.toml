@@ -24,8 +24,7 @@ version = "0.7.0"
 features = ["small_rng"]
 
 [dependencies.rocksdb]
-git = "https://github.com/mappum/rust-rocksdb"
-branch = "atomic_flush"
+package = "mappum-rocksdb"
 version = "0.14.0-alpha.1"
 default-features = false
 
