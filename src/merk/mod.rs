@@ -316,6 +316,16 @@ impl Merk {
         Ok(())
     }
 
+    pub fn walk<T>(&self, f: impl FnOnce(Option<RefWalker<MerkSource>>) -> T) -> T {
+        let mut tree = self.tree.take();
+        let maybe_walker = tree.as_mut().map(|tree| {
+            RefWalker::new(tree, self.source())
+        });
+        let res = f(maybe_walker);
+        self.tree.set(tree);
+        res
+    }
+
     fn source(&self) -> MerkSource {
         MerkSource { db: &self.db }
     }
