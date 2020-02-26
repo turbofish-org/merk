@@ -6,7 +6,7 @@ mod error;
 /// The top-level store API.
 mod merk;
 /// The core tree data structure.
-mod tree;
+pub mod tree;
 /// Algorithms for generating and verifying Merkle proofs.
 mod proofs;
 /// Various helpers useful for tests or benchmarks.

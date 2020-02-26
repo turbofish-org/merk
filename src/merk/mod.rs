@@ -342,7 +342,7 @@ impl Drop for Merk {
 }
 
 #[derive(Clone)]
-struct MerkSource<'a> {
+pub struct MerkSource<'a> {
     db: &'a rocksdb::DB
 }
 
