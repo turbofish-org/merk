@@ -384,7 +384,7 @@ impl Commit for MerkCommitter {
 
     fn prune(&self, tree: &Tree) -> (bool, bool) {
         // keep N top levels of tree
-        let prune = (self.height - tree.height()) > self.levels;
+        let prune = (self.height - tree.height()) >= self.levels;
         (prune, prune)
     }
 }
@@ -506,5 +506,26 @@ mod test {
 
         assert_eq!(merk.get_aux(&[2]).unwrap(), Some(vec![3]));
         merk.destroy().unwrap();
+    }
+
+    #[test]
+    fn get_not_found() {
+        let path = thread::current().name().unwrap().to_owned();
+        let mut merk = TempMerk::open(path).expect("failed to open merk");
+
+        // no root
+        assert!(merk.get(&[1, 2, 3]).unwrap().is_none());
+
+        // cached
+        merk.apply(&[(vec![5, 5, 5], Op::Put(vec![]))], &[]).unwrap();
+        assert!(merk.get(&[1, 2, 3]).unwrap().is_none());
+
+        // uncached
+        merk.apply(&[
+            (vec![0, 0, 0], Op::Put(vec![])),
+            (vec![1, 1, 1], Op::Put(vec![])),
+            (vec![2, 2, 2], Op::Put(vec![]))
+        ], &[]).unwrap();
+        assert!(merk.get(&[3, 3, 3]).unwrap().is_none());
     }
 } 
