@@ -2,7 +2,7 @@ use std::cell::Cell;
 use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
-use failure::bail;
+use failure::{bail, format_err};
 use rocksdb::ColumnFamilyDescriptor;
 
 use crate::error::Result;
@@ -54,7 +54,7 @@ impl Merk {
         // try to load root node
         let internal_cf = db.cf_handle("internal").unwrap();
         let tree = match db.get_pinned_cf(internal_cf, ROOT_KEY_KEY)? {
-            Some(root_key) => Some(fetch_node(&db, &root_key)?),
+            Some(root_key) => Some(fetch_existing_node(&db, &root_key)?),
             None => None
         };
         let tree = Cell::new(tree);
@@ -113,7 +113,9 @@ impl Merk {
 
             // TODO: ignore other fields when reading from node bytes
             fetch_node(&self.db, key)
-                .map(|node| Some(node.value().to_vec()))
+                .map(|maybe_node| {
+                    maybe_node.map(|node| node.value().to_vec())
+                })
         })
     }
 
@@ -358,7 +360,7 @@ pub struct MerkSource<'a> {
 
 impl<'a> Fetch for MerkSource<'a> {
     fn fetch(&self, link: &Link) -> Result<Tree> {
-        fetch_node(&self.db, link.key())
+        fetch_existing_node(self.db, link.key())
     }
 }
 
@@ -389,12 +391,19 @@ impl Commit for MerkCommitter {
     }
 }
 
-fn fetch_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
+fn fetch_node(db: &rocksdb::DB, key: &[u8]) -> Result<Option<Tree>> {
     let bytes = db.get_pinned(key)?;
     if let Some(bytes) = bytes {
-        Tree::decode(key, &bytes)
+        Ok(Some(Tree::decode(key, &bytes)?))
     } else {
-        bail!("key not found: '{:?}'", key)
+        Ok(None)
+    }
+}
+
+fn fetch_existing_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
+    match fetch_node(db, key)? {
+        None => bail!("key not found: {:?}", key),
+        Some(node) => Ok(node)
     }
 }
 
