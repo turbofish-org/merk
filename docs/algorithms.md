@@ -142,15 +142,18 @@ Child => 0x11
 
 This results in a compact binary representation, with a very small space overhead (roughly 2 bytes per node in the proof (1 byte for the `Push` operator type flag, and 1 byte for a `Parent` or `Child` operator), plus 3 bytes per key/value pair (1 byte for the key length, and 2 bytes for the value length)).
 
-#### Efficient Proofs for Ranges of Keys
+#### Efficient Chunk Proofs for Replication
 
-An alternate, optimized proof generation can be used when generating proofs for large contiguous subtrees, e.g. chunks for tree replication. This works by iterating through keys in the backing store (which is much faster than random lookups).
+An alternate, optimized proof generation can be used when generating proofs for large contiguous subtrees, e.g. chunks for tree replication. This works by iterating sequentially through keys in the backing store (which is much faster than random lookups).
 
 Based on some early benchmarks, I estimate that typical server hardware should be able to generate this kind of range proof at a rate of hundreds of MB/s, which means the bottleneck for bulk replication will likely be bandwidth rather than CPU. To improve performance further, these proofs can be cached and trivially served by a CDN or a P2P swarm (each node of which can easily verify the chunks they pass around).
 
-Due to the tree structure we already use, key-order iteration gives us an entire valid subtree (or up to three disjoint subtrees, which will be illustrated below):
+Due to the tree structure we already use, streaming the entries in key-order gives us all the nodes to construct complete contiguous subtrees. For instance, in the diagram below, streaming from keys `1` to `7` will give us a complete subtree. This subtree can be verified to be a part of the full tree as long as we know the hash of `4`.
 
 ```
+             8
+           /   \
+        /      ...
       4
     /   \
   2       6
@@ -158,36 +161,15 @@ Due to the tree structure we already use, key-order iteration gives us an entire
 1   3   5   7
 ```
 
-Consider this simple tree, where each digit is the key of a node. If we iterated in key-order from 1 to 7, we would receive sufficient data for an entire contiguous tree. However, if we only take range 3 to 4 (inclusive), nodes 3 and 4 are disjoint and we need to fetch node 2 to join them for a valid proof.
+Our algorithm builds verifiable chunks by first constructing a chunk of the upper levels of the tree, called the *trunk chunk*, plus each subtree below that (each of which is called a *leaf chunk*).
 
-If we took range 3 to 5, we would now have 3 disjoint graphs. However, no matter the size of the tree, it is only possible to have up to 3 of these disjoint graphs, and we can always join them by traversing from the root to the edges of the range to ensure all of these "range boundary nodes" are included in the proof.
+The number of levels to include in the trunk can be chosen to control the size of the leaf nodes. For example, a tree of height 10 should have approximately 1,023 nodes. If the trunk contains the top 5 levels, the trunk and the 32 resulting leaf nodes will each contain ~31 nodes. We can even prove to the verifier the trunk size was chosen correctly by also including an approximate tree height proof, by including the branch all the way to the leftmost node of the tree (node `1` in the figure) and using this height as our basis to select the number of trunk levels.
 
-*Pseudocode for the range proof generation algorithm:*
+After the prover builds the trunk by traversing from the root node and making random lookups down to the chosen level, it can generate the leaf nodes extremely efficiently by reading the database keys sequentially as described a few paragraphs above. We can trivially detect when a chunk should end whenever a node at or above the trunk level is encountered (e.g. encountering node `8` signals we have read a complete subtree).
 
-- Given a tree and a range of keys to prove:
-  - Create a stack of keys (initially empty)
-  - **Left boundary:** traverse down from the tree root to the start of the key range:
-    - For any node visited which has a key less than the start of the range:
-      - If the node has a left child, append `Push(Hash(left_child_hash))` to the proof
-      - Append `Push(KVHash(kv_hash))` to the proof
-      - If the node has a left child, append `Parent` to the proof
-      - If the node's right child is inside the range, push the right child's key onto the key stack
-  - **Range iteration:** for every key/value entry within the query range in the backing store:
-    - If the current node has a left child which is outside the query range, append `Push(Hash(left_child_hash))` to the proof
-    - Append `Push(KV(key, value))` to the proof
-    - If the current node has a left child, append `Parent` to the proof
-    - If the current node has a right child which is inside the query range, push the right child's key onto the key stack
-    - Else:
-      - If the current node has a right child (outside the query range), append `Push(Hash(right_child_hash)), Child` to the proof
-      - While the current node's key is greater than or equal to the key at the top of the key stack, append `Child` to the proof and pop from the key stack
-  - **Right boundary:** post-order traverse from the tree root to the end of the key range:
-    - For any node visited which has a key greater than the end of the range:
-      - Append `Push(KVHash(kv_hash))` to the proof
-      - If the node has a left child, append `Parent` to the proof
-      - If the node has a right child, append `Push(Hash(right_child_hash)), Child` to the proof
-      - While the current node's key is greater than or equal to the key at the top of the key stack, append `Child` to the proof and pop from the key stack
+The generated proofs can be efficiently encoded into the same proof format described above. Verifiers only have the added constraint that none of the data should be abbridged (all nodes contain a key and value, rather than just a hash or kvhash). After first downloading and verifying the trunk, verifiers can also download leaf chunks in parallel and verify that each connects to the trunk by comparing each subtree's root hash.
 
-Note that this algorithm produces the proof in a streaming fashion and has very little memory requirements (the only overhead is the key stack, which will be small even for extremely large trees since its length is a maximum of `log N`).
+Note that this algorithm produces proofs with very little memory requirements, plus little overhead added to the sequential read from disk. In a proof-of-concept benchmark, proof generation was measured to be ~750 MB/s on a modern solid-state drive and processor, meaning a 4GB state tree (the size of the Cosmos Hub state at the time of writing) could be fully proven in ~5 seconds (without considering parallelization). In conjunction with the RocksDB checkpoint feature, this process can happen in the background without blocking the node from executing later blocks.
 
 #### Example Proofs
 
