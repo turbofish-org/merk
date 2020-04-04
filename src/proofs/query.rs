@@ -2,6 +2,7 @@ use std::collections::LinkedList;
 use crate::error::Result;
 use crate::tree::Hash;
 use super::{Op, Node, encoding::encode_into};
+use crate::tree::{Link, RefWalker, Fetch};
 
 impl Link {
     /// Creates a `Node::Hash` from this link. Panics if the link is of variant

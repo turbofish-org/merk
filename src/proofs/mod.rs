@@ -2,14 +2,14 @@ mod encoding;
 mod query;
 mod verify;
 
-use crate::tree::{Link, RefWalker, Fetch};
+use crate::tree::{Link, RefWalker, Fetch, Hash};
 
-pub(crate) use encoding::encode_into;
+pub use encoding::{encode_into, Decoder};
 pub use verify::verify;
 
 /// A proof operator, executed to verify the data in a Merkle proof.
 #[derive(Debug, PartialEq)]
-pub(crate) enum Op {
+pub enum Op {
     /// Pushes a node on the stack.
     Push(Node),
 
@@ -27,7 +27,7 @@ pub(crate) enum Op {
 /// A selected piece of data about a single tree node, to be contained in a
 /// `Push` operator in a proof.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) enum Node {
+pub enum Node {
     /// Represents the hash of a tree node.
     Hash(Hash),
 

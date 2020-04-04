@@ -9,7 +9,7 @@ use crate::error::Result;
 // TODO: Encode, Decode traits
 
 impl Op {
-    pub(crate) fn encode_into(&self, output: &mut Vec<u8>) {
+    pub fn encode_into(&self, output: &mut Vec<u8>) {
         match self {
             Op::Push(Node::Hash(hash)) => {
                 output.push(0x01);
@@ -32,7 +32,7 @@ impl Op {
         }
     }
 
-    pub(crate) fn encoding_length(&self) -> usize {
+    pub fn encoding_length(&self) -> usize {
         match self {
             Op::Push(Node::Hash(_)) => 1 + HASH_LENGTH,
             Op::Push(Node::KVHash(_)) => 1 + HASH_LENGTH,
@@ -42,7 +42,7 @@ impl Op {
         }
     }
 
-    pub(crate) fn decode(bytes: &[u8]) -> Result<Self> {
+    pub fn decode(bytes: &[u8]) -> Result<Self> {
         Ok(match bytes[0] {
             0x01 => {
                 let mut hash = [0; HASH_LENGTH];
@@ -78,14 +78,45 @@ impl Op {
     }
 }
 
-pub(crate) fn encode_into<'a, T: Iterator<Item=&'a Op>>(ops: T, output: &mut Vec<u8>) {
+pub fn encode_into<'a, T: Iterator<Item=&'a Op>>(ops: T, output: &mut Vec<u8>) {
     for op in ops {
         op.encode_into(output);
     }
 }
 
-pub(crate) fn encoding_length<'a, T: Iterator<Item=&'a Op>>(ops: T) -> usize {
+pub fn encoding_length<'a, T: Iterator<Item=&'a Op>>(ops: T) -> usize {
     ops.map(|op| op.encoding_length()).sum()
+}
+
+pub struct Decoder<'a> {
+    offset: usize,
+    bytes: &'a [u8]
+}
+
+impl<'a> Decoder<'a> {
+    pub fn new(proof_bytes: &'a [u8]) -> Self {
+        Decoder {
+            offset: 0,
+            bytes: proof_bytes
+        }
+    }
+}
+
+impl<'a> Iterator for Decoder<'a> {
+    type Item = Result<Op>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.offset >= self.bytes.len() {
+            return None;
+        }
+
+        Some((|| {
+            let bytes = &self.bytes[self.offset..];
+            let op = Op::decode(bytes)?;
+            self.offset += op.encoding_length();
+            Ok(op)
+        })())
+    }
 }
 
 #[cfg(test)]

@@ -1,5 +1,5 @@
 use failure::bail;
-use super::{Op, Node};
+use super::{Op, Node, Decoder};
 use crate::tree::{NULL_HASH, Hash, kv_hash, node_hash};
 use crate::error::Result;
 
@@ -121,16 +121,8 @@ pub fn verify(
         }
     };
 
-    let mut offset = 0;
-    loop {
-        if bytes.len() <= offset {
-            break;
-        }
-
-        let op = Op::decode(&bytes[offset..])?;
-        offset += op.encoding_length();
-
-        match op {
+    for op in Decoder::new(bytes) {
+        match op? {
             Op::Parent => {
                 let (mut parent, child) = (
                     try_pop(&mut stack)?,
