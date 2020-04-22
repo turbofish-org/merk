@@ -24,7 +24,6 @@ version = "0.7.0"
 features = ["small_rng"]
 
 [dependencies.rocksdb]
-package = "mappum-rocksdb"
-version = "0.14.0-alpha.1"
+version = "0.14.0"
 default-features = false
 

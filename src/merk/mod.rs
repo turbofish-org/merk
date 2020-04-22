@@ -278,12 +278,12 @@ impl Merk {
                 tree.commit(&mut committer)?;
 
                 // update pointer to root node
-                batch.put_cf(internal_cf, ROOT_KEY_KEY, tree.key())?;
+                batch.put_cf(internal_cf, ROOT_KEY_KEY, tree.key());
 
                 Ok(committer.batch)
             } else {
                 // empty tree, delete pointer to root
-                batch.delete_cf(internal_cf, ROOT_KEY_KEY)?;
+                batch.delete_cf(internal_cf, ROOT_KEY_KEY);
 
                 Ok(vec![])
             }
@@ -296,16 +296,16 @@ impl Merk {
         to_batch.sort_by(|a, b| a.0.cmp(&b.0));
         for (key, maybe_value) in to_batch {
             if let Some(value) = maybe_value {
-                batch.put(key, value)?;
+                batch.put(key, value);
             } else {
-                batch.delete(key)?;
+                batch.delete(key);
             }
         }
 
         for (key, value) in aux {
             match value {
-                Op::Put(value) => batch.put_cf(aux_cf, key, value)?,
-                Op::Delete => batch.delete_cf(aux_cf, key)?
+                Op::Put(value) => batch.put_cf(aux_cf, key, value),
+                Op::Delete => batch.delete_cf(aux_cf, key)
             };
         }
 
