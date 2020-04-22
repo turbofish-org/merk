@@ -46,7 +46,9 @@ merk.apply(&batch).unwrap();
 
 ## Status
 
-Merk is intended to be used in production soon in [LotionJS](https://github.com/nomic-io/lotion).
+Merk is being used in the [Nomic](https://github.com/nomic-io/nomic) Bitcoin Sidechain.
+
+The codebase has not been audited but has been throroughly tested and proves to be stable.
 
 ## Benchmarks
 
