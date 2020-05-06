@@ -312,7 +312,7 @@ impl Merk {
         // write to db
         let mut opts = rocksdb::WriteOptions::default();
         opts.set_sync(false);
-        opts.disable_wal(true);
+        // TODO: disable WAL once we can ensure consistency with transactions
         self.db.write_opt(batch, &opts)?;
 
         Ok(())
