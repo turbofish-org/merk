@@ -1,45 +1,63 @@
 use std::convert::TryInto;
+use std::io::{Read, Write};
 
+use ed::{Encode, Decode};
 use failure::bail;
 
 use super::{Op, Node};
 use crate::tree::HASH_LENGTH;
 use crate::error::Result;
 
-// TODO: Encode, Decode traits
-
-impl Op {
-    pub fn encode_into(&self, output: &mut Vec<u8>) {
+impl Encode for Op {
+    fn encode_into<W: Write>(&self, dest: &mut W) -> ed::Result<()> {
         match self {
             Op::Push(Node::Hash(hash)) => {
-                output.push(0x01);
-                output.extend(hash);
+                dest.write_all(&[ 0x01 ])?;
+                dest.write_all(hash)?;
             },
             Op::Push(Node::KVHash(kv_hash)) => {
-                output.push(0x02);
-                output.extend(kv_hash);
+                dest.write_all(&[ 0x02 ])?;
+                dest.write_all(kv_hash)?;
             },
             Op::Push(Node::KV(key, value)) => {
-                output.push(0x03);
-                output.push(key.len().try_into().unwrap());
-                output.extend(key);
-                output.push((value.len() & 0xff).try_into().unwrap());
-                output.push((value.len() >> 8).try_into().unwrap());
-                output.extend(value);
+                debug_assert!(key.len() < 128);
+                debug_assert!(value.len() < 65536);
+
+                dest.write_all(&[
+                    0x03,
+                    key.len().try_into()?
+                ])?;
+                dest.write_all(key)?;
+                dest.write_all(&[
+                    (value.len() & 0xff).try_into()?,
+                    (value.len() >> 8).try_into()?
+                ])?;
+                dest.write_all(value)?;
             },
-            Op::Parent => output.push(0x10),
-            Op::Child => output.push(0x11)
-        }
+            Op::Parent => dest.write_all(&[ 0x10 ])?,
+            Op::Child => dest.write_all(&[ 0x11 ])?
+        };
+        Ok(())
     }
 
-    pub fn encoding_length(&self) -> usize {
-        match self {
+    fn encoding_length(&self) -> ed::Result<usize> {
+        Ok(match self {
             Op::Push(Node::Hash(_)) => 1 + HASH_LENGTH,
             Op::Push(Node::KVHash(_)) => 1 + HASH_LENGTH,
             Op::Push(Node::KV(key, value)) => 4 + key.len() + value.len(),
             Op::Parent => 1,
             Op::Child => 1
-        }
+        })
+    }
+}
+
+impl Op {
+    fn encode_into<W: Write>(&self, dest: &mut W) -> Result<()> {
+        Encode::encode_into(self, dest)
+    }
+
+    fn encoding_length(&self) -> usize {
+        Encode::encoding_length(self).unwrap()
     }
 
     pub fn decode(bytes: &[u8]) -> Result<Self> {
