@@ -1,3 +1,4 @@
 target
 temp.db
 .DS_Store
+Cargo.lock
