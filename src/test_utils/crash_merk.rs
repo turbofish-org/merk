@@ -72,6 +72,7 @@ mod tests {
     use crate::Op;
 
     #[test]
+    #[ignore] // currently this still works because we enabled the WAL
     fn crash() {
         let path = std::thread::current().name().unwrap().to_owned();
 
