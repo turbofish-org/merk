@@ -23,7 +23,7 @@ impl<'a, S> RefWalker<'a, S>
     where S: Fetch + Sized + Send + Clone
 {
     /// Creates a `Node::KV` from the key/value pair of the root node.
-    fn to_kv_node(&self) -> Node {
+    pub(crate) fn to_kv_node(&self) -> Node {
         Node::KV(
             self.tree().key().to_vec(),
             self.tree().value().to_vec()
@@ -32,8 +32,13 @@ impl<'a, S> RefWalker<'a, S>
 
     /// Creates a `Node::KVHash` from the hash of the key/value pair of the root
     /// node.
-    fn to_kvhash_node(&self) -> Node {
+    pub(crate) fn to_kvhash_node(&self) -> Node {
         Node::KVHash(*self.tree().kv_hash())
+    }
+
+    /// Creates a `Node::Hash` from the hash of the node.
+    pub(crate) fn to_hash_node(&self) -> Node {
+        Node::Hash(self.tree().hash())
     }
 
     /// Generates a proof for the list of queried keys. Returns a tuple

@@ -1,3 +1,4 @@
+mod chunk;
 mod encoding;
 mod query;
 mod verify;
