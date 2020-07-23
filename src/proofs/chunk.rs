@@ -7,7 +7,8 @@ impl<'a, S> RefWalker<'a, S>
     where S: Fetch + Sized + Send + Clone
 {
     fn create_trunk_proof(&mut self) -> Result<Vec<Op>> {
-        let mut proof = Vec::new(); // give vec a capacity
+        let approx_size = 2u8.pow((self.tree().height() / 2) as u32);
+        let mut proof = Vec::with_capacity(approx_size as usize);
 
         let trunk_height = self.traverse_for_height_proof(&mut proof, 1)?;
         self.traverse_for_trunk(&mut proof, 1, trunk_height, true)?;
