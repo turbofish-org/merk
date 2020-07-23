@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 use std::io::{Read, Write};
 
-use ed::{Encode, Decode};
+use ed::{Encode, Decode, Terminated};
 use failure::bail;
 
 use super::{Op, Node};
@@ -82,6 +82,8 @@ impl Decode for Op {
         })
     }
 }
+
+impl Terminated for Op {}
 
 impl Op {
     fn encode_into<W: Write>(&self, dest: &mut W) -> Result<()> {
