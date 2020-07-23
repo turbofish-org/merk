@@ -22,21 +22,25 @@ impl<'a, S> RefWalker<'a, S>
         proof: &mut Vec<Op>,
         depth: u8
     ) -> Result<u8> {
-        let mut maybe_child = self.walk(true)?;
-        let has_left_child = maybe_child.is_some();
+        let mut maybe_left = self.walk(true)?;
+        let has_left_child = maybe_left.is_some();
 
-        let trunk_height = if let Some(mut child) = maybe_child {
-            child.traverse_for_height_proof(proof, depth + 1)?
+        let trunk_height = if let Some(mut left) = maybe_left {
+            left.traverse_for_height_proof(proof, depth + 1)?
         } else {
             depth / 2
         };
 
         if depth > trunk_height {
-            // only inlcude hash, this node just proves height
-            proof.push(Op::Push(self.to_hash_node()));
+            proof.push(Op::Push(self.to_kvhash_node()));
 
             if has_left_child {
                 proof.push(Op::Parent);
+            }
+
+            if let Some(mut right) = self.walk(false)? {
+                proof.push(Op::Push(right.to_hash_node()));
+                proof.push(Op::Child);
             }
         }
 
