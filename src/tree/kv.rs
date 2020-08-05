@@ -1,4 +1,6 @@
-use super::hash::{Hash, kv_hash};
+use super::hash::{kv_hash, Hash, HASH_LENGTH, NULL_HASH};
+use ed::{Decode, Encode, Result};
+use std::io::{Read, Write};
 
 // TODO: maybe use something similar to Vec but without capacity field,
 //       (should save 16 bytes per entry). also, maybe a shorter length
@@ -9,7 +11,7 @@ use super::hash::{Hash, kv_hash};
 pub struct KV {
     key: Vec<u8>,
     value: Vec<u8>,
-    hash: Hash
+    hash: Hash,
 }
 
 impl KV {
@@ -43,7 +45,7 @@ impl KV {
     pub fn key(&self) -> &[u8] {
         self.key.as_slice()
     }
-    
+
     /// Returns the value as a slice.
     #[inline]
     pub fn value(&self) -> &[u8] {
@@ -63,6 +65,53 @@ impl KV {
     }
 }
 
+impl Encode for KV {
+    #[inline]
+    fn encode_into<W: Write>(&self, out: &mut W) -> Result<()> {
+        out.write_all(&self.hash[..]);
+        out.write_all(&self.value.as_slice());
+        Ok(())
+    }
+
+    #[inline]
+    fn encoding_length(&self) -> Result<usize> {
+        debug_assert!(self.key().len() < 256, "Key length must be less than 256");
+        Ok(HASH_LENGTH + self.value.len())
+    }
+}
+
+impl Decode for KV {
+    #[inline]
+    fn decode<R: Read>(input: R) -> Result<Self> {
+        let mut kv = KV {
+            key: Vec::with_capacity(0),
+            value: Vec::with_capacity(128),
+            hash: NULL_HASH,
+        };
+        KV::decode_into(&mut kv, input)?;
+        Ok(kv)
+    }
+
+    #[inline]
+    fn decode_into<R: Read>(&mut self, mut input: R) -> Result<()> {
+        self.key.clear();
+
+        input.read_exact(&mut self.hash[..])?;
+
+        self.value.clear();
+        input.read_to_end(self.value.as_mut())?;
+
+        Ok(())
+    }
+}
+
+#[inline]
+fn read_u8<R: Read>(mut input: R) -> Result<u8> {
+    let mut length = [0];
+    input.read_exact(length.as_mut())?;
+    Ok(length[0])
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -78,8 +127,7 @@ mod test {
 
     #[test]
     fn with_value() {
-        let kv = KV::new(vec![1, 2, 3], vec![4, 5, 6])
-            .with_value(vec![7, 8, 9]);
+        let kv = KV::new(vec![1, 2, 3], vec![4, 5, 6]).with_value(vec![7, 8, 9]);
 
         assert_eq!(kv.key(), &[1, 2, 3]);
         assert_eq!(kv.value(), &[7, 8, 9]);
