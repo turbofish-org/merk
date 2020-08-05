@@ -6,19 +6,8 @@ use failure::{bail, format_err};
 use rocksdb::ColumnFamilyDescriptor;
 
 use crate::error::Result;
-use crate::tree::{
-    Tree,
-    Op,
-    Link,
-    Fetch,
-    Walker,
-    RefWalker,
-    Commit,
-    Batch,
-    Hash,
-    NULL_HASH
-};
 use crate::proofs::encode_into;
+use crate::tree::{Batch, Commit, Fetch, Hash, Link, Op, RefWalker, Tree, Walker, NULL_HASH};
 
 const ROOT_KEY_KEY: [u8; 4] = *b"root";
 
@@ -26,7 +15,7 @@ const ROOT_KEY_KEY: [u8; 4] = *b"root";
 pub struct Merk {
     tree: Cell<Option<Tree>>,
     db: rocksdb::DB,
-    path: PathBuf
+    path: PathBuf,
 }
 
 impl Merk {
@@ -40,14 +29,15 @@ impl Merk {
     /// Opens a store with the specified file path and the given options. If no
     /// store exists at that path, one will be created.
     pub fn open_opt<P>(path: P, db_opts: rocksdb::Options) -> Result<Merk>
-        where P: AsRef<Path>
+    where
+        P: AsRef<Path>,
     {
         let mut path_buf = PathBuf::new();
         path_buf.push(path);
         let cfs = vec![
             // TODO: clone opts or take args
             ColumnFamilyDescriptor::new("aux", Merk::default_db_opts()),
-            ColumnFamilyDescriptor::new("internal", Merk::default_db_opts())
+            ColumnFamilyDescriptor::new("internal", Merk::default_db_opts()),
         ];
         let db = rocksdb::DB::open_cf_descriptors(&db_opts, &path_buf, cfs)?;
 
@@ -55,11 +45,15 @@ impl Merk {
         let internal_cf = db.cf_handle("internal").unwrap();
         let tree = match db.get_pinned_cf(internal_cf, ROOT_KEY_KEY)? {
             Some(root_key) => Some(fetch_existing_node(&db, &root_key)?),
-            None => None
+            None => None,
         };
         let tree = Cell::new(tree);
 
-        Ok(Merk { tree, db, path: path_buf })
+        Ok(Merk {
+            tree,
+            db,
+            path: path_buf,
+        })
     }
 
     pub fn default_db_opts() -> rocksdb::Options {
@@ -75,7 +69,7 @@ impl Merk {
         opts
     }
 
-    /// Gets an auxiliary value. 
+    /// Gets an auxiliary value.
     pub fn get_aux(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let aux_cf = self.db.cf_handle("aux");
         Ok(self.db.get_cf(aux_cf.unwrap(), key)?)
@@ -90,7 +84,7 @@ impl Merk {
         self.use_tree(|maybe_tree| {
             let mut cursor = match maybe_tree {
                 None => return Ok(None), // empty tree
-                Some(tree) => tree
+                Some(tree) => tree,
             };
 
             loop {
@@ -101,21 +95,18 @@ impl Merk {
                 let left = key < cursor.key();
                 let link = match cursor.link(left) {
                     None => return Ok(None), // not found
-                    Some(link) => link
+                    Some(link) => link,
                 };
 
                 let maybe_child = link.tree();
                 match maybe_child {
-                    None => break, // value is pruned, fall back to fetching from disk
-                    Some(child) => cursor = child // traverse to child
+                    None => break,                 // value is pruned, fall back to fetching from disk
+                    Some(child) => cursor = child, // traverse to child
                 }
             }
 
             // TODO: ignore other fields when reading from node bytes
-            fetch_node(&self.db, key)
-                .map(|maybe_node| {
-                    maybe_node.map(|node| node.value().to_vec())
-                })
+            fetch_node(&self.db, key).map(|maybe_node| maybe_node.map(|node| node.value().to_vec()))
         })
     }
 
@@ -137,7 +128,7 @@ impl Merk {
     /// ```
     /// # let mut store = merk::test_utils::TempMerk::new().unwrap();
     /// # store.apply(&[(vec![4,5,6], Op::Put(vec![0]))], &[]).unwrap();
-    /// 
+    ///
     /// use merk::Op;
     ///
     /// let batch = &[
@@ -163,7 +154,6 @@ impl Merk {
         unsafe { self.apply_unchecked(batch, aux) }
     }
 
-
     /// Applies a batch of operations (puts and deletes) to the tree.
     ///
     /// This is unsafe because the keys in `batch` must be sorted and unique -
@@ -175,7 +165,7 @@ impl Merk {
     /// ```
     /// # let mut store = merk::test_utils::TempMerk::new().unwrap();
     /// # store.apply(&[(vec![4,5,6], Op::Put(vec![0]))], &[]).unwrap();
-    /// 
+    ///
     /// use merk::Op;
     ///
     /// let batch = &[
@@ -185,7 +175,10 @@ impl Merk {
     /// unsafe { store.apply_unchecked(batch, &[]).unwrap() };
     /// ```
     pub unsafe fn apply_unchecked(&mut self, batch: &Batch, aux: &Batch) -> Result<()> {
-        let maybe_walker = self.tree.take().take()
+        let maybe_walker = self
+            .tree
+            .take()
+            .take()
             .map(|tree| Walker::new(tree, self.source()));
 
         let (maybe_tree, deleted_keys) = Walker::apply_to(maybe_walker, batch)?;
@@ -249,7 +242,7 @@ impl Merk {
         self.use_tree_mut(|maybe_tree| {
             let tree = match maybe_tree {
                 None => bail!("Cannot create proof for empty tree"),
-                Some(tree) => tree
+                Some(tree) => tree,
             };
 
             let mut ref_walker = RefWalker::new(tree, self.source());
@@ -270,24 +263,25 @@ impl Merk {
         let aux_cf = self.db.cf_handle("aux").unwrap();
 
         let mut batch = rocksdb::WriteBatch::default();
-        let mut to_batch = self.use_tree_mut(|maybe_tree| -> Result<Vec<(Vec<u8>, Option<Vec<u8>>)>> {
-            // TODO: concurrent commit
-            if let Some(tree) = maybe_tree {
-                // TODO: configurable committer
-                let mut committer = MerkCommitter::new(tree.height(), 1);
-                tree.commit(&mut committer)?;
+        let mut to_batch =
+            self.use_tree_mut(|maybe_tree| -> Result<Vec<(Vec<u8>, Option<Vec<u8>>)>> {
+                // TODO: concurrent commit
+                if let Some(tree) = maybe_tree {
+                    // TODO: configurable committer
+                    let mut committer = MerkCommitter::new(tree.height(), 1);
+                    tree.commit(&mut committer)?;
 
-                // update pointer to root node
-                batch.put_cf(internal_cf, ROOT_KEY_KEY, tree.key());
+                    // update pointer to root node
+                    batch.put_cf(internal_cf, ROOT_KEY_KEY, tree.key());
 
-                Ok(committer.batch)
-            } else {
-                // empty tree, delete pointer to root
-                batch.delete_cf(internal_cf, ROOT_KEY_KEY);
+                    Ok(committer.batch)
+                } else {
+                    // empty tree, delete pointer to root
+                    batch.delete_cf(internal_cf, ROOT_KEY_KEY);
 
-                Ok(vec![])
-            }
-        })?;
+                    Ok(vec![])
+                }
+            })?;
 
         // TODO: move this to MerkCommitter impl?
         for key in deleted_keys {
@@ -305,7 +299,7 @@ impl Merk {
         for (key, value) in aux {
             match value {
                 Op::Put(value) => batch.put_cf(aux_cf, key, value),
-                Op::Delete => batch.delete_cf(aux_cf, key)
+                Op::Delete => batch.delete_cf(aux_cf, key),
             };
         }
 
@@ -320,9 +314,9 @@ impl Merk {
 
     pub fn walk<T>(&self, f: impl FnOnce(Option<RefWalker<MerkSource>>) -> T) -> T {
         let mut tree = self.tree.take();
-        let maybe_walker = tree.as_mut().map(|tree| {
-            RefWalker::new(tree, self.source())
-        });
+        let maybe_walker = tree
+            .as_mut()
+            .map(|tree| RefWalker::new(tree, self.source()));
         let res = f(maybe_walker);
         self.tree.set(tree);
         res
@@ -360,7 +354,7 @@ impl Drop for Merk {
 
 #[derive(Clone)]
 pub struct MerkSource<'a> {
-    db: &'a rocksdb::DB
+    db: &'a rocksdb::DB,
 }
 
 impl<'a> Fetch for MerkSource<'a> {
@@ -372,12 +366,16 @@ impl<'a> Fetch for MerkSource<'a> {
 struct MerkCommitter {
     batch: Vec<(Vec<u8>, Option<Vec<u8>>)>,
     height: u8,
-    levels: u8
+    levels: u8,
 }
 
 impl MerkCommitter {
     fn new(height: u8, levels: u8) -> Self {
-        MerkCommitter { batch: Vec::with_capacity(10000), height, levels }
+        MerkCommitter {
+            batch: Vec::with_capacity(10000),
+            height,
+            levels,
+        }
     }
 }
 
@@ -399,7 +397,7 @@ impl Commit for MerkCommitter {
 fn fetch_node(db: &rocksdb::DB, key: &[u8]) -> Result<Option<Tree>> {
     let bytes = db.get_pinned(key)?;
     if let Some(bytes) = bytes {
-        Ok(Some(Tree::decode(key, &bytes)?))
+        Ok(Some(Tree::decode(key.to_vec(), &bytes)))
     } else {
         Ok(None)
     }
@@ -408,16 +406,16 @@ fn fetch_node(db: &rocksdb::DB, key: &[u8]) -> Result<Option<Tree>> {
 fn fetch_existing_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
     match fetch_node(db, key)? {
         None => bail!("key not found: {:?}", key),
-        Some(node) => Ok(node)
+        Some(node) => Ok(node),
     }
 }
 
 #[cfg(test)]
 mod test {
-    use std::thread;
+    use super::Merk;
     use crate::test_utils::*;
     use crate::Op;
-    use super::Merk;
+    use std::thread;
 
     // TODO: Close and then reopen test
 
@@ -439,7 +437,13 @@ mod test {
         merk.apply(&batch, &[]).expect("apply failed");
 
         assert_invariants(&merk);
-        assert_eq!(merk.root_hash(), [217, 218, 163, 74, 119, 133, 165, 247, 140, 194, 85, 70, 28, 33, 61, 148, 118, 231, 134, 111]);
+        assert_eq!(
+            merk.root_hash(),
+            [
+                217, 218, 163, 74, 119, 133, 165, 247, 140, 194, 85, 70, 28, 33, 61, 148, 118, 231,
+                134, 111
+            ]
+        );
     }
 
     #[test]
@@ -453,7 +457,7 @@ mod test {
         merk.apply(&batch, &[]).expect("apply failed");
         assert_invariants(&merk);
 
-        let batch = make_batch_seq(batch_size..(batch_size*2));
+        let batch = make_batch_seq(batch_size..(batch_size * 2));
         merk.apply(&batch, &[]).expect("apply failed");
         assert_invariants(&merk);
     }
@@ -470,7 +474,6 @@ mod test {
             println!("i:{}", i);
             let batch = make_batch_rand(batch_size, i);
             merk.apply(&batch, &[]).expect("apply failed");
-
         }
     }
 
@@ -483,7 +486,7 @@ mod test {
         merk.apply(&batch, &[]).expect("apply failed");
 
         let key = batch.first().unwrap().0.clone();
-        merk.apply(&[ (key.clone(), Op::Delete) ], &[]).unwrap();
+        merk.apply(&[(key.clone(), Op::Delete)], &[]).unwrap();
 
         let value = merk.db.get(key.as_slice()).unwrap();
         assert!(value.is_none());
@@ -493,9 +496,10 @@ mod test {
     fn aux_data() {
         let path = thread::current().name().unwrap().to_owned();
         let mut merk = TempMerk::open(path).expect("failed to open merk");
-        merk.apply(&[], &[(vec![1,2,3], Op::Put(vec![4,5,6]))]).expect("apply failed");
-        let val = merk.get_aux(&[1,2,3]).unwrap();
-        assert_eq!(val, Some(vec![4,5,6]));
+        merk.apply(&[], &[(vec![1, 2, 3], Op::Put(vec![4, 5, 6]))])
+            .expect("apply failed");
+        let val = merk.get_aux(&[1, 2, 3]).unwrap();
+        assert_eq!(val, Some(vec![4, 5, 6]));
     }
 
     #[test]
@@ -505,15 +509,14 @@ mod test {
 
         merk.apply(
             &[(vec![0], Op::Put(vec![1]))],
-            &[(vec![2], Op::Put(vec![3]))]
-        ).expect("apply failed");
+            &[(vec![2], Op::Put(vec![3]))],
+        )
+        .expect("apply failed");
 
         // make enough changes so that main column family gets auto-flushed
         for i in 0..250 {
-            merk.apply(
-                &make_batch_seq(i * 2_000..(i + 1) * 2_000),
-                &[]
-            ).expect("apply failed");
+            merk.apply(&make_batch_seq(i * 2_000..(i + 1) * 2_000), &[])
+                .expect("apply failed");
         }
 
         merk.crash().unwrap();
@@ -531,15 +534,20 @@ mod test {
         assert!(merk.get(&[1, 2, 3]).unwrap().is_none());
 
         // cached
-        merk.apply(&[(vec![5, 5, 5], Op::Put(vec![]))], &[]).unwrap();
+        merk.apply(&[(vec![5, 5, 5], Op::Put(vec![]))], &[])
+            .unwrap();
         assert!(merk.get(&[1, 2, 3]).unwrap().is_none());
 
         // uncached
-        merk.apply(&[
-            (vec![0, 0, 0], Op::Put(vec![])),
-            (vec![1, 1, 1], Op::Put(vec![])),
-            (vec![2, 2, 2], Op::Put(vec![]))
-        ], &[]).unwrap();
+        merk.apply(
+            &[
+                (vec![0, 0, 0], Op::Put(vec![])),
+                (vec![1, 1, 1], Op::Put(vec![])),
+                (vec![2, 2, 2], Op::Put(vec![])),
+            ],
+            &[],
+        )
+        .unwrap();
         assert!(merk.get(&[3, 3, 3]).unwrap().is_none());
     }
-} 
+}

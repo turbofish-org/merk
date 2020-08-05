@@ -9,9 +9,9 @@ use std::io::{Read, Write};
 
 /// Contains a key/value pair, and the hash of the key/value pair.
 pub struct KV {
-    key: Vec<u8>,
-    value: Vec<u8>,
-    hash: Hash,
+    pub(super) key: Vec<u8>,
+    pub(super) value: Vec<u8>,
+    pub(super) hash: Hash,
 }
 
 impl KV {
