@@ -55,13 +55,27 @@ where
     ) -> Result<()> {
         if depth == trunk_height {
             // return early if we have reached bottom of trunk
+
+            // connect to hash of left child
+            // for leftmost node, we already have height proof
+            if !is_leftmost {
+                if let Some(left_child) = self.tree().link(true) {
+                    proof.push(Op::Push(Node::Hash(*left_child.hash())));
+                }
+            }
+
+            // add this node's data
             proof.push(Op::Push(self.to_kv_node()));
 
-            // connect to height proof, if there is one and this node is
-            // the leftmost node of the trunk
-            let has_left_child = self.tree().link(true).is_some();
-            if is_leftmost && has_left_child {
+            // add parent op to connect left child
+            if let Some(_) = self.tree().link(true) {
                 proof.push(Op::Parent);
+            }
+
+            // connect to hash of right child
+            if let Some(right_child) = self.tree().link(false) {
+                proof.push(Op::Push(Node::Hash(*right_child.hash())));
+                proof.push(Op::Child);
             }
 
             return Ok(());
