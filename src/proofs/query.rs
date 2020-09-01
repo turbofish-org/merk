@@ -1,7 +1,121 @@
 use super::{Node, Op};
+use std::collections::{LinkedList, BTreeSet};
+use std::ops::{Range, RangeInclusive, RangeBounds, Bound};
+use std::cmp::{Ordering, min, max};
 use crate::error::Result;
 use crate::tree::{Fetch, Link, RefWalker};
 use std::collections::LinkedList;
+
+#[derive(Default)]
+pub struct Query {
+    items: BTreeSet<QueryItem>
+}
+
+impl Query {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn insert_key(&mut self, key: Vec<u8>) {
+        let key = QueryItem::Key(key);
+        self.items.insert(key);
+    }
+
+    pub fn insert_range(&mut self, range: Range<Vec<u8>>) {
+        let range = QueryItem::Range(range);
+        self.merge_or_insert(range);
+    }
+
+    pub fn insert_range_inclusive(&mut self, range: RangeInclusive<Vec<u8>>) {
+        let range = QueryItem::RangeInclusive(range);
+        self.merge_or_insert(range);
+    }
+
+    fn merge_or_insert(&mut self, mut item: QueryItem) {
+        while let Some(existing) = self.items.get(&item) {
+            let existing = existing.clone();
+            self.items.remove(&existing);
+            item = item.merge(existing);
+        }
+
+        self.items.insert(item);
+    }
+}
+
+#[derive(Clone, Debug)]
+enum QueryItem {
+    Key(Vec<u8>),
+    Range(Range<Vec<u8>>),
+    RangeInclusive(RangeInclusive<Vec<u8>>)
+}
+
+impl QueryItem {
+    fn lower_bound(&self) -> Vec<u8> {
+        match self {
+            QueryItem::Key(key) => key.clone(),
+            QueryItem::Range(range) => range.start.clone(),
+            QueryItem::RangeInclusive(range) => range.start().clone()
+        }
+    }
+
+    fn upper_bound(&self) -> (Vec<u8>, bool) {
+        match self {
+            QueryItem::Key(key) => (key.clone(), true),
+            QueryItem::Range(range) => (range.end.clone(), false),
+            QueryItem::RangeInclusive(range) => (range.end().clone(), true)
+        }
+    }
+
+    fn merge(self, other: QueryItem) -> QueryItem {
+        // TODO: don't copy into new vecs
+        let start = min(self.lower_bound(), other.lower_bound()).to_vec();
+        let end = max(self.upper_bound(), other.upper_bound());
+        if end.1 {
+            QueryItem::RangeInclusive(
+                RangeInclusive::new(start, end.0.to_vec())
+            )
+        } else {
+            QueryItem::Range(Range { start, end: end.0.to_vec() })
+        }
+    }
+}
+
+impl PartialEq for QueryItem {
+    fn eq(&self, other: &QueryItem) -> bool {
+        self.cmp(other) == Ordering::Equal
+    }
+}
+
+impl Eq for QueryItem {}
+
+impl Ord for QueryItem {
+    fn cmp(&self, other: &QueryItem) -> Ordering {
+        let cmp_lu = self.lower_bound().cmp(&other.upper_bound().0);
+        let cmp_ul = self.upper_bound().0.cmp(&other.lower_bound());
+        let self_inclusive = self.upper_bound().1;
+        let other_inclusive = other.upper_bound().1;
+
+        match (cmp_lu, cmp_ul) {
+            (Ordering::Less, Ordering::Less) => Ordering::Less,
+            (Ordering::Less, Ordering::Equal) => match self_inclusive {
+                true => Ordering::Equal,
+                false => Ordering::Less
+            },
+            (Ordering::Less, Ordering::Greater) => Ordering::Equal,
+            (Ordering::Equal, _) => match other_inclusive {
+                true => Ordering::Equal,
+                false => Ordering::Greater
+            },
+            (Ordering::Greater, _) => Ordering::Greater
+        }
+    }
+}
+
+impl PartialOrd for QueryItem {
+    fn partial_cmp(&self, other: &QueryItem) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 impl Link {
     /// Creates a `Node::Hash` from this link. Panics if the link is of variant
@@ -374,5 +488,59 @@ mod test {
                 9, 9, 9, 9, 9, 17
             ]
         );
+    }
+
+    #[test]
+    fn query_item_cmp() {
+        assert!(QueryItem::Key(vec![10]) < QueryItem::Key(vec![20]));
+        assert!(QueryItem::Key(vec![10]) == QueryItem::Key(vec![10]));
+        assert!(QueryItem::Key(vec![20]) > QueryItem::Key(vec![10]));
+
+        assert!(QueryItem::Key(vec![10]) < QueryItem::Range(vec![20]..vec![30]));
+        assert!(QueryItem::Key(vec![10]) == QueryItem::Range(vec![10]..vec![20]));
+        assert!(QueryItem::Key(vec![15]) == QueryItem::Range(vec![10]..vec![20]));
+        assert!(QueryItem::Key(vec![20]) > QueryItem::Range(vec![10]..vec![20]));
+        assert!(QueryItem::Key(vec![20]) == QueryItem::RangeInclusive(vec![10]..=vec![20]));
+        assert!(QueryItem::Key(vec![30]) > QueryItem::Range(vec![10]..vec![20]));
+
+        assert!(QueryItem::Range(vec![10]..vec![20]) < QueryItem::Range(vec![30]..vec![40]));
+        assert!(QueryItem::Range(vec![10]..vec![20]) < QueryItem::Range(vec![20]..vec![30]));
+        assert!(QueryItem::RangeInclusive(vec![10]..=vec![20]) == QueryItem::Range(vec![20]..vec![30]));
+        assert!(QueryItem::Range(vec![15]..vec![25]) == QueryItem::Range(vec![20]..vec![30]));
+        assert!(QueryItem::Range(vec![20]..vec![30]) > QueryItem::Range(vec![10]..vec![20]));
+    }
+
+    #[test]
+    fn query_item_merge() {
+        let mine = QueryItem::Range(vec![10]..vec![30]);
+        let other = QueryItem::Range(vec![15]..vec![20]);
+        assert_eq!(mine.merge(other), QueryItem::Range(vec![10]..vec![30]));
+
+        let mine = QueryItem::RangeInclusive(vec![10]..=vec![30]);
+        let other = QueryItem::Range(vec![20]..vec![30]);
+        assert_eq!(mine.merge(other), QueryItem::RangeInclusive(vec![10]..=vec![30]));
+
+        let mine = QueryItem::Key(vec![5]);
+        let other = QueryItem::Range(vec![1]..vec![10]);
+        assert_eq!(mine.merge(other), QueryItem::Range(vec![1]..vec![10]));
+        
+        let mine = QueryItem::Key(vec![10]);
+        let other = QueryItem::RangeInclusive(vec![1]..=vec![10]);
+        assert_eq!(mine.merge(other), QueryItem::RangeInclusive(vec![1]..=vec![10]));
+    }
+    
+    #[test]
+    fn query_insert() {
+        let mut query = Query::new();
+        query.insert_key(vec![2]);
+        query.insert_range(vec![3]..vec![5]);
+        query.insert_range_inclusive(vec![5]..=vec![7]);
+        query.insert_range(vec![4]..vec![6]);
+        query.insert_key(vec![5]);
+
+        let mut iter = query.items.iter();
+        assert_eq!(format!("{:?}", iter.next()), "Some(Key([2]))");
+        assert_eq!(format!("{:?}", iter.next()), "Some(RangeInclusive([3]..=[7]))");
+        assert_eq!(iter.next(), None);
     }
 }
