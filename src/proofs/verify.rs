@@ -360,8 +360,9 @@ pub fn verify_query(
 
 #[cfg(test)]
 mod test {
-    use super::super::*;
     use super::*;
+    use super::super::query::*;
+    use super::super::*;
     use crate::tree;
     use crate::tree::{NoopCommit, PanicSource, RefWalker};
 
@@ -393,8 +394,7 @@ mod test {
         let mut tree = make_3_node_tree();
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
 
-        let (proof, _) = walker
-            .create_proof(keys.as_slice())
+        let (proof, _) = walker.create_proof(keys.clone().into_iter().map(QueryItem::Key).collect::<Vec<_>>().as_slice())
             .expect("failed to create proof");
         let mut bytes = vec![];
         encode_into(proof.iter(), &mut bytes);

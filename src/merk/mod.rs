@@ -9,7 +9,7 @@ use failure::bail;
 use rocksdb::{checkpoint::Checkpoint, ColumnFamilyDescriptor, WriteBatch};
 
 use crate::error::Result;
-use crate::proofs::encode_into;
+use crate::proofs::{encode_into, query::QueryItem};
 use crate::tree::{Batch, Commit, Fetch, Hash, Link, Op, RefWalker, Tree, Walker, NULL_HASH};
 
 const ROOT_KEY_KEY: &[u8] = b"root";
@@ -249,7 +249,8 @@ impl Merk {
             };
 
             let mut ref_walker = RefWalker::new(tree, self.source());
-            let (proof, _) = ref_walker.create_proof(query)?;
+            let query: Vec<_> = query.iter().cloned().map(QueryItem::Key).collect();
+            let (proof, _) = ref_walker.create_proof(query.as_slice())?;
 
             let mut bytes = Vec::with_capacity(128);
             encode_into(proof.iter(), &mut bytes);

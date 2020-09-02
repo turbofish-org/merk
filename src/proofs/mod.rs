@@ -1,6 +1,6 @@
 pub mod chunk;
 mod encoding;
-mod query;
+pub(crate) mod query;
 pub mod verify;
 
 use crate::tree::Hash;
