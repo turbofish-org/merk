@@ -256,7 +256,8 @@ where
 mod test {
     use super::super::encoding::encode_into;
     use super::*;
-    use crate::tree::{PanicSource, RefWalker, Tree};
+    use crate::tree::{Tree, PanicSource, RefWalker};
+    use crate::test_utils::make_tree_seq;
 
     fn make_3_node_tree() -> Tree {
         Tree::from_fields(
@@ -585,5 +586,122 @@ mod test {
         assert_eq!(format!("{:?}", iter.next()), "Some(Key([2]))");
         assert_eq!(format!("{:?}", iter.next()), "Some(RangeInclusive([3]..=[7]))");
         assert_eq!(iter.next(), None);
+    }
+    
+    #[test]
+    fn range_proof() {
+        let mut tree = make_tree_seq(10);
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+
+        let (proof, absence) = walker
+            .create_proof(vec![
+                QueryItem::Range(vec![0,0,0,0,0,0,0,5]..vec![0,0,0,0,0,0,0,7])
+            ].as_slice())
+            .expect("create_proof errored");
+
+        let mut iter = proof.iter();
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([204, 255, 35, 67, 8, 211, 132, 121, 65, 159, 55, 183, 110, 86, 97, 211, 150, 0, 254, 205]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([224, 252, 14, 4, 3, 65, 193, 166, 134, 97, 239, 90, 154, 161, 123, 126, 48, 33, 15, 69]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([139, 133, 223, 134, 15, 5, 20, 201, 160, 238, 34, 170, 157, 157, 191, 12, 66, 74, 98, 109]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![0,0,0,0,0,0,0,5], vec![123; 60]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![0,0,0,0,0,0,0,6], vec![123; 60]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![0,0,0,0,0,0,0,7], vec![123; 60]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([36, 71, 231, 173, 167, 169, 98, 105, 190, 22, 250, 41, 176, 144, 249, 78, 233, 154, 223, 221]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert!(iter.next().is_none());
+        assert_eq!(absence, (false, false));
+    }
+
+    #[test]
+    fn range_proof_inclusive() {
+        let mut tree = make_tree_seq(10);
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+
+        let (proof, absence) = walker
+            .create_proof(vec![
+                QueryItem::RangeInclusive(vec![0,0,0,0,0,0,0,5]..=vec![0,0,0,0,0,0,0,7])
+            ].as_slice())
+            .expect("create_proof errored");
+
+        let mut iter = proof.iter();
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([204, 255, 35, 67, 8, 211, 132, 121, 65, 159, 55, 183, 110, 86, 97, 211, 150, 0, 254, 205]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([224, 252, 14, 4, 3, 65, 193, 166, 134, 97, 239, 90, 154, 161, 123, 126, 48, 33, 15, 69]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([139, 133, 223, 134, 15, 5, 20, 201, 160, 238, 34, 170, 157, 157, 191, 12, 66, 74, 98, 109]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![0,0,0,0,0,0,0,5], vec![123; 60]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![0,0,0,0,0,0,0,6], vec![123; 60]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![0,0,0,0,0,0,0,7], vec![123; 60]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([36, 71, 231, 173, 167, 169, 98, 105, 190, 22, 250, 41, 176, 144, 249, 78, 233, 154, 223, 221]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert!(iter.next().is_none());
+        assert_eq!(absence, (false, false));
+    }
+    
+    #[test]
+    fn range_proof_missing_upper_bound() {
+        let mut tree = make_tree_seq(10);
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+
+        let (proof, absence) = walker
+            .create_proof(vec![
+                QueryItem::Range(vec![0,0,0,0,0,0,0,5]..vec![0,0,0,0,0,0,0,6,5])
+            ].as_slice())
+            .expect("create_proof errored");
+
+        let mut iter = proof.iter();
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([204, 255, 35, 67, 8, 211, 132, 121, 65, 159, 55, 183, 110, 86, 97, 211, 150, 0, 254, 205]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([224, 252, 14, 4, 3, 65, 193, 166, 134, 97, 239, 90, 154, 161, 123, 126, 48, 33, 15, 69]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([139, 133, 223, 134, 15, 5, 20, 201, 160, 238, 34, 170, 157, 157, 191, 12, 66, 74, 98, 109]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![0,0,0,0,0,0,0,5], vec![123; 60]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![0,0,0,0,0,0,0,6], vec![123; 60]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![0,0,0,0,0,0,0,7], vec![123; 60]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([36, 71, 231, 173, 167, 169, 98, 105, 190, 22, 250, 41, 176, 144, 249, 78, 233, 154, 223, 221]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert!(iter.next().is_none());
+        assert_eq!(absence, (false, false));
+    }
+
+    #[test]
+    fn range_proof_missing_lower_bound() {
+        let mut tree = make_tree_seq(10);
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+
+        let (proof, absence) = walker
+            .create_proof(vec![
+                // 7 is not inclusive
+                QueryItem::Range(vec![0,0,0,0,0,0,0,5,5]..vec![0,0,0,0,0,0,0,7])
+            ].as_slice())
+            .expect("create_proof errored");
+
+        let mut iter = proof.iter();
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([204, 255, 35, 67, 8, 211, 132, 121, 65, 159, 55, 183, 110, 86, 97, 211, 150, 0, 254, 205]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([224, 252, 14, 4, 3, 65, 193, 166, 134, 97, 239, 90, 154, 161, 123, 126, 48, 33, 15, 69]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([139, 133, 223, 134, 15, 5, 20, 201, 160, 238, 34, 170, 157, 157, 191, 12, 66, 74, 98, 109]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![0,0,0,0,0,0,0,5], vec![123; 60]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![0,0,0,0,0,0,0,6], vec![123; 60]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![0,0,0,0,0,0,0,7], vec![123; 60]))));
+        assert_eq!(iter.next(), Some(&Op::Parent));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([36, 71, 231, 173, 167, 169, 98, 105, 190, 22, 250, 41, 176, 144, 249, 78, 233, 154, 223, 221]))));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert_eq!(iter.next(), Some(&Op::Child));
+        assert!(iter.next().is_none());
+        assert_eq!(absence, (false, false));
     }
 }
