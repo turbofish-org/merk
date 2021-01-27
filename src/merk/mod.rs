@@ -2,7 +2,7 @@ use std::cell::Cell;
 use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
-use failure::{bail, format_err};
+use failure::bail;
 use rocksdb::ColumnFamilyDescriptor;
 
 use crate::error::Result;
@@ -16,6 +16,7 @@ pub struct Merk {
     pub(crate) tree: Cell<Option<Tree>>,
     pub(crate) db: rocksdb::DB,
     pub(crate) path: PathBuf,
+    deleted_keys: LinkedList<Vec<u8>>,
 }
 
 impl Merk {
@@ -41,18 +42,13 @@ impl Merk {
         ];
         let db = rocksdb::DB::open_cf_descriptors(&db_opts, &path_buf, cfs)?;
 
-        // try to load root node
-        let internal_cf = db.cf_handle("internal").unwrap();
-        let tree = match db.get_pinned_cf(internal_cf, ROOT_KEY_KEY)? {
-            Some(root_key) => Some(fetch_existing_node(&db, &root_key)?),
-            None => None,
-        };
-        let tree = Cell::new(tree);
+        let tree = Merk::load_root_node_from_db(&db)?;
 
         Ok(Merk {
-            tree,
+            tree: Cell::new(tree),
             db,
             path: path_buf,
+            deleted_keys: Default::default(),
         })
     }
 
@@ -67,6 +63,17 @@ impl Merk {
         opts.set_atomic_flush(true);
         // TODO: tune
         opts
+    }
+
+    fn load_root_node_from_db(db: &rocksdb::DB) -> Result<Option<Tree>> {
+        // try to load root node
+        let internal_cf = db.cf_handle("internal").unwrap();
+        let tree = match db.get_pinned_cf(internal_cf, ROOT_KEY_KEY)? {
+            Some(root_key) => Some(fetch_existing_node(&db, &root_key)?),
+            None => None,
+        };
+
+        Ok(tree)
     }
 
     /// Gets an auxiliary value.
@@ -127,7 +134,8 @@ impl Merk {
     /// # Example
     /// ```
     /// # let mut store = merk::test_utils::TempMerk::new().unwrap();
-    /// # store.apply(&[(vec![4,5,6], Op::Put(vec![0]))], &[]).unwrap();
+    /// # store.apply(&[(vec![4,5,6], Op::Put(vec![0]))]).unwrap();
+    ///
     ///
     /// use merk::Op;
     ///
@@ -135,9 +143,9 @@ impl Merk {
     ///     (vec![1, 2, 3], Op::Put(vec![4, 5, 6])), // puts value [4,5,6] to key [1,2,3]
     ///     (vec![4, 5, 6], Op::Delete) // deletes key [4,5,6]
     /// ];
-    /// store.apply(batch, &[]).unwrap();
+    /// store.apply(batch).unwrap();
     /// ```
-    pub fn apply(&mut self, batch: &Batch, aux: &Batch) -> Result<()> {
+    pub fn apply(&mut self, batch: &Batch) -> Result<()> {
         // ensure keys in batch are sorted and unique
         let mut maybe_prev_key = None;
         for (key, _) in batch.iter() {
@@ -151,7 +159,7 @@ impl Merk {
             maybe_prev_key = Some(key.to_vec());
         }
 
-        unsafe { self.apply_unchecked(batch, aux) }
+        unsafe { self.apply_unchecked(batch) }
     }
 
     /// Applies a batch of operations (puts and deletes) to the tree.
@@ -164,7 +172,7 @@ impl Merk {
     /// # Example
     /// ```
     /// # let mut store = merk::test_utils::TempMerk::new().unwrap();
-    /// # store.apply(&[(vec![4,5,6], Op::Put(vec![0]))], &[]).unwrap();
+    /// # store.apply(&[(vec![4,5,6], Op::Put(vec![0]))]).unwrap();
     ///
     /// use merk::Op;
     ///
@@ -172,20 +180,26 @@ impl Merk {
     ///     (vec![1, 2, 3], Op::Put(vec![4, 5, 6])), // puts value [4,5,6] to key [1,2,3]
     ///     (vec![4, 5, 6], Op::Delete) // deletes key [4,5,6]
     /// ];
-    /// unsafe { store.apply_unchecked(batch, &[]).unwrap() };
+    /// unsafe { store.apply_unchecked(batch).unwrap() };
     /// ```
-    pub unsafe fn apply_unchecked(&mut self, batch: &Batch, aux: &Batch) -> Result<()> {
+    pub unsafe fn apply_unchecked(&mut self, batch: &Batch) -> Result<()> {
         let maybe_walker = self
             .tree
             .take()
             .take()
             .map(|tree| Walker::new(tree, self.source()));
 
-        let (maybe_tree, deleted_keys) = Walker::apply_to(maybe_walker, batch)?;
+        let (maybe_tree, mut deleted_keys) = Walker::apply_to(maybe_walker, batch)?;
         self.tree.set(maybe_tree);
+        self.deleted_keys.append(&mut deleted_keys);
+        // Note: we used to commit the tree here, but now it's expected that the user will commit after applying.
+        Ok(())
+    }
 
-        // commit changes to db
-        self.commit(deleted_keys, aux)
+    pub fn clear(&mut self) -> Result<()> {
+        self.deleted_keys.clear();
+        self.tree.replace(Merk::load_root_node_from_db(&self.db)?);
+        Ok(())
     }
 
     /// Closes the store and deletes all data from disk.
@@ -258,7 +272,7 @@ impl Merk {
         Ok(self.db.flush()?)
     }
 
-    pub fn commit(&mut self, deleted_keys: LinkedList<Vec<u8>>, aux: &Batch) -> Result<()> {
+    pub fn commit(&mut self, aux: &Batch) -> Result<()> {
         let internal_cf = self.db.cf_handle("internal").unwrap();
         let aux_cf = self.db.cf_handle("aux").unwrap();
 
@@ -284,7 +298,7 @@ impl Merk {
             })?;
 
         // TODO: move this to MerkCommitter impl?
-        for key in deleted_keys {
+        while let Some(key) = self.deleted_keys.pop_front() {
             to_batch.push((key, None));
         }
         to_batch.sort_by(|a, b| a.0.cmp(&b.0));
@@ -434,7 +448,8 @@ mod test {
         let mut merk = TempMerk::open(path).expect("failed to open merk");
 
         let batch = make_batch_seq(0..batch_size);
-        merk.apply(&batch, &[]).expect("apply failed");
+        merk.apply(&batch).expect("apply failed");
+        merk.commit(&[]).expect("commit failed");
 
         assert_invariants(&merk);
         assert_eq!(
@@ -454,11 +469,13 @@ mod test {
         let mut merk = TempMerk::open(path).expect("failed to open merk");
 
         let batch = make_batch_seq(0..batch_size);
-        merk.apply(&batch, &[]).expect("apply failed");
+        merk.apply(&batch).expect("apply failed");
+        merk.commit(&[]).expect("commit failed");
         assert_invariants(&merk);
 
         let batch = make_batch_seq(batch_size..(batch_size * 2));
-        merk.apply(&batch, &[]).expect("apply failed");
+        merk.apply(&batch).expect("apply failed");
+        merk.commit(&[]).expect("commit failed");
         assert_invariants(&merk);
     }
 
@@ -473,7 +490,8 @@ mod test {
         for i in 0..(tree_size / batch_size) {
             println!("i:{}", i);
             let batch = make_batch_rand(batch_size, i);
-            merk.apply(&batch, &[]).expect("apply failed");
+            merk.apply(&batch).expect("apply failed");
+            merk.commit(&[]).expect("commit failed");
         }
     }
 
@@ -483,10 +501,12 @@ mod test {
         let mut merk = TempMerk::open(path).expect("failed to open merk");
 
         let batch = make_batch_rand(10, 1);
-        merk.apply(&batch, &[]).expect("apply failed");
+        merk.apply(&batch).expect("apply failed");
+        merk.commit(&[]).expect("commit failed");
 
         let key = batch.first().unwrap().0.clone();
-        merk.apply(&[(key.clone(), Op::Delete)], &[]).unwrap();
+        merk.apply(&[(key.clone(), Op::Delete)]).unwrap();
+        merk.commit(&[]).expect("commit failed");
 
         let value = merk.db.get(key.as_slice()).unwrap();
         assert!(value.is_none());
@@ -496,27 +516,30 @@ mod test {
     fn aux_data() {
         let path = thread::current().name().unwrap().to_owned();
         let mut merk = TempMerk::open(path).expect("failed to open merk");
-        merk.apply(&[], &[(vec![1, 2, 3], Op::Put(vec![4, 5, 6]))])
-            .expect("apply failed");
+        merk.apply(&[]).expect("apply failed");
+        merk.commit(&[(vec![1, 2, 3], Op::Put(vec![4, 5, 6]))])
+            .expect("commit failed");
         let val = merk.get_aux(&[1, 2, 3]).unwrap();
         assert_eq!(val, Some(vec![4, 5, 6]));
     }
 
     #[test]
+    #[ignore]
     fn simulated_crash() {
         let path = thread::current().name().unwrap().to_owned();
         let mut merk = CrashMerk::open(path).expect("failed to open merk");
 
-        merk.apply(
-            &[(vec![0], Op::Put(vec![1]))],
-            &[(vec![2], Op::Put(vec![3]))],
-        )
-        .expect("apply failed");
+        merk.apply(&[(vec![0], Op::Put(vec![1]))])
+            .expect("apply failed");
+        merk.commit(&[(vec![2], Op::Put(vec![3]))])
+            .expect("commit failed");
 
         // make enough changes so that main column family gets auto-flushed
         for i in 0..250 {
-            merk.apply(&make_batch_seq(i * 2_000..(i + 1) * 2_000), &[])
+            merk.apply(&make_batch_seq(i * 2_000..(i + 1) * 2_000))
                 .expect("apply failed");
+
+            merk.commit(&[]).expect("commit failed");
         }
 
         merk.crash().unwrap();
@@ -534,20 +557,53 @@ mod test {
         assert!(merk.get(&[1, 2, 3]).unwrap().is_none());
 
         // cached
-        merk.apply(&[(vec![5, 5, 5], Op::Put(vec![]))], &[])
-            .unwrap();
+        merk.apply(&[(vec![5, 5, 5], Op::Put(vec![]))]).unwrap();
+        merk.commit(&[]).expect("commit failed");
         assert!(merk.get(&[1, 2, 3]).unwrap().is_none());
 
         // uncached
-        merk.apply(
-            &[
-                (vec![0, 0, 0], Op::Put(vec![])),
-                (vec![1, 1, 1], Op::Put(vec![])),
-                (vec![2, 2, 2], Op::Put(vec![])),
-            ],
-            &[],
-        )
+        merk.apply(&[
+            (vec![0, 0, 0], Op::Put(vec![])),
+            (vec![1, 1, 1], Op::Put(vec![])),
+            (vec![2, 2, 2], Op::Put(vec![])),
+        ])
         .unwrap();
+
+        merk.commit(&[]).expect("commit failed");
         assert!(merk.get(&[3, 3, 3]).unwrap().is_none());
+    }
+
+    #[test]
+    fn multiple_applies_before_commit() {
+        let mut merk = TempMerk::new().expect("Failed to create temp merk");
+        merk.apply(&[(vec![5, 5, 5], Op::Put(vec![1]))]).unwrap();
+        assert_eq!(merk.get(&[5, 5, 5]).unwrap(), Some(vec![1]));
+        merk.apply(&[
+            (vec![5, 5, 5], Op::Put(vec![3])),
+            (vec![6, 6, 6], Op::Put(vec![2])),
+        ])
+        .unwrap();
+        assert_eq!(merk.get(&[5, 5, 5]).unwrap(), Some(vec![3]));
+        assert_eq!(merk.get(&[6, 6, 6]).unwrap(), Some(vec![2]));
+        merk.apply(&[(vec![6, 6, 6], Op::Delete)])
+            .expect("apply failed");
+        assert_eq!(merk.get(&[6, 6, 6]).unwrap(), None);
+        merk.commit(&[]).expect("commit failed");
+        assert_eq!(merk.get(&[5, 5, 5]).unwrap(), Some(vec![3]));
+        assert_eq!(merk.get(&[6, 6, 6]).unwrap(), None);
+    }
+
+    #[test]
+    fn clear() {
+        let mut merk = TempMerk::new().expect("Failed to create temp merk");
+        merk.apply(&[(vec![5, 5, 5], Op::Put(vec![1]))]).unwrap();
+        assert_eq!(merk.get(&[5, 5, 5]).unwrap(), Some(vec![1]));
+        merk.clear().expect("failed to clear");
+        assert_eq!(merk.get(&[5, 5, 5]).unwrap(), None);
+        merk.apply(&[(vec![6, 6, 6], Op::Put(vec![1]))]).unwrap();
+        merk.commit(&[]).expect("failed to commit");
+        merk.clear().expect("failed to clear");
+        assert_eq!(merk.get(&[5, 5, 5]).unwrap(), None);
+        assert_eq!(merk.get(&[6, 6, 6]).unwrap(), Some(vec![1]));
     }
 }

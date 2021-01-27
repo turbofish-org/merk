@@ -159,7 +159,8 @@ mod tests {
     fn leaf_chunk() {
         let mut merk = TempMerk::new().unwrap();
         let batch = make_batch_seq(1..11);
-        merk.apply(batch.as_slice(), &[]).unwrap();
+        merk.apply(batch.as_slice()).unwrap();
+        merk.commit(&[]).expect("commit failed");
 
         let root_node = merk.tree.take();
         let root_key = root_node.as_ref().unwrap().key().to_vec();
