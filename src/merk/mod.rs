@@ -1,6 +1,6 @@
-use std::cell::Cell;
 use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
+use std::{cell::Cell, collections::HashSet};
 
 use failure::bail;
 use rocksdb::ColumnFamilyDescriptor;
@@ -16,7 +16,7 @@ pub struct Merk {
     pub(crate) tree: Cell<Option<Tree>>,
     pub(crate) db: rocksdb::DB,
     pub(crate) path: PathBuf,
-    deleted_keys: LinkedList<Vec<u8>>,
+    deleted_keys: HashSet<Vec<u8>>,
 }
 
 impl Merk {
@@ -191,7 +191,9 @@ impl Merk {
 
         let (maybe_tree, mut deleted_keys) = Walker::apply_to(maybe_walker, batch)?;
         self.tree.set(maybe_tree);
-        self.deleted_keys.append(&mut deleted_keys);
+        for key in deleted_keys {
+            self.deleted_keys.insert(key);
+        }
         // Note: we used to commit the tree here, but now it's expected that the user will commit after applying.
         Ok(())
     }
@@ -298,7 +300,7 @@ impl Merk {
             })?;
 
         // TODO: move this to MerkCommitter impl?
-        while let Some(key) = self.deleted_keys.pop_front() {
+        for key in self.deleted_keys.drain() {
             to_batch.push((key, None));
         }
         to_batch.sort_by(|a, b| a.0.cmp(&b.0));
