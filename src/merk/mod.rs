@@ -1,3 +1,5 @@
+mod chunks;
+
 use std::cell::Cell;
 use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
@@ -268,7 +270,7 @@ impl Merk {
                 // TODO: concurrent commit
                 if let Some(tree) = maybe_tree {
                     // TODO: configurable committer
-                    let mut committer = MerkCommitter::new(tree.height(), 1);
+                    let mut committer = MerkCommitter::new(tree.height(), 100);
                     tree.commit(&mut committer)?;
 
                     // update pointer to root node

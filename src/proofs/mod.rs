@@ -3,8 +3,9 @@ mod encoding;
 mod query;
 mod verify;
 
-use crate::tree::{Link, RefWalker, Fetch, Hash};
+use crate::tree::{Fetch, Hash, Link, RefWalker};
 
+pub(crate) use chunk::get_next_chunk;
 pub use encoding::{encode_into, Decoder};
 pub use verify::verify;
 
@@ -22,7 +23,7 @@ pub enum Op {
     /// Pops the top stack item as `child`. Pops the next top stack item as
     /// `parent`. Attaches `child` as the right child of `parent`. Pushes the
     /// updated `parent` back on the stack.
-    Child
+    Child,
 }
 
 /// A selected piece of data about a single tree node, to be contained in a
@@ -36,6 +37,5 @@ pub enum Node {
     KVHash(Hash),
 
     /// Represents the key and value of a tree node.
-    KV(Vec<u8>, Vec<u8>)
+    KV(Vec<u8>, Vec<u8>),
 }
-
