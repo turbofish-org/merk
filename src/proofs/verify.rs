@@ -1,19 +1,23 @@
-use failure::bail;
-use super::{Op, Node, Decoder};
-use crate::tree::{NULL_HASH, Hash, kv_hash, node_hash};
+use super::{Decoder, Node, Op};
 use crate::error::Result;
+use crate::tree::{kv_hash, node_hash, Hash, NULL_HASH};
+use failure::bail;
 
 /// A binary tree data structure used to represent a select subset of a tree
 /// when verifying Merkle proofs.
 struct Tree {
     node: Node,
     left: Option<Box<Tree>>,
-    right: Option<Box<Tree>>
+    right: Option<Box<Tree>>,
 }
 
 impl From<Node> for Tree {
     fn from(node: Node) -> Self {
-        Tree { node, left: None, right: None }
+        Tree {
+            node,
+            left: None,
+            right: None,
+        }
     }
 }
 
@@ -55,7 +59,7 @@ impl Tree {
     fn hash(&self) -> Hash {
         match self.node {
             Node::Hash(hash) => hash,
-            _ => unreachable!("Expected Node::Hash")
+            _ => unreachable!("Expected Node::Hash"),
         }
     }
 
@@ -64,19 +68,14 @@ impl Tree {
     /// (zero-filled).
     #[inline]
     fn child_hash(&self, left: bool) -> Hash {
-        self.child(left)
-            .map_or(NULL_HASH, |c| c.hash())
+        self.child(left).map_or(NULL_HASH, |c| c.hash())
     }
 
     /// Consumes the tree node, calculates its hash, and returns a `Node::Hash`
     /// variant.
     fn into_hash(self) -> Tree {
         fn to_hash_node(tree: &Tree, kv_hash: Hash) -> Node {
-            let hash = node_hash(
-                &kv_hash,
-                &tree.child_hash(true),
-                &tree.child_hash(false)
-            );
+            let hash = node_hash(&kv_hash, &tree.child_hash(true), &tree.child_hash(false));
             Node::Hash(hash)
         }
 
@@ -87,7 +86,8 @@ impl Tree {
                 let kv_hash = kv_hash(key.as_slice(), value.as_slice());
                 to_hash_node(&self, kv_hash)
             }
-        }.into()
+        }
+        .into()
     }
 }
 
@@ -101,11 +101,7 @@ impl Tree {
 /// list will contain 2 elements, the value of `A` and the value of `B`. Keys
 /// proven to be absent in the tree will have an entry of `None`, keys that have
 /// a proven value will have an entry of `Some(value)`.
-pub fn verify(
-    bytes: &[u8],
-    keys: &[Vec<u8>],
-    expected_hash: Hash
-) -> Result<Vec<Option<Vec<u8>>>> {
+pub fn verify(bytes: &[u8], keys: &[Vec<u8>], expected_hash: Hash) -> Result<Vec<Option<Vec<u8>>>> {
     // TODO: enforce a maximum proof size
 
     let mut stack: Vec<Tree> = Vec::with_capacity(32);
@@ -117,28 +113,22 @@ pub fn verify(
     fn try_pop(stack: &mut Vec<Tree>) -> Result<Tree> {
         match stack.pop() {
             None => bail!("Stack underflow"),
-            Some(tree) => Ok(tree)
+            Some(tree) => Ok(tree),
         }
-    };
+    }
 
     for op in Decoder::new(bytes) {
         match op? {
             Op::Parent => {
-                let (mut parent, child) = (
-                    try_pop(&mut stack)?,
-                    try_pop(&mut stack)?
-                );
+                let (mut parent, child) = (try_pop(&mut stack)?, try_pop(&mut stack)?);
                 parent.attach(true, child)?;
                 stack.push(parent);
-            },
+            }
             Op::Child => {
-                let (child, mut parent) = (
-                    try_pop(&mut stack)?,
-                    try_pop(&mut stack)?
-                );
+                let (child, mut parent) = (try_pop(&mut stack)?, try_pop(&mut stack)?);
                 parent.attach(false, child)?;
                 stack.push(parent);
-            },
+            }
             Op::Push(node) => {
                 let node_clone = node.clone();
                 let tree: Tree = node.into();
@@ -164,9 +154,9 @@ pub fn verify(
                                     // previous push was a boundary (global edge or lower key),
                                     // so this is a valid absence proof
                                     output.push(None);
-                                },
+                                }
                                 // proof is incorrect since it skipped queried keys
-                                _ => bail!("Proof incorrectly formed")
+                                _ => bail!("Proof incorrectly formed"),
                             }
                         }
 
@@ -201,7 +191,8 @@ pub fn verify(
     if hash != expected_hash {
         bail!(
             "Proof did not match expected hash\n\tExpected: {:?}\n\tActual: {:?}",
-            expected_hash, hash
+            expected_hash,
+            hash
         );
     }
 
@@ -210,17 +201,16 @@ pub fn verify(
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use super::super::*;
-    use crate::tree::{NoopCommit, RefWalker, PanicSource};
+    use super::*;
     use crate::tree;
+    use crate::tree::{NoopCommit, PanicSource, RefWalker};
 
     fn make_3_node_tree() -> tree::Tree {
         let mut tree = tree::Tree::new(vec![5], vec![5])
             .attach(true, Some(tree::Tree::new(vec![3], vec![3])))
             .attach(false, Some(tree::Tree::new(vec![7], vec![7])));
-        tree.commit(&mut NoopCommit {})
-            .expect("commit failed");
+        tree.commit(&mut NoopCommit {}).expect("commit failed");
         tree
     }
 
@@ -228,81 +218,65 @@ mod test {
         let mut tree = make_3_node_tree();
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
 
-        let (proof, _) = walker.create_proof(keys.as_slice())
+        let (proof, _) = walker
+            .create_proof(keys.as_slice())
             .expect("failed to create proof");
         let mut bytes = vec![];
         encode_into(proof.iter(), &mut bytes);
 
-        let expected_hash = [65, 23, 96, 10, 165, 42, 240, 100, 206, 125, 192, 81, 44, 89, 119, 39, 35, 215, 211, 24];
-        let result = verify(bytes.as_slice(), keys.as_slice(), expected_hash)
-            .expect("verify failed");
+        let expected_hash = [
+            65, 23, 96, 10, 165, 42, 240, 100, 206, 125, 192, 81, 44, 89, 119, 39, 35, 215, 211, 24,
+        ];
+        let result =
+            verify(bytes.as_slice(), keys.as_slice(), expected_hash).expect("verify failed");
         assert_eq!(result, expected_result);
     }
 
     #[test]
     fn root_verify() {
-        verify_test(vec![ vec![5] ], vec![ Some(vec![5]) ]);
+        verify_test(vec![vec![5]], vec![Some(vec![5])]);
     }
 
     #[test]
     fn single_verify() {
-        verify_test(vec![ vec![3] ], vec![ Some(vec![3]) ]);
+        verify_test(vec![vec![3]], vec![Some(vec![3])]);
     }
 
     #[test]
     fn double_verify() {
-       verify_test(
-           vec![ vec![3], vec![5] ],
-           vec![ Some(vec![3]), Some(vec![5]) ]
-        );
+        verify_test(vec![vec![3], vec![5]], vec![Some(vec![3]), Some(vec![5])]);
     }
 
     #[test]
     fn double_verify_2() {
-       verify_test(
-           vec![ vec![3], vec![7] ],
-           vec![ Some(vec![3]), Some(vec![7]) ]
-        );
+        verify_test(vec![vec![3], vec![7]], vec![Some(vec![3]), Some(vec![7])]);
     }
 
     #[test]
     fn triple_verify() {
-       verify_test(
-           vec![ vec![3], vec![5], vec![7] ],
-           vec![ Some(vec![3]), Some(vec![5]), Some(vec![7]) ]
+        verify_test(
+            vec![vec![3], vec![5], vec![7]],
+            vec![Some(vec![3]), Some(vec![5]), Some(vec![7])],
         );
     }
 
     #[test]
     fn left_edge_absence_verify() {
-       verify_test(
-           vec![ vec![2] ],
-           vec![ None ]
-        );
+        verify_test(vec![vec![2]], vec![None]);
     }
 
     #[test]
     fn right_edge_absence_verify() {
-       verify_test(
-           vec![ vec![8] ],
-           vec![ None ]
-        );
+        verify_test(vec![vec![8]], vec![None]);
     }
 
     #[test]
     fn inner_absence_verify() {
-       verify_test(
-           vec![ vec![6] ],
-           vec![ None ]
-        );
+        verify_test(vec![vec![6]], vec![None]);
     }
 
     #[test]
     fn absent_and_present_verify() {
-       verify_test(
-           vec![ vec![5], vec![6] ],
-           vec![ Some(vec![5]), None ]
-        );
+        verify_test(vec![vec![5], vec![6]], vec![Some(vec![5]), None]);
     }
 }
-

@@ -4,7 +4,7 @@ use std::cell::Cell;
 use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
-use failure::{bail, format_err};
+use failure::bail;
 use rocksdb::ColumnFamilyDescriptor;
 
 use crate::error::Result;
@@ -414,7 +414,6 @@ fn fetch_existing_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
 
 #[cfg(test)]
 mod test {
-    use super::Merk;
     use crate::test_utils::*;
     use crate::Op;
     use std::thread;

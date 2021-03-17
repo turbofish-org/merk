@@ -3,7 +3,7 @@ mod encoding;
 mod query;
 mod verify;
 
-use crate::tree::{Fetch, Hash, Link, RefWalker};
+use crate::tree::Hash;
 
 pub(crate) use chunk::get_next_chunk;
 pub use encoding::{encode_into, Decoder};

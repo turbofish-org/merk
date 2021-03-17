@@ -1,6 +1,6 @@
 use super::Merk;
 use crate::proofs::{get_next_chunk, Node, Op};
-use crate::tree::{RefWalker, Tree};
+use crate::tree::RefWalker;
 
 use crate::Result;
 use ed::Encode;

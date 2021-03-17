@@ -8,7 +8,7 @@ impl<'a, S> RefWalker<'a, S>
 where
     S: Fetch + Sized + Send + Clone,
 {
-    fn create_trunk_proof(&mut self) -> Result<Vec<Op>> {
+    pub(crate) fn create_trunk_proof(&mut self) -> Result<Vec<Op>> {
         let approx_size = 2u8.pow((self.tree().height() / 2) as u32);
         let mut proof = Vec::with_capacity(approx_size as usize);
 
@@ -98,7 +98,7 @@ where
     }
 }
 
-fn get_next_chunk(iter: &mut DBRawIterator, end_key: Option<&[u8]>) -> Result<Vec<Op>> {
+pub(crate) fn get_next_chunk(iter: &mut DBRawIterator, end_key: Option<&[u8]>) -> Result<Vec<Op>> {
     let mut chunk = Vec::with_capacity(512);
     let mut stack = Vec::with_capacity(32);
     let mut node = Tree::new(vec![], vec![]);
