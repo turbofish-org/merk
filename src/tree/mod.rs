@@ -123,9 +123,10 @@ impl Tree {
     pub fn child_mut(&mut self, left: bool) -> Option<&mut Self> {
         match self.slot_mut(left).as_mut() {
             None => None,
-            Some(Link::Pruned { .. }) => None,
-            Some(Link::Stored { tree, .. }) => Some(tree),
+            Some(Link::Reference { .. }) => None,
             Some(Link::Modified { tree, .. }) => Some(tree),
+            Some(Link::Uncommitted { tree, .. }) => Some(tree),
+            Some(Link::Loaded { tree, .. }) => Some(tree),
         }
     }
 
@@ -221,9 +222,10 @@ impl Tree {
     pub fn detach(mut self, left: bool) -> (Self, Option<Self>) {
         let maybe_child = match self.slot_mut(left).take() {
             None => None,
-            Some(Link::Pruned { .. }) => None,
+            Some(Link::Reference { .. }) => None,
             Some(Link::Modified { tree, .. }) => Some(tree),
-            Some(Link::Stored { tree, .. }) => Some(tree),
+            Some(Link::Uncommitted { tree, .. }) => Some(tree),
+            Some(Link::Loaded { tree, .. }) => Some(tree),
         };
 
         (self, maybe_child)
@@ -295,6 +297,8 @@ impl Tree {
         self
     }
 
+    // TODO: add compute_hashes method
+
     /// Called to finalize modifications to a tree, recompute its hashes, and
     /// write the updated nodes to a backing store.
     ///
@@ -315,11 +319,13 @@ impl Tree {
             }) = self.inner.left.take()
             {
                 tree.commit(c)?;
-                self.inner.left = Some(Link::Stored {
+                self.inner.left = Some(Link::Loaded {
                     hash: tree.hash(),
                     tree,
                     child_heights,
                 });
+            } else {
+                unreachable!()
             }
         }
 
@@ -331,11 +337,13 @@ impl Tree {
             }) = self.inner.right.take()
             {
                 tree.commit(c)?;
-                self.inner.right = Some(Link::Stored {
+                self.inner.right = Some(Link::Loaded {
                     hash: tree.hash(),
                     tree,
                     child_heights,
                 });
+            } else {
+                unreachable!()
             }
         }
 
@@ -343,34 +351,34 @@ impl Tree {
 
         let (prune_left, prune_right) = c.prune(&self);
         if prune_left {
-            self.inner.left = self.inner.left.take().map(|link| link.into_pruned());
+            self.inner.left = self.inner.left.take().map(|link| link.into_reference());
         }
         if prune_right {
-            self.inner.right = self.inner.right.take().map(|link| link.into_pruned());
+            self.inner.right = self.inner.right.take().map(|link| link.into_reference());
         }
 
         Ok(())
     }
 
     /// Fetches the child on the given side using the given data source, and
-    /// places it in the child slot (upgrading the link from `Link::Pruned` to
-    /// `Link::Stored`).
+    /// places it in the child slot (upgrading the link from `Link::Reference` to
+    /// `Link::Loaded`).
     #[inline]
     pub fn load<S: Fetch>(&mut self, left: bool, source: &S) -> Result<()> {
         // TODO: return Err instead of panic?
         let link = self.link(left).expect("Expected link");
         let (child_heights, hash) = match link {
-            Link::Pruned {
+            Link::Reference {
                 child_heights,
                 hash,
                 ..
             } => (child_heights, hash),
-            _ => panic!("Expected Some(Link::Pruned)"),
+            _ => panic!("Expected Some(Link::Reference)"),
         };
 
         let tree = source.fetch(link)?;
         debug_assert_eq!(tree.key(), link.key());
-        *self.slot_mut(left) = Some(Link::Stored {
+        *self.slot_mut(left) = Some(Link::Loaded {
             tree,
             hash: *hash,
             child_heights: *child_heights,

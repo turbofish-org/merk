@@ -8,11 +8,12 @@ impl Link {
     /// `Link::Modified` since its hash has not yet been computed.
     fn to_hash_node(&self) -> Node {
         let hash = match self {
+            Link::Reference { hash, .. } => hash,
             Link::Modified { .. } => {
                 panic!("Cannot convert Link::Modified to proof hash node");
             }
-            Link::Pruned { hash, .. } => hash,
-            Link::Stored { hash, .. } => hash,
+            Link::Uncommitted { hash, .. } => hash,
+            Link::Loaded { hash, .. } => hash,
         };
         Node::Hash(*hash)
     }
@@ -115,12 +116,12 @@ mod test {
             vec![5],
             vec![5],
             [105; 20],
-            Some(Link::Stored {
+            Some(Link::Loaded {
                 child_heights: (0, 0),
                 hash: [3; 20],
                 tree: Tree::from_fields(vec![3], vec![3], [103; 20], None, None),
             }),
-            Some(Link::Stored {
+            Some(Link::Loaded {
                 child_heights: (0, 0),
                 hash: [7; 20],
                 tree: Tree::from_fields(vec![7], vec![7], [107; 20], None, None),
@@ -267,26 +268,26 @@ mod test {
             vec![5],
             vec![5],
             [105; 20],
-            Some(Link::Stored {
+            Some(Link::Loaded {
                 child_heights: (0, 0),
                 hash: [2; 20],
                 tree: Tree::from_fields(
                     vec![2],
                     vec![2],
                     [102; 20],
-                    Some(Link::Stored {
+                    Some(Link::Loaded {
                         child_heights: (0, 0),
                         hash: [1; 20],
                         tree: Tree::from_fields(vec![1], vec![1], [101; 20], None, None),
                     }),
-                    Some(Link::Stored {
+                    Some(Link::Loaded {
                         child_heights: (0, 0),
                         hash: [4; 20],
                         tree: Tree::from_fields(
                             vec![4],
                             vec![4],
                             [104; 20],
-                            Some(Link::Stored {
+                            Some(Link::Loaded {
                                 child_heights: (0, 0),
                                 hash: [3; 20],
                                 tree: Tree::from_fields(vec![3], vec![3], [103; 20], None, None),
@@ -296,40 +297,40 @@ mod test {
                     }),
                 ),
             }),
-            Some(Link::Stored {
+            Some(Link::Loaded {
                 child_heights: (0, 0),
                 hash: [9; 20],
                 tree: Tree::from_fields(
                     vec![9],
                     vec![9],
                     [109; 20],
-                    Some(Link::Stored {
+                    Some(Link::Loaded {
                         child_heights: (0, 0),
                         hash: [7; 20],
                         tree: Tree::from_fields(
                             vec![7],
                             vec![7],
                             [107; 20],
-                            Some(Link::Stored {
+                            Some(Link::Loaded {
                                 child_heights: (0, 0),
                                 hash: [6; 20],
                                 tree: Tree::from_fields(vec![6], vec![6], [106; 20], None, None),
                             }),
-                            Some(Link::Stored {
+                            Some(Link::Loaded {
                                 child_heights: (0, 0),
                                 hash: [8; 20],
                                 tree: Tree::from_fields(vec![8], vec![8], [108; 20], None, None),
                             }),
                         ),
                     }),
-                    Some(Link::Stored {
+                    Some(Link::Loaded {
                         child_heights: (0, 0),
                         hash: [11; 20],
                         tree: Tree::from_fields(
                             vec![11],
                             vec![11],
                             [111; 20],
-                            Some(Link::Stored {
+                            Some(Link::Loaded {
                                 child_heights: (0, 0),
                                 hash: [10; 20],
                                 tree: Tree::from_fields(vec![10], vec![10], [110; 20], None, None),
