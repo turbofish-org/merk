@@ -1,3 +1,5 @@
+use std::iter::Flatten;
+
 use super::{Decoder, Node, Op};
 use crate::error::Result;
 use crate::tree::{kv_hash, node_hash, Hash, NULL_HASH};
@@ -103,6 +105,21 @@ impl Tree {
     /// the given depth.
     pub(crate) fn layer(&self, depth: usize) -> LayerIter {
         LayerIter::new(self, depth)
+    }
+
+    /// Does an in-order traversal of all the nodes in the tree, calling
+    /// `visit_node` for each.
+    pub(crate) fn visit_nodes<F: FnMut(Node)>(mut self, visit_node: &mut F) {
+        if let Some(child) = self.left.take() {
+            child.tree.visit_nodes(visit_node);
+        }
+
+        let maybe_right_child = self.right.take();
+        visit_node(self.node);
+
+        if let Some(child) = maybe_right_child {
+            child.tree.visit_nodes(visit_node);
+        }
     }
 }
 
@@ -328,6 +345,22 @@ mod test {
         tree
     }
 
+    fn make_7_node_prooftree() -> super::Tree {
+        let make_node = |i| -> super::Tree { Node::KV(vec![i], vec![]).into() };
+
+        let mut tree = make_node(3);
+        let mut left = make_node(1);
+        left.attach(true, make_node(0)).unwrap();
+        left.attach(false, make_node(2)).unwrap();
+        let mut right = make_node(5);
+        right.attach(true, make_node(4)).unwrap();
+        right.attach(false, make_node(6)).unwrap();
+        tree.attach(true, left).unwrap();
+        tree.attach(false, right).unwrap();
+
+        tree
+    }
+
     fn verify_test(keys: Vec<Vec<u8>>, expected_result: Vec<Option<Vec<u8>>>) {
         let mut tree = make_3_node_tree();
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
@@ -396,21 +429,12 @@ mod test {
 
     #[test]
     fn layer_iter() {
-        let make_node = |i| -> super::Tree { Node::KV(vec![i], vec![]).into() };
-        let assert_node = |node: &super::Tree, i| match node.node {
+        let tree = make_7_node_prooftree();
+
+        let assert_node = |node: &Tree, i| match node.node {
             Node::KV(ref key, _) => assert_eq!(key[0], i),
             _ => unreachable!(),
         };
-
-        let mut tree = make_node(3);
-        let mut left = make_node(1);
-        left.attach(true, make_node(0)).unwrap();
-        left.attach(false, make_node(2)).unwrap();
-        let mut right = make_node(5);
-        right.attach(true, make_node(4)).unwrap();
-        right.attach(false, make_node(6)).unwrap();
-        tree.attach(true, left).unwrap();
-        tree.attach(false, right).unwrap();
 
         let mut iter = tree.layer(0);
         assert_node(iter.next().unwrap(), 3);
@@ -426,6 +450,25 @@ mod test {
         assert_node(iter.next().unwrap(), 2);
         assert_node(iter.next().unwrap(), 4);
         assert_node(iter.next().unwrap(), 6);
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn visit_nodes() {
+        let tree = make_7_node_prooftree();
+
+        let assert_node = |node: Node, i| match node {
+            Node::KV(ref key, _) => assert_eq!(key[0], i),
+            _ => unreachable!(),
+        };
+
+        let mut visited = vec![];
+        tree.visit_nodes(&mut |node| visited.push(node));
+
+        let mut iter = visited.into_iter();
+        for i in 0..7 {
+            assert_node(iter.next().unwrap(), i);
+        }
         assert!(iter.next().is_none());
     }
 }
