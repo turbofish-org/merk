@@ -3,6 +3,8 @@ use crate::error::Result;
 use crate::tree::{kv_hash, node_hash, Hash, NULL_HASH};
 use failure::bail;
 
+/// Contains a tree's child node and its hash. The hash can always be assumed to
+/// be up-to-date.
 pub(crate) struct Child {
     pub(crate) tree: Box<Tree>,
     hash: Hash,
@@ -17,6 +19,7 @@ pub(crate) struct Tree {
 }
 
 impl From<Node> for Tree {
+    /// Creates a childless tree with the target node as the `node` field.
     fn from(node: Node) -> Self {
         Tree {
             node,
@@ -27,6 +30,7 @@ impl From<Node> for Tree {
 }
 
 impl PartialEq for Tree {
+    /// Checks equality for the hashes of the two trees.
     fn eq(&self, other: &Self) -> bool {
         self.hash() == other.hash()
     }
@@ -95,17 +99,22 @@ impl Tree {
         }
     }
 
+    /// Creates an iterator that yields the in-order traversal of the nodes at
+    /// the given depth.
     pub(crate) fn layer(&self, depth: usize) -> LayerIter {
         LayerIter::new(self, depth)
     }
 }
 
+/// `LayerIter` iterates over the nodes in a `Tree` at a given depth. Nodes are
+/// visited in order.
 pub(crate) struct LayerIter<'a> {
     stack: Vec<&'a Tree>,
     depth: usize,
 }
 
 impl<'a> LayerIter<'a> {
+    /// Creates a new `LayerIter` that iterates over `tree` at the given depth.
     fn new(tree: &'a Tree, depth: usize) -> Self {
         let mut iter = LayerIter {
             stack: Vec::with_capacity(depth),
@@ -116,6 +125,7 @@ impl<'a> LayerIter<'a> {
         iter
     }
 
+    /// Builds up the stack by traversing through left children to the desired depth.
     fn traverse_to_start(&mut self, tree: &'a Tree, remaining_depth: usize) {
         self.stack.push(tree);
 
@@ -162,6 +172,18 @@ impl<'a> Iterator for LayerIter<'a> {
     }
 }
 
+/// Executes a proof by stepping through its operators, modifying the
+/// verification stack as it goes. The resulting stack item is returned.
+///
+/// If the `collapse` option is set to `true`, nodes will be hashed and pruned
+/// from memory during execution. This results in the minimum amount of memory
+/// usage, and the returned `Tree` will only contain a single node of type
+/// `Node::Hash`. If `false`, the returned `Tree` will contain the entire
+/// subtree contained in the proof.
+///
+/// `visit_node` will be called once for every push operation in the proof, in
+/// key-order. If `visit_node` returns an `Err` result, it will halt the
+/// execution and `execute` will return the error.
 pub(crate) fn execute<I, F>(ops: I, collapse: bool, mut visit_node: F) -> Result<Tree>
 where
     I: IntoIterator<Item = Result<Op>>,
