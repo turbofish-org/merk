@@ -19,5 +19,5 @@ pub mod tree;
 
 pub use self::merk::Merk;
 pub use error::{Error, Result};
-pub use proofs::verify as verify_proof;
+pub use proofs::verify_query;
 pub use tree::{Batch, BatchEntry, Hash, Op, PanicSource, HASH_LENGTH};

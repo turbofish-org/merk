@@ -7,7 +7,7 @@ use crate::tree::Hash;
 
 pub(crate) use chunk::get_next_chunk;
 pub use encoding::{encode_into, Decoder};
-pub use verify::verify;
+pub use verify::verify_query;
 
 /// A proof operator, executed to verify the data in a Merkle proof.
 #[derive(Debug, PartialEq)]

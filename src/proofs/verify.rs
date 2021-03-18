@@ -2,13 +2,17 @@ use super::{Decoder, Node, Op};
 use crate::error::Result;
 use crate::tree::{kv_hash, node_hash, Hash, NULL_HASH};
 use failure::bail;
+struct Child {
+    tree: Box<Tree>,
+    hash: Hash,
+}
 
 /// A binary tree data structure used to represent a select subset of a tree
 /// when verifying Merkle proofs.
 struct Tree {
     node: Node,
-    left: Option<Box<Tree>>,
-    right: Option<Box<Tree>>,
+    left: Option<Child>,
+    right: Option<Child>,
 }
 
 impl From<Node> for Tree {
@@ -23,16 +27,16 @@ impl From<Node> for Tree {
 
 impl Tree {
     /// Returns an immutable reference to the child on the given side, if any.
-    fn child(&self, left: bool) -> Option<&Tree> {
+    fn child(&self, left: bool) -> Option<&Child> {
         if left {
-            self.left.as_ref().map(|c| c.as_ref())
+            self.left.as_ref()
         } else {
-            self.right.as_ref().map(|c| c.as_ref())
+            self.right.as_ref()
         }
     }
 
     /// Returns a mutable reference to the child on the given side, if any.
-    fn child_mut(&mut self, left: bool) -> &mut Option<Box<Tree>> {
+    fn child_mut(&mut self, left: bool) -> &mut Option<Child> {
         if left {
             &mut self.left
         } else {
@@ -40,27 +44,18 @@ impl Tree {
         }
     }
 
-    /// Attaches the child to the `Tree`'s given side, and calculates its hash.
-    /// Panics if there is already a child attached to this side.
+    /// Attaches the child to the `Tree`'s given side. Panics if there is
+    /// already a child attached to this side.
     fn attach(&mut self, left: bool, child: Tree) -> Result<()> {
         if self.child(left).is_some() {
             bail!("Tried to attach to left child, but it is already Some");
         }
 
-        let child = child.into_hash();
-        let boxed = Box::new(child);
-        *self.child_mut(left) = Some(boxed);
-        Ok(())
-    }
+        let hash = child.hash();
+        let tree = Box::new(child);
 
-    /// Gets the already-computed hash for this tree node. Panics if the hash
-    /// has not already been calculated.
-    #[inline]
-    fn hash(&self) -> Hash {
-        match self.node {
-            Node::Hash(hash) => hash,
-            _ => unreachable!("Expected Node::Hash"),
-        }
+        *self.child_mut(left) = Some(Child { tree, hash });
+        Ok(())
     }
 
     /// Returns the already-computed hash for this tree node's child on the
@@ -68,27 +63,84 @@ impl Tree {
     /// (zero-filled).
     #[inline]
     fn child_hash(&self, left: bool) -> Hash {
-        self.child(left).map_or(NULL_HASH, |c| c.hash())
+        self.child(left).map_or(NULL_HASH, |c| c.tree.hash())
     }
 
     /// Consumes the tree node, calculates its hash, and returns a `Node::Hash`
     /// variant.
     fn into_hash(self) -> Tree {
-        fn to_hash_node(tree: &Tree, kv_hash: Hash) -> Node {
-            let hash = node_hash(&kv_hash, &tree.child_hash(true), &tree.child_hash(false));
-            Node::Hash(hash)
+        Node::Hash(self.hash()).into()
+    }
+
+    /// Gets or computes the hash for this tree node.
+    fn hash(&self) -> Hash {
+        fn compute_hash(tree: &Tree, kv_hash: Hash) -> Hash {
+            node_hash(&kv_hash, &tree.child_hash(true), &tree.child_hash(false))
         }
 
         match &self.node {
-            Node::Hash(_) => self.node,
-            Node::KVHash(kv_hash) => to_hash_node(&self, *kv_hash),
+            Node::Hash(hash) => *hash,
+            Node::KVHash(kv_hash) => compute_hash(&self, *kv_hash),
             Node::KV(key, value) => {
                 let kv_hash = kv_hash(key.as_slice(), value.as_slice());
-                to_hash_node(&self, kv_hash)
+                compute_hash(&self, kv_hash)
             }
         }
-        .into()
     }
+}
+
+fn execute<I, F>(ops: I, collapse: bool, mut visit_node: F) -> Result<Tree>
+where
+    I: IntoIterator<Item = Result<Op>>,
+    F: FnMut(&Node) -> Result<()>,
+{
+    let mut stack: Vec<Tree> = Vec::with_capacity(32);
+    let mut maybe_last_key = None;
+
+    fn try_pop(stack: &mut Vec<Tree>) -> Result<Tree> {
+        match stack.pop() {
+            None => bail!("Stack underflow"),
+            Some(tree) => Ok(tree),
+        }
+    }
+
+    for op in ops {
+        match op? {
+            Op::Parent => {
+                let (mut parent, child) = (try_pop(&mut stack)?, try_pop(&mut stack)?);
+                parent.attach(true, if collapse { child.into_hash() } else { child })?;
+                stack.push(parent);
+            }
+            Op::Child => {
+                let (child, mut parent) = (try_pop(&mut stack)?, try_pop(&mut stack)?);
+                parent.attach(false, if collapse { child.into_hash() } else { child })?;
+                stack.push(parent);
+            }
+            Op::Push(node) => {
+                if let Node::KV(key, _) = &node {
+                    // keys should always increase
+                    if let Some(last_key) = &maybe_last_key {
+                        if key <= last_key {
+                            bail!("Incorrect key ordering");
+                        }
+                    }
+
+                    maybe_last_key = Some(key.clone());
+                }
+
+                visit_node(&node)?;
+
+                let tree: Tree = node.into();
+                stack.push(tree);
+            }
+        }
+    }
+
+    if stack.len() != 1 {
+        bail!("Expected proof to result in exactly one stack item");
+    }
+
+    Ok(stack.pop().unwrap())
 }
 
 /// Verifies the encoded proof with the given query and expected hash.
@@ -101,73 +153,46 @@ impl Tree {
 /// list will contain 2 elements, the value of `A` and the value of `B`. Keys
 /// proven to be absent in the tree will have an entry of `None`, keys that have
 /// a proven value will have an entry of `Some(value)`.
-pub fn verify(bytes: &[u8], keys: &[Vec<u8>], expected_hash: Hash) -> Result<Vec<Option<Vec<u8>>>> {
-    // TODO: enforce a maximum proof size
-
-    let mut stack: Vec<Tree> = Vec::with_capacity(32);
-    let mut output = Vec::with_capacity(keys.len());
-
+pub fn verify_query(
+    bytes: &[u8],
+    keys: &[Vec<u8>],
+    expected_hash: Hash,
+) -> Result<Vec<Option<Vec<u8>>>> {
     let mut key_index = 0;
     let mut last_push = None;
+    let mut output = Vec::with_capacity(keys.len());
 
-    fn try_pop(stack: &mut Vec<Tree>) -> Result<Tree> {
-        match stack.pop() {
-            None => bail!("Stack underflow"),
-            Some(tree) => Ok(tree),
-        }
-    }
+    let ops = Decoder::new(bytes);
 
-    for op in Decoder::new(bytes) {
-        match op? {
-            Op::Parent => {
-                let (mut parent, child) = (try_pop(&mut stack)?, try_pop(&mut stack)?);
-                parent.attach(true, child)?;
-                stack.push(parent);
-            }
-            Op::Child => {
-                let (child, mut parent) = (try_pop(&mut stack)?, try_pop(&mut stack)?);
-                parent.attach(false, child)?;
-                stack.push(parent);
-            }
-            Op::Push(node) => {
-                let node_clone = node.clone();
-                let tree: Tree = node.into();
-                stack.push(tree);
-
-                if let Node::KV(key, value) = &node_clone {
-                    // keys should always be increasing
-                    if let Some(Node::KV(last_key, _)) = &last_push {
-                        if key <= last_key {
-                            bail!("Incorrect key ordering");
+    let root = execute(ops, true, |node| {
+        if let Node::KV(key, value) = node {
+            loop {
+                if key_index >= keys.len() || *key < keys[key_index] {
+                    // TODO: should we error if proof includes unused keys?
+                    break;
+                } else if key == &keys[key_index] {
+                    // KV for queried key
+                    output.push(Some(value.clone()));
+                } else if *key > keys[key_index] {
+                    match &last_push {
+                        None | Some(Node::KV(_, _)) => {
+                            // previous push was a boundary (global edge or lower key),
+                            // so this is a valid absence proof
+                            output.push(None);
                         }
-                    }
-
-                    loop {
-                        if key_index >= keys.len() || *key < keys[key_index] {
-                            break;
-                        } else if key == &keys[key_index] {
-                            // KV for queried key
-                            output.push(Some(value.clone()));
-                        } else if *key > keys[key_index] {
-                            match &last_push {
-                                None | Some(Node::KV(_, _)) => {
-                                    // previous push was a boundary (global edge or lower key),
-                                    // so this is a valid absence proof
-                                    output.push(None);
-                                }
-                                // proof is incorrect since it skipped queried keys
-                                _ => bail!("Proof incorrectly formed"),
-                            }
-                        }
-
-                        key_index += 1;
+                        // proof is incorrect since it skipped queried keys
+                        _ => bail!("Proof incorrectly formed"),
                     }
                 }
 
-                last_push = Some(node_clone);
+                key_index += 1;
             }
         }
-    }
+
+        last_push = Some(node.clone());
+
+        Ok(())
+    })?;
 
     // absence proofs for right edge
     if key_index < keys.len() {
@@ -182,11 +207,6 @@ pub fn verify(bytes: &[u8], keys: &[Vec<u8>], expected_hash: Hash) -> Result<Vec
         debug_assert_eq!(keys.len(), output.len());
     }
 
-    if stack.len() != 1 {
-        bail!("Expected proof to result in exactly one stack item");
-    }
-
-    let root = stack.pop().unwrap();
     let hash = root.into_hash().hash();
     if hash != expected_hash {
         bail!(
@@ -228,7 +248,7 @@ mod test {
             65, 23, 96, 10, 165, 42, 240, 100, 206, 125, 192, 81, 44, 89, 119, 39, 35, 215, 211, 24,
         ];
         let result =
-            verify(bytes.as_slice(), keys.as_slice(), expected_hash).expect("verify failed");
+            verify_query(bytes.as_slice(), keys.as_slice(), expected_hash).expect("verify failed");
         assert_eq!(result, expected_result);
     }
 
