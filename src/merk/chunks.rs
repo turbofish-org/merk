@@ -13,16 +13,17 @@ type OpFilterFn = fn(Op) -> Option<Vec<u8>>;
 pub enum ChunkIter<'a> {
     Trunk {
         trunk: Option<Vec<Op>>,
-        merk: Option<&'a mut Merk>,
+        merk: Option<&'a Merk>,
     },
     PostTrunk {
         chunk_boundaries: FilterMap<std::vec::IntoIter<Op>, OpFilterFn>,
         raw_iter: DBRawIterator<'a>,
     },
+    Complete
 }
 
 impl<'a> ChunkIter<'a> {
-    fn from_merk(merk: &'a mut Merk) -> Result<Self> {
+    fn from_merk(merk: &'a Merk) -> Result<Self> {
         let trunk = merk.walk(|mut maybe_walker| match maybe_walker {
             Some(mut walker) => walker.create_trunk_proof(),
             None => Ok(vec![]),
@@ -66,35 +67,35 @@ impl<'a> Iterator for ChunkIter<'a> {
                 Some(trunk_bytes)
             },
             ChunkIter::PostTrunk { raw_iter, chunk_boundaries } => {
-                if !raw_iter.valid() {
-                    return None;
-                }
-
                 let end_key = chunk_boundaries.next();
                 let end_key_slice = end_key.as_ref().map(|k| k.as_slice());
 
-                match get_next_chunk(raw_iter, end_key_slice) {
-                    Ok(chunk) => Some(chunk.encode()),
-                    Err(err) => Some(Err(err)),
+                let item = match get_next_chunk(raw_iter, end_key_slice) {
+                    Ok(chunk) => chunk.encode(),
+                    Err(err) => Err(err),
+                };
+
+                if end_key.is_none() {
+                    *self = ChunkIter::Complete;
                 }
-            }
+                
+                Some(item)
+            },
+            ChunkIter::Complete => None
         }
     }
 }
 
 impl Merk {
-    pub fn chunks(&mut self) -> Result<ChunkIter> {
+    pub fn chunks(&self) -> Result<ChunkIter> {
         ChunkIter::from_merk(self)
     }
 }
 
 #[cfg(test)]
 mod tests {
-
     use ed::Decode;
-
     use crate::test_utils::*;
-
     use super::*;
 
     #[test]
@@ -106,7 +107,7 @@ mod tests {
         let chunks = merk.chunks().unwrap();
         for chunk in chunks {
             let chunk: Vec<Op> = Vec::decode(chunk.unwrap().as_slice()).unwrap();
-            println!("chunk: {:?}", chunk);
+            println!("\n\n{:?}", chunk);
         }
     }
 }
