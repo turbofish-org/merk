@@ -27,6 +27,5 @@ features = ["small_rng"]
 [dependencies.rocksdb]
 version = "0.15.0"
 default-features = false
-git = "https://github.com/ordian/rust-rocksdb"
-branch = "update-to-6.17.0"
+git = "https://github.com/rust-rocksdb/rust-rocksdb"
 
