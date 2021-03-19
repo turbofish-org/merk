@@ -203,3 +203,38 @@ fn build_trunk_chunk_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
 
     b.bytes = bytes.len() as u64;
 }
+
+
+#[bench]
+fn chunk_iter_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
+    let initial_size = 1_000_000;
+    let batch_size = 1_000;
+
+    let path = thread::current().name().unwrap().to_owned();
+    let mut merk = TempMerk::open(path).expect("failed to open merk");
+
+    for i in 0..(initial_size / batch_size) {
+        let batch = make_batch_rand(batch_size, i);
+        unsafe { merk.apply_unchecked(&batch, &[]).expect("apply failed") };
+    }
+
+    let mut chunks = merk.chunks().unwrap();
+    let mut total_bytes = 0;
+    let mut i = 0;
+
+    let mut next = || match chunks.next() {
+        Some(chunk) => chunk,
+        None => {
+            chunks = merk.chunks().unwrap();
+            chunks.next().unwrap()
+        }
+    };
+
+    b.iter(|| {
+        let chunk = next();
+        total_bytes += chunk.unwrap().len();
+        i += 1;
+    });
+
+    b.bytes = (total_bytes / i) as u64;
+}
