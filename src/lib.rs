@@ -11,7 +11,7 @@ mod merk;
 // TODO: move this into its own crate
 pub mod owner;
 /// Algorithms for generating and verifying Merkle proofs.
-mod proofs;
+pub mod proofs;
 /// Various helpers useful for tests or benchmarks.
 pub mod test_utils;
 /// The core tree data structure.

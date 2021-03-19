@@ -3,6 +3,7 @@
 extern crate test;
 
 use merk::test_utils::*;
+use merk::proofs::encode_into as encode_proof_into;
 use std::thread;
 use test::Bencher;
 
@@ -170,4 +171,35 @@ fn prove_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
         merk.commit(std::collections::LinkedList::new(), &[])
             .unwrap();
     });
+}
+
+#[bench]
+fn build_trunk_chunk_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
+    let initial_size = 1_000_000;
+    let batch_size = 1_000;
+    let proof_size = 1;
+
+    let path = thread::current().name().unwrap().to_owned();
+    let mut merk = TempMerk::open(path).expect("failed to open merk");
+
+    for i in 0..(initial_size / batch_size) {
+        let batch = make_batch_rand(batch_size, i);
+        unsafe { merk.apply_unchecked(&batch, &[]).expect("apply failed") };
+    }
+
+    let mut bytes = vec![];
+
+    b.iter(|| {
+        bytes.clear();
+
+        let ops = merk.walk(|walker| {
+            walker.unwrap().create_trunk_proof().unwrap()
+        });
+        encode_proof_into(ops.iter(), &mut bytes);
+
+        merk.commit(std::collections::LinkedList::new(), &[])
+            .unwrap();
+    });
+
+    b.bytes = bytes.len() as u64;
 }

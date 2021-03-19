@@ -13,7 +13,7 @@ where
     S: Fetch + Sized + Send + Clone,
 {
     /// Generates a trunk proof by traversing the tree.
-    pub(crate) fn create_trunk_proof(&mut self) -> Result<Vec<Op>> {
+    pub fn create_trunk_proof(&mut self) -> Result<Vec<Op>> {
         let approx_size = 2u8.pow((self.tree().height() / 2) as u32);
         let mut proof = Vec::with_capacity(approx_size as usize);
 

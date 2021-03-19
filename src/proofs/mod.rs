@@ -1,11 +1,10 @@
-mod chunk;
+pub mod chunk;
 mod encoding;
 mod query;
 mod verify;
 
 use crate::tree::Hash;
 
-pub(crate) use chunk::get_next_chunk;
 pub use encoding::{encode_into, Decoder};
 pub use verify::verify_query;
 
