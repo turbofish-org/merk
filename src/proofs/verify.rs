@@ -7,6 +7,7 @@ use failure::bail;
 
 /// Contains a tree's child node and its hash. The hash can always be assumed to
 /// be up-to-date.
+#[derive(Debug)]
 pub(crate) struct Child {
     pub(crate) tree: Box<Tree>,
     hash: Hash,
@@ -14,6 +15,7 @@ pub(crate) struct Child {
 
 /// A binary tree data structure used to represent a select subset of a tree
 /// when verifying Merkle proofs.
+#[derive(Debug)]
 pub(crate) struct Tree {
     pub(crate) node: Node,
     left: Option<Child>,
