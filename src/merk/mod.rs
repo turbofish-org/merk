@@ -1,17 +1,28 @@
 mod chunks;
+mod restore;
 
 use std::cell::Cell;
 use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
 use failure::bail;
-use rocksdb::ColumnFamilyDescriptor;
+use rocksdb::{ColumnFamilyDescriptor, WriteBatch};
 
 use crate::error::Result;
 use crate::proofs::encode_into;
 use crate::tree::{Batch, Commit, Fetch, Hash, Link, Op, RefWalker, Tree, Walker, NULL_HASH};
 
-const ROOT_KEY_KEY: [u8; 4] = *b"root";
+const ROOT_KEY_KEY: &[u8] = b"root";
+const AUX_CF_NAME: &str = "aux";
+const INTERNAL_CF_NAME: &str = "internal";
+
+fn column_families() -> Vec<ColumnFamilyDescriptor> {
+    vec![
+        // TODO: clone opts or take args
+        ColumnFamilyDescriptor::new(AUX_CF_NAME, Merk::default_db_opts()),
+        ColumnFamilyDescriptor::new(INTERNAL_CF_NAME, Merk::default_db_opts()),
+    ]
+}
 
 /// A handle to a Merkle key/value store backed by RocksDB.
 pub struct Merk {
@@ -36,15 +47,10 @@ impl Merk {
     {
         let mut path_buf = PathBuf::new();
         path_buf.push(path);
-        let cfs = vec![
-            // TODO: clone opts or take args
-            ColumnFamilyDescriptor::new("aux", Merk::default_db_opts()),
-            ColumnFamilyDescriptor::new("internal", Merk::default_db_opts()),
-        ];
-        let db = rocksdb::DB::open_cf_descriptors(&db_opts, &path_buf, cfs)?;
+        let db = rocksdb::DB::open_cf_descriptors(&db_opts, &path_buf, column_families())?;
 
         // try to load root node
-        let internal_cf = db.cf_handle("internal").unwrap();
+        let internal_cf = db.cf_handle(INTERNAL_CF_NAME).unwrap();
         let tree = match db.get_pinned_cf(internal_cf, ROOT_KEY_KEY)? {
             Some(root_key) => Some(fetch_existing_node(&db, &root_key)?),
             None => None,
@@ -73,7 +79,7 @@ impl Merk {
 
     /// Gets an auxiliary value.
     pub fn get_aux(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
-        let aux_cf = self.db.cf_handle("aux");
+        let aux_cf = self.db.cf_handle(AUX_CF_NAME);
         Ok(self.db.get_cf(aux_cf.unwrap(), key)?)
     }
 
@@ -261,8 +267,8 @@ impl Merk {
     }
 
     pub fn commit(&mut self, deleted_keys: LinkedList<Vec<u8>>, aux: &Batch) -> Result<()> {
-        let internal_cf = self.db.cf_handle("internal").unwrap();
-        let aux_cf = self.db.cf_handle("aux").unwrap();
+        let internal_cf = self.db.cf_handle(INTERNAL_CF_NAME).unwrap();
+        let aux_cf = self.db.cf_handle(AUX_CF_NAME).unwrap();
 
         let mut batch = rocksdb::WriteBatch::default();
         let mut to_batch =
@@ -306,10 +312,7 @@ impl Merk {
         }
 
         // write to db
-        let mut opts = rocksdb::WriteOptions::default();
-        opts.set_sync(false);
-        // TODO: disable WAL once we can ensure consistency with transactions
-        self.db.write_opt(batch, &opts)?;
+        self.write(batch)?;
 
         Ok(())
     }
@@ -325,7 +328,7 @@ impl Merk {
     }
 
     pub fn raw_iter(&self) -> rocksdb::DBRawIterator {
-        let internal_cf = self.db.cf_handle("internal").unwrap();
+        let internal_cf = self.db.cf_handle(INTERNAL_CF_NAME).unwrap();
         self.db.raw_iterator_cf(internal_cf)
     }
 
@@ -345,6 +348,21 @@ impl Merk {
         let res = f(tree.as_mut());
         self.tree.set(tree);
         res
+    }
+
+    pub(crate) fn write(&mut self, batch: WriteBatch) -> Result<()> {
+        let mut opts = rocksdb::WriteOptions::default();
+        opts.set_sync(false);
+        // TODO: disable WAL once we can ensure consistency with transactions
+        self.db.write_opt(batch, &opts)?;
+        Ok(())
+    }
+
+    pub(crate) fn set_root_key(&mut self, key: Vec<u8>) -> Result<()> {
+        let internal_cf = self.db.cf_handle(INTERNAL_CF_NAME).unwrap();
+        let mut batch = WriteBatch::default();
+        batch.put_cf(internal_cf, ROOT_KEY_KEY, key);
+        self.write(batch)
     }
 }
 
