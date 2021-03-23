@@ -6,6 +6,9 @@ use ed::Encode;
 use failure::bail;
 use rocksdb::DBRawIterator;
 
+/// A `ChunkProducer` allows the creation of chunk proofs, used for trustlessly
+/// replicating entire Merk trees. Chunks can be generated on the fly in a
+/// random order, or iterated in order for slightly better performance.
 pub struct ChunkProducer<'a> {
     trunk: Vec<Op>,
     chunk_boundaries: Vec<Vec<u8>>,
@@ -14,29 +17,9 @@ pub struct ChunkProducer<'a> {
 }
 
 impl<'a> ChunkProducer<'a> {
-    pub fn chunk(&mut self, index: usize) -> Result<Vec<u8>> {
-        if index >= self.len() {
-            bail!("Chunk index out-of-bounds");
-        }
-
-        self.index = index;
-
-        if index == 0 || index == 1 {
-            self.raw_iter.seek_to_first();
-        } else {
-            let preceding_key = self.chunk_boundaries.get(index - 1).unwrap();
-            self.raw_iter.seek(preceding_key);
-            self.raw_iter.next();
-        }
-
-        self.next_chunk()
-    }
-
-    pub fn len(&self) -> usize {
-        self.chunk_boundaries.len() + 1
-    }
-
-    pub(crate) fn from_merk(merk: &'a Merk) -> Result<Self> {
+    /// Creates a new `ChunkProducer` for the given `Merk` instance. In the
+    /// constructor, the first chunk (the "trunk") will be created.
+    pub fn new(merk: &'a Merk) -> Result<Self> {
         let trunk = merk.walk(|maybe_walker| match maybe_walker {
             Some(mut walker) => walker.create_trunk_proof(),
             None => Ok(vec![]),
@@ -60,7 +43,36 @@ impl<'a> ChunkProducer<'a> {
             index: 0,
         })
     }
+    
+    /// Gets the chunk with the given index. Errors if the index is out of
+    /// bounds - the number of chunks can be checked by calling
+    /// `producer.len()`.
+    pub fn chunk(&mut self, index: usize) -> Result<Vec<u8>> {
+        if index >= self.len() {
+            bail!("Chunk index out-of-bounds");
+        }
 
+        self.index = index;
+
+        if index == 0 || index == 1 {
+            self.raw_iter.seek_to_first();
+        } else {
+            let preceding_key = self.chunk_boundaries.get(index - 1).unwrap();
+            self.raw_iter.seek(preceding_key);
+            self.raw_iter.next();
+        }
+
+        self.next_chunk()
+    }
+
+    /// Returns the total number of chunks for the underlying Merk tree.
+    pub fn len(&self) -> usize {
+        self.chunk_boundaries.len() + 1
+    }
+
+    /// Gets the next chunk based on the `ChunkProducer`'s internal index state.
+    /// This is mostly useful for letting `ChunkIter` yield the chunks in order,
+    /// optimizing throughput compared to random access.
     fn next_chunk(&mut self) -> Result<Vec<u8>> {
         if self.index == 0 {
             self.index += 1;
@@ -90,6 +102,9 @@ impl<'a> IntoIterator for ChunkProducer<'a> {
     }
 }
 
+/// A `ChunkIter` iterates through all the chunks for the underlying `Merk`
+/// instance in order (the first chunk is the "trunk" chunk). Yields `None`
+/// after all chunks have been yielded.
 pub struct ChunkIter<'a>(ChunkProducer<'a>);
 
 impl<'a> Iterator for ChunkIter<'a> {
@@ -109,8 +124,10 @@ impl<'a> Iterator for ChunkIter<'a> {
 }
 
 impl Merk {
+    /// Creates a `ChunkProducer` which can return chunk proofs for replicating
+    /// the entire Merk tree.
     pub fn chunks(&self) -> Result<ChunkProducer> {
-        ChunkProducer::from_merk(self)
+        ChunkProducer::new(self)
     }
 }
 
