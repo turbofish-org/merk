@@ -1,102 +1,124 @@
-use std::iter::FilterMap;
-
 use super::Merk;
 use crate::proofs::{chunk::get_next_chunk, Node, Op};
-use crate::tree::RefWalker;
 
 use crate::Result;
 use ed::Encode;
+use failure::bail;
 use rocksdb::DBRawIterator;
 
-type OpFilterFn = fn(Op) -> Option<Vec<u8>>;
-
-pub enum ChunkIter<'a> {
-    Trunk {
-        trunk: Option<Vec<Op>>,
-        merk: Option<&'a Merk>,
-    },
-    PostTrunk {
-        chunk_boundaries: FilterMap<std::vec::IntoIter<Op>, OpFilterFn>,
-        raw_iter: DBRawIterator<'a>,
-    },
-    Complete
+pub struct ChunkProducer<'a> {
+    trunk: Vec<Op>,
+    chunk_boundaries: Vec<Vec<u8>>,
+    raw_iter: DBRawIterator<'a>,
+    index: usize,
 }
 
-impl<'a> ChunkIter<'a> {
-    fn from_merk(merk: &'a Merk) -> Result<Self> {
-        let trunk = merk.walk(|mut maybe_walker| match maybe_walker {
+impl<'a> ChunkProducer<'a> {
+    pub fn chunk(&mut self, index: usize) -> Result<Vec<u8>> {
+        if index >= self.len() {
+            bail!("Chunk index out-of-bounds");
+        }
+
+        self.index = index;
+
+        if index == 0 || index == 1 {
+            self.raw_iter.seek_to_first();
+        } else {
+            let preceding_key = self.chunk_boundaries.get(index - 1).unwrap();
+            self.raw_iter.seek(preceding_key);
+            self.raw_iter.next();
+        }
+
+        self.next_chunk()
+    }
+
+    pub fn len(&self) -> usize {
+        self.chunk_boundaries.len() + 1
+    }
+
+    pub(crate) fn from_merk(merk: &'a Merk) -> Result<Self> {
+        let trunk = merk.walk(|maybe_walker| match maybe_walker {
             Some(mut walker) => walker.create_trunk_proof(),
             None => Ok(vec![]),
         })?;
 
-        Ok(ChunkIter::Trunk { trunk: Some(trunk), merk: Some(merk) })
+        let chunk_boundaries = trunk
+            .iter()
+            .filter_map(|op| match op {
+                Op::Push(Node::KV(key, _)) => Some(key.clone()),
+                _ => None,
+            })
+            .collect();
+
+        let mut raw_iter = merk.db.raw_iterator();
+        raw_iter.seek_to_first();
+
+        Ok(ChunkProducer {
+            trunk,
+            chunk_boundaries,
+            raw_iter,
+            index: 0,
+        })
+    }
+
+    fn next_chunk(&mut self) -> Result<Vec<u8>> {
+        if self.index == 0 {
+            self.index += 1;
+            return self.trunk.encode();
+        }
+
+        if self.index >= self.len() {
+            panic!("Called next_chunk after end");
+        }
+
+        let end_key = self.chunk_boundaries.get(self.index);
+        let end_key_slice = end_key.as_ref().map(|k| k.as_slice());
+
+        self.index += 1;
+
+        let chunk = get_next_chunk(&mut self.raw_iter, end_key_slice)?;
+        chunk.encode()
     }
 }
 
-fn filter_trunk_ops(op: Op) -> Option<Vec<u8>> {
-    match op {
-        Op::Push(Node::KV(key, _)) => Some(key),
-        _ => None
+impl<'a> IntoIterator for ChunkProducer<'a> {
+    type IntoIter = ChunkIter<'a>;
+    type Item = <ChunkIter<'a> as Iterator>::Item;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ChunkIter(self)
     }
 }
+
+pub struct ChunkIter<'a>(ChunkProducer<'a>);
 
 impl<'a> Iterator for ChunkIter<'a> {
     type Item = Result<Vec<u8>>;
 
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.0.len(), Some(self.0.len()))
+    }
+
     fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            ChunkIter::Trunk { merk, trunk } => {
-                // TODO: can we do a partial move more cleanly?
-                let trunk = trunk.take().unwrap();
-                let merk = merk.take().unwrap();
-
-                let trunk_bytes = trunk.encode();
-
-                let mut raw_iter = merk.db.raw_iterator();
-                raw_iter.seek_to_first();
-
-                let chunk_boundaries = trunk
-                    .into_iter()
-                    .filter_map(filter_trunk_ops as OpFilterFn);
-
-                *self = ChunkIter::PostTrunk {
-                    chunk_boundaries,
-                    raw_iter
-                };
-
-                Some(trunk_bytes)
-            },
-            ChunkIter::PostTrunk { raw_iter, chunk_boundaries } => {
-                let end_key = chunk_boundaries.next();
-                let end_key_slice = end_key.as_ref().map(|k| k.as_slice());
-
-                let item = match get_next_chunk(raw_iter, end_key_slice) {
-                    Ok(chunk) => chunk.encode(),
-                    Err(err) => Err(err),
-                };
-
-                if end_key.is_none() {
-                    *self = ChunkIter::Complete;
-                }
-                
-                Some(item)
-            },
-            ChunkIter::Complete => None
+        if self.0.index >= self.0.len() {
+            None
+        } else {
+            Some(self.0.next_chunk())
         }
     }
 }
 
 impl Merk {
-    pub fn chunks(&self) -> Result<ChunkIter> {
-        ChunkIter::from_merk(self)
+    pub fn chunks(&self) -> Result<ChunkProducer> {
+        ChunkProducer::from_merk(self)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use ed::Decode;
-    use crate::test_utils::*;
     use super::*;
+    use crate::test_utils::*;
+    use ed::Decode;
 
     #[test]
     fn generate_and_verify_chunks() {
@@ -108,6 +130,26 @@ mod tests {
         for chunk in chunks {
             let chunk: Vec<Op> = Vec::decode(chunk.unwrap().as_slice()).unwrap();
             println!("\n\n{:?}", chunk);
+        }
+    }
+
+    #[test]
+    fn random_access_chunks() {
+        let mut merk = TempMerk::new().unwrap();
+        let batch = make_batch_seq(1..111);
+        merk.apply(batch.as_slice(), &[]).unwrap();
+
+        let chunks = merk
+            .chunks()
+            .unwrap()
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        let mut producer = merk.chunks().unwrap();
+        for i in 0..chunks.len() * 2 {
+            let index = i % chunks.len();
+            assert_eq!(producer.chunk(index).unwrap(), chunks[index]);
         }
     }
 }
