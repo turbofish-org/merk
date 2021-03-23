@@ -281,7 +281,7 @@ impl Tree {
 
     /// Returns a mutable reference to the child slot for the given side.
     #[inline]
-    fn slot_mut(&mut self, left: bool) -> &mut Option<Link> {
+    pub(crate) fn slot_mut(&mut self, left: bool) -> &mut Option<Link> {
         if left {
             &mut self.inner.left
         } else {

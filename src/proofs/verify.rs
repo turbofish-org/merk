@@ -10,7 +10,7 @@ use failure::bail;
 #[derive(Debug)]
 pub(crate) struct Child {
     pub(crate) tree: Box<Tree>,
-    hash: Hash,
+    pub(crate) hash: Hash,
 }
 
 /// A binary tree data structure used to represent a select subset of a tree
@@ -18,8 +18,9 @@ pub(crate) struct Child {
 #[derive(Debug)]
 pub(crate) struct Tree {
     pub(crate) node: Node,
-    left: Option<Child>,
-    right: Option<Child>,
+    pub(crate) left: Option<Child>,
+    pub(crate) right: Option<Child>,
+    pub(crate) height: usize,
 }
 
 impl From<Node> for Tree {
@@ -29,6 +30,7 @@ impl From<Node> for Tree {
             node,
             left: None,
             right: None,
+            height: 1,
         }
     }
 }
@@ -66,10 +68,12 @@ impl Tree {
             bail!("Tried to attach to left child, but it is already Some");
         }
 
+        self.height = self.height.max(child.height + 1);
+
         let hash = child.hash();
         let tree = Box::new(child);
-
         *self.child_mut(left) = Some(Child { tree, hash });
+
         Ok(())
     }
 
@@ -109,8 +113,8 @@ impl Tree {
         LayerIter::new(self, depth)
     }
 
-    /// Does an in-order traversal of all the nodes in the tree, calling
-    /// `visit_node` for each.
+    /// Consumes the `Tree` and does an in-order traversal over all the nodes in
+    /// the tree, calling `visit_node` for each.
     pub(crate) fn visit_nodes<F: FnMut(Node)>(mut self, visit_node: &mut F) {
         if let Some(child) = self.left.take() {
             child.tree.visit_nodes(visit_node);
@@ -121,6 +125,20 @@ impl Tree {
 
         if let Some(child) = maybe_right_child {
             child.tree.visit_nodes(visit_node);
+        }
+    }
+
+    /// Does an in-order traversal over references to all the nodes in the tree,
+    /// calling `visit_node` for each.
+    pub(crate) fn visit_refs<F: FnMut(&Tree)>(&self, visit_node: &mut F) {
+        if let Some(child) = &self.left {
+            child.tree.visit_refs(visit_node);
+        }
+
+        visit_node(self);
+
+        if let Some(child) = &self.right {
+            child.tree.visit_refs(visit_node);
         }
     }
 }

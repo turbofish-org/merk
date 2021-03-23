@@ -1,12 +1,5 @@
 use super::Merk;
-use crate::{
-    proofs::{
-        chunk::{verify_leaf, verify_trunk},
-        verify::Tree,
-        Decoder, Node,
-    },
-    Hash, Op, Result,
-};
+use crate::{Hash, Op, Result, proofs::{Decoder, Node, chunk::{verify_leaf, verify_trunk}, verify::{Child, Tree as ProofTree}}, tree::{Tree, Link}};
 use failure::bail;
 use rocksdb::WriteBatch;
 use std::path::Path;
@@ -85,18 +78,25 @@ impl Restorer {
 
     /// Writes the data contained in `tree` (extracted from a verified chunk
     /// proof) to the RocksDB.
-    fn write_chunk(&mut self, tree: Tree) -> Result<()> {
-        // Write nodes in trunk proof to database
+    fn write_chunk(&mut self, tree: ProofTree) -> Result<()> {
         let mut batch = WriteBatch::default();
-        tree.visit_nodes(&mut |node| {
-            if let Node::KV(key, value) = node {
-                /// FIXME: write encoded merk nodes, not bare values
-                batch.put(key, value);
-            }
-        });
-        self.merk.write(batch)?;
 
-        Ok(())
+        tree.visit_refs(&mut |proof_node| {
+            let (key, value) = match &proof_node.node {
+                Node::KV(key, value) => (key, value),
+                _ => return
+            };
+
+            // TODO: encode tree node without cloning key/value
+            let mut node = Tree::new(key.clone(), value.clone());
+            *node.slot_mut(true) = proof_node.left.as_ref().map(Child::as_link);
+            *node.slot_mut(false) = proof_node.right.as_ref().map(Child::as_link);
+
+            let bytes = node.encode();
+            batch.put(key, bytes);
+        });
+
+        self.merk.write(batch)
     }
 
     /// Verifies the trunk then writes its data to the RocksDB.
@@ -174,5 +174,23 @@ impl Merk {
         stated_length: usize,
     ) -> Result<Restorer> {
         Restorer::new(path, expected_root_hash, stated_length)
+    }
+}
+
+impl Child {
+    fn as_link(&self) -> Link {
+        let key = match &self.tree.node {
+            Node::KV(key, _) => key,
+            _ => panic!("as_link called for non-KV node"),
+        };
+
+        Link::Reference {
+            hash: self.hash,
+            child_heights: (
+                self.tree.left.as_ref().map_or(0, |c| c.tree.height as u8),
+                self.tree.right.as_ref().map_or(0, |c| c.tree.height as u8),
+            ),
+            key: key.clone(),
+        }
     }
 }

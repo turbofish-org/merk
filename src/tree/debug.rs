@@ -88,7 +88,7 @@ impl Debug for Tree {
                 " └-"
             };
             writeln!(f, "{}{}", prefix.dimmed(), format!("{:?}", link.key()).blue()).unwrap();
-        };
+        }
 
         let mut stack = vec![];
         traverse(f, self, &mut stack, false);
