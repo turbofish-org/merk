@@ -181,8 +181,9 @@ pub(crate) fn verify_leaf<I: Iterator<Item = Result<Op>>>(
 
 /// Verifies a trunk chunk proof by executing its operators. Ensures the
 /// resulting tree contains a valid height proof, the trunk is the correct
-/// height, and all of its inner nodes are not abridged.
-fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<ProofTree> {
+/// height, and all of its inner nodes are not abridged. Returns the tree and
+/// the height given by the height proof.
+pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(ProofTree, usize)> {
     fn verify_height_proof(tree: &ProofTree) -> Result<usize> {
         Ok(match tree.child(true) {
             Some(child) => {
@@ -229,7 +230,7 @@ fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<ProofTree> {
     let expected_depth = height / 2;
     verify_completeness(&tree, expected_depth, true)?;
 
-    Ok(tree)
+    Ok((tree, height))
 }
 
 #[cfg(test)]
@@ -268,7 +269,7 @@ mod tests {
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
 
         let proof = walker.create_trunk_proof().unwrap();
-        let trunk = verify_trunk(proof.into_iter().map(|op| Ok(op))).unwrap();
+        let (trunk, _) = verify_trunk(proof.into_iter().map(|op| Ok(op))).unwrap();
 
         let counts = count_node_types(trunk);
         // counted based on the deterministic structure of this 31-node tree
