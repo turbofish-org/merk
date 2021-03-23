@@ -21,7 +21,7 @@ version = "0.2.18"
 features = ["bench", "simd_asm"]
 
 [dependencies.rand]
-version = "0.7.0"
+version = "0.8.3"
 features = ["small_rng"]
 
 [dependencies.rocksdb]
