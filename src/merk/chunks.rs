@@ -134,8 +134,13 @@ impl Merk {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::*;
-    use ed::Decode;
+    use crate::{
+        proofs::{
+            chunk::{verify_leaf, verify_trunk},
+            Decoder,
+        },
+        test_utils::*,
+    };
 
     #[test]
     fn generate_and_verify_chunks() {
@@ -143,10 +148,18 @@ mod tests {
         let batch = make_batch_seq(1..111);
         merk.apply(batch.as_slice(), &[]).unwrap();
 
-        let chunks = merk.chunks().unwrap();
-        for chunk in chunks {
-            let chunk: Vec<Op> = Vec::decode(chunk.unwrap().as_slice()).unwrap();
-            println!("\n\n{:?}", chunk);
+        let mut chunks = merk.chunks().unwrap().into_iter().map(Result::unwrap);
+
+        let chunk = chunks.next().unwrap();
+        let ops = Decoder::new(chunk.as_slice());
+        let (trunk, height) = verify_trunk(ops).unwrap();
+        assert_eq!(height, 7);
+
+        assert_eq!(trunk.layer(3).count(), 8);
+
+        for (chunk, node) in chunks.zip(trunk.layer(height / 2)) {
+            let ops = Decoder::new(chunk.as_slice());
+            verify_leaf(ops, node.hash()).unwrap();
         }
     }
 
