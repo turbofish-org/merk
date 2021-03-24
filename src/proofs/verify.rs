@@ -141,6 +141,13 @@ impl Tree {
             child.tree.visit_refs(visit_node);
         }
     }
+
+    pub(crate) fn key(&self) -> &[u8] {
+        match self.node {
+            Node::KV(ref key, _) => key,
+            _ => panic!("Expected node to be type KV"),
+        }
+    }
 }
 
 /// `LayerIter` iterates over the nodes in a `Tree` at a given depth. Nodes are

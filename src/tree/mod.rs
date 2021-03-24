@@ -107,6 +107,17 @@ impl Tree {
         }
     }
 
+    /// Returns a mutable reference to the root node's `Link` on the given side,
+    /// if any. If there is no child, returns `None`.
+    #[inline]
+    pub fn link_mut(&mut self, left: bool) -> Option<&mut Link> {
+        if left {
+            self.inner.left.as_mut()
+        } else {
+            self.inner.right.as_mut()
+        }
+    }
+
     /// Returns a reference to the root node's child on the given side, if any.
     /// If there is no child, returns `None`.
     #[inline]

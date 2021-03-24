@@ -364,11 +364,9 @@ impl Merk {
         batch.put_cf(internal_cf, ROOT_KEY_KEY, key);
         self.write(batch)
     }
-}
 
-impl Drop for Merk {
-    fn drop(&mut self) {
-        self.db.flush().unwrap();
+    pub(crate) fn fetch_node(&self, key: &[u8]) -> Result<Option<Tree>> {
+        fetch_node(&self.db, key)
     }
 }
 

@@ -21,4 +21,4 @@ pub use self::merk::Merk;
 pub use error::{Error, Result};
 pub use proofs::verify_query;
 pub use tree::{Batch, BatchEntry, Hash, Op, PanicSource, HASH_LENGTH};
-pub use merk::restore;
+pub use self::merk::restore;

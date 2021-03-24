@@ -3,12 +3,14 @@ use crate::{Hash, Op, Result, proofs::{Decoder, Node, chunk::{verify_leaf, verif
 use failure::bail;
 use rocksdb::WriteBatch;
 use std::path::Path;
+use std::iter::Peekable;
 
 /// A `Restorer` handles decoding, verifying, and storing chunk proofs to
 /// replicate an entire Merk tree. It expects the chunks to be processed in
 /// order, retrying the last chunk if verification fails.
 pub struct Restorer {
-    leaf_hashes: Option<std::iter::Peekable<std::vec::IntoIter<Hash>>>,
+    leaf_hashes: Option<Peekable<std::vec::IntoIter<Hash>>>,
+    parent_keys: Option<Peekable<std::vec::IntoIter<Vec<u8>>>>,
     merk: Merk,
     expected_root_hash: Hash,
     stated_length: usize,
@@ -39,6 +41,7 @@ impl Restorer {
             stated_length,
             merk: Merk::open(db_path)?,
             leaf_hashes: None,
+            parent_keys: None,
         })
     }
 
@@ -115,10 +118,7 @@ impl Restorer {
             );
         }
 
-        let root_key = match trunk.node {
-            Node::KV(ref key, _) => key.clone(),
-            _ => panic!("Expected root node to be type KV"),
-        };
+        let root_key = trunk.key().to_vec();
 
         let leaf_hashes = trunk
             .layer(height / 2)
@@ -128,8 +128,22 @@ impl Restorer {
             .peekable();
         self.leaf_hashes = Some(leaf_hashes);
 
+        let parent_keys = trunk
+            .layer(height / 2 - 1)
+            .map(|node| node.key().to_vec())
+            .collect::<Vec<Vec<u8>>>()
+            .into_iter()
+            .peekable();
+        self.parent_keys = Some(parent_keys);
+        assert_eq!(
+            self.parent_keys.as_ref().unwrap().len(),
+            self.leaf_hashes.as_ref().unwrap().len() / 2
+        );
+
         let chunks_remaining = (2 as usize).pow(height as u32 / 2);
         assert_eq!(self.remaining_chunks(), chunks_remaining);
+        
+        // TODO: this one shouldn't be an assert because it comes from a peer
         assert_eq!(self.stated_length, chunks_remaining);
 
         // note that these writes don't happen atomically, which is fine here
@@ -150,11 +164,34 @@ impl Restorer {
             .expect("Received more chunks than expected");
 
         let tree = verify_leaf(ops, *leaf_hash)?;
+        
+        // the parent of the root node of the leaf does not yet know the key of
+        // its children. now that we have verified this leaf, we can write the
+        // key into the parent node's entry. note that this does not need to
+        // recalcuate hashes since it already had the child hash.
+        let parent_keys = self.parent_keys.as_mut().unwrap();
+        let parent_key = parent_keys.peek().unwrap().clone();
+        let mut parent = self.merk.fetch_node(parent_key.as_slice())?
+            .expect("Could not find parent of leaf chunk");
+        let is_left_child = self.remaining_chunks() % 2 == 0;
+        if let Some(Link::Reference { ref mut key, .. }) = parent.link_mut(is_left_child) {
+            *key = tree.key().to_vec();
+        } else {
+            panic!("Expected parent links to be type Link::Reference");
+        }
+        let parent_bytes = parent.encode();
+        self.merk.db.put(parent_key, parent_bytes)?;
 
         self.write_chunk(tree)?;
 
         let leaf_hashes = self.leaf_hashes.as_mut().unwrap();
         leaf_hashes.next();
+
+        if !is_left_child {
+            let parent_keys = self.parent_keys.as_mut().unwrap();
+            parent_keys.next();
+        }
+
         Ok(self.remaining_chunks())
     }
 }
@@ -180,8 +217,11 @@ impl Merk {
 impl Child {
     fn as_link(&self) -> Link {
         let key = match &self.tree.node {
-            Node::KV(key, _) => key,
-            _ => panic!("as_link called for non-KV node"),
+            Node::KV(key, _) => key.as_slice(),
+            // for the connection between the trunk and leaf chunks, we don't
+            // have the child key so we must first write in an empty one. once
+            // the leaf gets verified, we can write in this key to its parent
+            _ => &[],
         };
 
         Link::Reference {
@@ -190,7 +230,7 @@ impl Child {
                 self.tree.left.as_ref().map_or(0, |c| c.tree.height as u8),
                 self.tree.right.as_ref().map_or(0, |c| c.tree.height as u8),
             ),
-            key: key.clone(),
+            key: key.to_vec(),
         }
     }
 }

@@ -14,11 +14,12 @@ where
 {
     /// Generates a trunk proof by traversing the tree.
     pub fn create_trunk_proof(&mut self) -> Result<Vec<Op>> {
-        let approx_size = 2u8.pow((self.tree().height() / 2) as u32);
-        let mut proof = Vec::with_capacity(approx_size as usize);
+        let approx_size = 2usize.pow((self.tree().height() / 2) as u32) * 3;
+        let mut proof = Vec::with_capacity(approx_size);
 
         let trunk_height = self.traverse_for_height_proof(&mut proof, 1)?;
-        self.traverse_for_trunk(&mut proof, trunk_height - 1, true)?;
+
+        self.traverse_for_trunk(&mut proof, trunk_height, true)?;
 
         Ok(proof)
     }
@@ -64,23 +65,11 @@ where
         if remaining_depth == 0 {
             // return early if we have reached bottom of trunk
 
-            // connect to hash of left child
             // for leftmost node, we already have height proof
-            if !is_leftmost {
-                let left_child = self.tree().link(true).unwrap();
-                proof.push(Op::Push(Node::Hash(*left_child.hash())));
-            }
+            if is_leftmost { return Ok(()) }
 
-            // add this node's data
-            proof.push(Op::Push(self.to_kv_node()));
-
-            // add parent op to connect left child
-            proof.push(Op::Parent);
-
-            // connect to hash of right child
-            let right_child = self.tree().link(false).unwrap();
-            proof.push(Op::Push(Node::Hash(*right_child.hash())));
-            proof.push(Op::Child);
+            // add this node's hash
+            proof.push(Op::Push(self.to_hash_node()));
 
             return Ok(());
         }
@@ -267,8 +256,8 @@ mod tests {
 
         let counts = count_node_types(trunk);
         // counted based on the deterministic structure of this 31-node tree
-        assert_eq!(counts.hash, 9);
-        assert_eq!(counts.kv, 7);
+        assert_eq!(counts.hash, 5);
+        assert_eq!(counts.kv, 3);
         assert_eq!(counts.kvhash, 3);
     }
 
