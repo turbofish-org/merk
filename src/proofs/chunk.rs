@@ -18,7 +18,7 @@ where
         let mut proof = Vec::with_capacity(approx_size as usize);
 
         let trunk_height = self.traverse_for_height_proof(&mut proof, 1)?;
-        self.traverse_for_trunk(&mut proof, trunk_height, true)?;
+        self.traverse_for_trunk(&mut proof, trunk_height - 1, true)?;
 
         Ok(proof)
     }
@@ -43,8 +43,8 @@ where
                 proof.push(Op::Parent);
             }
 
-            if let Some(right) = self.walk(false)? {
-                proof.push(Op::Push(right.to_hash_node()));
+            if let Some(right) = self.tree().child(false) {
+                proof.push(Op::Push(Node::Hash(right.hash())));
                 proof.push(Op::Child);
             }
         }
@@ -67,24 +67,20 @@ where
             // connect to hash of left child
             // for leftmost node, we already have height proof
             if !is_leftmost {
-                if let Some(left_child) = self.tree().link(true) {
-                    proof.push(Op::Push(Node::Hash(*left_child.hash())));
-                }
+                let left_child = self.tree().link(true).unwrap();
+                proof.push(Op::Push(Node::Hash(*left_child.hash())));
             }
 
             // add this node's data
             proof.push(Op::Push(self.to_kv_node()));
 
             // add parent op to connect left child
-            if let Some(_) = self.tree().link(true) {
-                proof.push(Op::Parent);
-            }
+            proof.push(Op::Parent);
 
             // connect to hash of right child
-            if let Some(right_child) = self.tree().link(false) {
-                proof.push(Op::Push(Node::Hash(*right_child.hash())));
-                proof.push(Op::Child);
-            }
+            let right_child = self.tree().link(false).unwrap();
+            proof.push(Op::Push(Node::Hash(*right_child.hash())));
+            proof.push(Op::Child);
 
             return Ok(());
         }
@@ -208,20 +204,18 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
                 _ => bail!("Expected trunk inner nodes to contain keys and values"),
             }
             recurse(true, leftmost)?;
-            recurse(false, false)?;
+            recurse(false, false)
         } else if !leftmost {
             match tree.node {
-                Node::Hash(_) => {}
+                Node::Hash(_) => Ok(()),
                 _ => bail!("Expected trunk leaves to contain Hash nodes"),
             }
-        } else if leftmost {
-            match tree.node {
-                Node::KVHash(_) => {}
+        } else {
+            match &tree.node {
+                Node::KVHash(_) => Ok(()),
                 _ => bail!("Expected leftmost trunk leaf to contain KVHash node"),
             }
         }
-
-        Ok(())
     }
 
     let tree = execute(ops, false, |_| Ok(()))?;

@@ -172,6 +172,8 @@ impl<'a> LayerIter<'a> {
 
         if let Some(child) = tree.child(true) {
             self.traverse_to_start(&child.tree, remaining_depth - 1)
+        } else {
+            panic!("Could not traverse to given layer")
         }
     }
 }

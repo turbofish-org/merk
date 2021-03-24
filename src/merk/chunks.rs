@@ -83,7 +83,7 @@ impl<'a> ChunkProducer<'a> {
             panic!("Called next_chunk after end");
         }
 
-        let end_key = self.chunk_boundaries.get(self.index);
+        let end_key = self.chunk_boundaries.get(self.index - 1);
         let end_key_slice = end_key.as_ref().map(|k| k.as_slice());
 
         self.index += 1;
