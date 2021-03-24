@@ -299,8 +299,6 @@ fn restore_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
     let mut i = 0;
 
     b.iter(|| {
-        dbg!(chunks.len(), i, i % chunks.len());
-
         if i % chunks.len() == 0 {
             if i != 0 {
                 let restorer_merk = restorer.take().unwrap().finalize();
