@@ -2,11 +2,13 @@
 
 extern crate test;
 
-use merk::test_utils::*;
+use merk::{Merk, Result};
+use merk::restore::Restorer;
 use merk::proofs::encode_into as encode_proof_into;
+use merk::test_utils::*;
+use rand::prelude::*;
 use std::thread;
 use test::Bencher;
-use rand::prelude::*;
 
 #[bench]
 fn get_1m_rocksdb(b: &mut Bencher) {
@@ -193,9 +195,7 @@ fn build_trunk_chunk_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
     b.iter(|| {
         bytes.clear();
 
-        let ops = merk.walk(|walker| {
-            walker.unwrap().create_trunk_proof().unwrap()
-        });
+        let ops = merk.walk(|walker| walker.unwrap().create_trunk_proof().unwrap());
         encode_proof_into(ops.iter(), &mut bytes);
 
         merk.commit(std::collections::LinkedList::new(), &[])
@@ -268,6 +268,58 @@ fn chunk_iter_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
         total_bytes += chunk.unwrap().len();
         i += 1;
     });
+
+    b.bytes = (total_bytes / i) as u64;
+}
+
+#[bench]
+fn restore_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
+    let initial_size = 1_000_000;
+    let batch_size = 1_000;
+
+    let path = thread::current().name().unwrap().to_owned();
+    let mut merk = TempMerk::open(path).expect("failed to open merk");
+
+    for i in 0..(initial_size / batch_size) {
+        let batch = make_batch_rand(batch_size, i);
+        unsafe { merk.apply_unchecked(&batch, &[]).expect("apply failed") };
+    }
+
+    let chunks = merk
+        .chunks()
+        .unwrap()
+        .into_iter()
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+
+    let path = thread::current().name().unwrap().to_owned() + "_restore";
+    let mut restorer: Option<Restorer> = None;
+
+    let mut total_bytes = 0;
+    let mut i = 0;
+
+    b.iter(|| {
+        dbg!(chunks.len(), i, i % chunks.len());
+
+        if i % chunks.len() == 0 {
+            if i != 0 {
+                let restorer_merk = restorer.take().unwrap().finalize();
+                drop(restorer_merk);
+                std::fs::remove_dir_all(&path).unwrap();
+            }
+
+            restorer = Some(Merk::restore(&path, merk.root_hash(), chunks.len()).unwrap());
+        }
+        
+        let restorer = restorer.as_mut().unwrap();
+        let chunk = chunks[i % chunks.len()].as_slice();
+        restorer.process_chunk(chunk).unwrap();
+
+        total_bytes += chunk.len();
+        i += 1;
+    });
+
+    std::fs::remove_dir_all(&path).unwrap();
 
     b.bytes = (total_bytes / i) as u64;
 }

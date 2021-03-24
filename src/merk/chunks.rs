@@ -43,7 +43,7 @@ impl<'a> ChunkProducer<'a> {
             index: 0,
         })
     }
-    
+
     /// Gets the chunk with the given index. Errors if the index is out of
     /// bounds - the number of chunks can be checked by calling
     /// `producer.len()`.

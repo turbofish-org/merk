@@ -1,5 +1,5 @@
 mod chunks;
-mod restore;
+pub mod restore;
 
 use std::cell::Cell;
 use std::collections::LinkedList;
