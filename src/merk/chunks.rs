@@ -57,7 +57,7 @@ impl<'a> ChunkProducer<'a> {
         if index == 0 || index == 1 {
             self.raw_iter.seek_to_first();
         } else {
-            let preceding_key = self.chunk_boundaries.get(index - 1).unwrap();
+            let preceding_key = self.chunk_boundaries.get(index - 2).unwrap();
             self.raw_iter.seek(preceding_key);
             self.raw_iter.next();
         }
