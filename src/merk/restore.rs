@@ -1,8 +1,8 @@
 use super::Merk;
-use crate::{Hash, Op, Result, proofs::{Decoder, Node, chunk::{verify_leaf, verify_trunk}, verify::{Child, Tree as ProofTree}}, tree::{Tree, Link}};
+use crate::{Hash, Result, merk::MerkSource, proofs::{Decoder, Node, chunk::{verify_leaf, verify_trunk}, verify::{Child, Tree as ProofTree}}, tree::{Tree, Link, RefWalker}};
 use failure::bail;
 use rocksdb::WriteBatch;
-use std::path::Path;
+use std::{path::Path, u8};
 use std::iter::Peekable;
 
 /// A `Restorer` handles decoding, verifying, and storing chunk proofs to
@@ -11,6 +11,7 @@ use std::iter::Peekable;
 pub struct Restorer {
     leaf_hashes: Option<Peekable<std::vec::IntoIter<Hash>>>,
     parent_keys: Option<Peekable<std::vec::IntoIter<Vec<u8>>>>,
+    trunk_height: Option<usize>,
     merk: Merk,
     expected_root_hash: Hash,
     stated_length: usize,
@@ -39,6 +40,7 @@ impl Restorer {
         Ok(Self {
             expected_root_hash,
             stated_length,
+            trunk_height: None,
             merk: Merk::open(db_path)?,
             leaf_hashes: None,
             parent_keys: None,
@@ -64,16 +66,14 @@ impl Restorer {
     /// Merk instance. This method will return an error if called before
     /// processing all chunks (e.g. `restorer.remaining_chunks()` is not equal
     /// to 0).
-    pub fn finalize(self) -> Result<Merk> {
+    pub fn finalize(mut self) -> Result<Merk> {
         if self.remaining_chunks().is_none() || self.remaining_chunks().unwrap() != 0 {
             bail!("Called finalize before all chunks were processed");
         }
 
-        let mut merk = self.merk;
-        merk.flush()?;
-        merk.load_root()?;
+        self.rewrite_trunk_child_heights()?;
 
-        Ok(merk)
+        Ok(self.merk)
     }
 
     /// Returns the number of remaining chunks to be processed. If called before
@@ -124,8 +124,11 @@ impl Restorer {
 
         let root_key = trunk.key().to_vec();
 
+        let trunk_height = height / 2;
+        self.trunk_height = Some(trunk_height);
+
         let leaf_hashes = trunk
-            .layer(height / 2)
+            .layer(trunk_height)
             .map(|node| node.hash())
             .collect::<Vec<Hash>>()
             .into_iter()
@@ -133,7 +136,7 @@ impl Restorer {
         self.leaf_hashes = Some(leaf_hashes);
 
         let parent_keys = trunk
-            .layer(height / 2 - 1)
+            .layer(trunk_height - 1)
             .map(|node| node.key().to_vec())
             .collect::<Vec<Vec<u8>>>()
             .into_iter()
@@ -144,7 +147,7 @@ impl Restorer {
             self.leaf_hashes.as_ref().unwrap().len() / 2
         );
 
-        let chunks_remaining = (2 as usize).pow(height as u32 / 2);
+        let chunks_remaining = (2 as usize).pow(trunk_height as u32);
         assert_eq!(self.remaining_chunks_unchecked(), chunks_remaining);
         
         // TODO: this one shouldn't be an assert because it comes from a peer
@@ -167,36 +170,89 @@ impl Restorer {
             .peek()
             .expect("Received more chunks than expected");
 
-        let tree = verify_leaf(ops, *leaf_hash)?;
-        
-        // the parent of the root node of the leaf does not yet know the key of
-        // its children. now that we have verified this leaf, we can write the
-        // key into the parent node's entry. note that this does not need to
-        // recalcuate hashes since it already had the child hash.
+        let leaf = verify_leaf(ops, *leaf_hash)?;
+        self.rewrite_parent_link(&leaf)?;
+        self.write_chunk(leaf)?;
+
+        let leaf_hashes = self.leaf_hashes.as_mut().unwrap();
+        leaf_hashes.next();
+
+        Ok(self.remaining_chunks_unchecked())
+    }
+
+    /// The parent of the root node of the leaf does not know the key of its
+    /// children when it is first written. Now that we have verified this leaf,
+    /// we can write the key into the parent node's entry. Note that this does
+    /// not need to recalcuate hashes since it already had the child hash.
+    fn rewrite_parent_link(&mut self, leaf: &ProofTree) -> Result<()> {
         let parent_keys = self.parent_keys.as_mut().unwrap();
         let parent_key = parent_keys.peek().unwrap().clone();
         let mut parent = self.merk.fetch_node(parent_key.as_slice())?
             .expect("Could not find parent of leaf chunk");
+
         let is_left_child = self.remaining_chunks_unchecked() % 2 == 0;
         if let Some(Link::Reference { ref mut key, .. }) = parent.link_mut(is_left_child) {
-            *key = tree.key().to_vec();
+            *key = leaf.key().to_vec();
         } else {
             panic!("Expected parent links to be type Link::Reference");
-        }
+        };
+
         let parent_bytes = parent.encode();
         self.merk.db.put(parent_key, parent_bytes)?;
-
-        self.write_chunk(tree)?;
-
-        let leaf_hashes = self.leaf_hashes.as_mut().unwrap();
-        leaf_hashes.next();
 
         if !is_left_child {
             let parent_keys = self.parent_keys.as_mut().unwrap();
             parent_keys.next();
         }
 
-        Ok(self.remaining_chunks_unchecked())
+        Ok(())
+    }
+
+    fn rewrite_trunk_child_heights(&mut self) -> Result<()> {
+        fn recurse(mut node: RefWalker<MerkSource>, remaining_depth: usize, batch: &mut WriteBatch) -> Result<(u8, u8)> {
+            if remaining_depth == 0 {
+                return Ok(node.tree().child_heights());
+            }
+
+            let mut cloned_node = Tree::decode(
+                node.tree().key().to_vec(),
+                node.tree().encode().as_slice()
+            );
+
+            let left_child = node.walk(true)?.unwrap();
+            let left_child_heights = recurse(left_child, remaining_depth - 1, batch)?;
+            let left_height = left_child_heights.0.max(left_child_heights.1) + 1;
+            *cloned_node.link_mut(true).unwrap().child_heights_mut() = left_child_heights;
+            
+            let right_child = node.walk(false)?.unwrap();
+            let right_child_heights = recurse(right_child, remaining_depth - 1, batch)?;
+            let right_height = right_child_heights.0.max(right_child_heights.1) + 1;
+            *cloned_node.link_mut(false).unwrap().child_heights_mut() = right_child_heights;
+            
+            let bytes = cloned_node.encode();
+            batch.put(node.tree().key(), bytes);
+
+            Ok((left_height, right_height))
+        }
+
+        self.merk.flush()?;
+        self.merk.load_root()?;
+
+        let mut batch = WriteBatch::default();
+
+        let depth = self.trunk_height.unwrap();
+        self.merk.use_tree_mut(|maybe_tree| {
+            let tree = maybe_tree.unwrap();
+            let walker = RefWalker::new(tree, self.merk.source());
+            recurse(walker, depth, &mut batch)
+        })?;
+
+        self.merk.write(batch)?;
+
+        self.merk.flush()?;
+        self.merk.load_root()?;
+
+        Ok(())
     }
 
     /// Returns the number of remaining chunks to be processed. This method will
@@ -225,6 +281,15 @@ impl Merk {
     }
 }
 
+impl ProofTree {
+    fn child_heights(&self) -> (u8, u8) {
+        (
+            self.left.as_ref().map_or(0, |c| c.tree.height as u8),
+            self.right.as_ref().map_or(0, |c| c.tree.height as u8),
+        )
+    }
+}
+
 impl Child {
     fn as_link(&self) -> Link {
         let key = match &self.tree.node {
@@ -237,10 +302,7 @@ impl Child {
 
         Link::Reference {
             hash: self.hash,
-            child_heights: (
-                self.tree.left.as_ref().map_or(0, |c| c.tree.height as u8),
-                self.tree.right.as_ref().map_or(0, |c| c.tree.height as u8),
-            ),
+            child_heights: self.tree.child_heights(),
             key: key.to_vec(),
         }
     }
@@ -255,8 +317,10 @@ mod tests {
     #[test]
     fn restore() {
         let mut original = TempMerk::new().unwrap();
-        let batch = make_batch_seq(1..100000);
+        let length = 100_000;
+        let batch = make_batch_seq(0..length);
         original.apply(batch.as_slice(), &[]).unwrap();
+        original.flush().unwrap();
 
         let chunks = original.chunks().unwrap();
 
@@ -278,17 +342,20 @@ mod tests {
             assert_eq!(remaining, expected_remaining);
             assert_eq!(restorer.remaining_chunks().unwrap(), expected_remaining);
         }
-
         assert_eq!(expected_remaining, 0);
 
         let restored = restorer.finalize().unwrap();
         assert_eq!(restored.root_hash(), original.root_hash());
+        assert_raw_db_entries_eq(&restored, &original, length as usize);
+    }
 
+    fn assert_raw_db_entries_eq(restored: &Merk, original: &Merk, length: usize) {
         let mut original_entries = original.raw_iter();
         let mut restored_entries = restored.raw_iter();
         original_entries.seek_to_first();
         restored_entries.seek_to_first();
 
+        let mut i = 0;
         loop {
             assert_eq!(restored_entries.valid(), original_entries.valid());
             if !restored_entries.valid() { break }
@@ -298,6 +365,10 @@ mod tests {
 
             restored_entries.next();
             original_entries.next();
+
+            i += 1;
         }
+
+        assert_eq!(i, length);
     }
 }

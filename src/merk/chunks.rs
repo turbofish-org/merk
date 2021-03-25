@@ -33,7 +33,7 @@ impl<'a> ChunkProducer<'a> {
             })
             .collect();
 
-        let mut raw_iter = merk.db.raw_iterator();
+        let mut raw_iter = merk.raw_iter();
         raw_iter.seek_to_first();
 
         Ok(ChunkProducer {

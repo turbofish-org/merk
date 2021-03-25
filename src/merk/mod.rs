@@ -323,8 +323,7 @@ impl Merk {
     }
 
     pub fn raw_iter(&self) -> rocksdb::DBRawIterator {
-        let internal_cf = self.db.cf_handle(INTERNAL_CF_NAME).unwrap();
-        self.db.raw_iterator_cf(internal_cf)
+        self.db.raw_iterator()
     }
 
     fn source(&self) -> MerkSource {

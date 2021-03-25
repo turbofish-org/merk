@@ -457,6 +457,18 @@ mod test {
     }
 
     #[test]
+    fn height_counting() {
+        fn recurse(tree: &super::Tree, expected_height: usize) {
+            assert_eq!(tree.height, expected_height);
+            tree.left.as_ref().map(|l| recurse(&l.tree, expected_height - 1));
+            tree.right.as_ref().map(|r| recurse(&r.tree, expected_height - 1));
+        }
+
+        let tree = make_7_node_prooftree();
+        recurse(&tree, 3);
+    }
+
+    #[test]
     fn layer_iter() {
         let tree = make_7_node_prooftree();
 
