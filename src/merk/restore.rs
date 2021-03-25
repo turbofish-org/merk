@@ -65,18 +65,22 @@ impl Restorer {
     /// processing all chunks (e.g. `restorer.remaining_chunks()` is not equal
     /// to 0).
     pub fn finalize(self) -> Result<Merk> {
-        if self.remaining_chunks() != 0 {
+        if self.remaining_chunks().is_none() || self.remaining_chunks().unwrap() != 0 {
             bail!("Called finalize before all chunks were processed");
         }
 
-        self.merk.flush()?;
+        let mut merk = self.merk;
+        merk.flush()?;
+        merk.load_root()?;
 
-        Ok(self.merk)
+        Ok(merk)
     }
 
-    /// Returns the number of remainign chunks to be processed.
-    pub fn remaining_chunks(&self) -> usize {
-        self.leaf_hashes.as_ref().unwrap().len()
+    /// Returns the number of remaining chunks to be processed. If called before
+    /// the first chunk is processed, this method will return `None` since we do
+    /// not yet have enough information to know about the number of chunks.
+    pub fn remaining_chunks(&self) -> Option<usize> {
+        self.leaf_hashes.as_ref().map(|lh| lh.len())
     }
 
     /// Writes the data contained in `tree` (extracted from a verified chunk
@@ -141,10 +145,10 @@ impl Restorer {
         );
 
         let chunks_remaining = (2 as usize).pow(height as u32 / 2);
-        assert_eq!(self.remaining_chunks(), chunks_remaining);
+        assert_eq!(self.remaining_chunks_unchecked(), chunks_remaining);
         
         // TODO: this one shouldn't be an assert because it comes from a peer
-        assert_eq!(self.stated_length, chunks_remaining);
+        assert_eq!(self.stated_length, chunks_remaining + 1);
 
         // note that these writes don't happen atomically, which is fine here
         // because if anything fails during the restore process we will just
@@ -173,7 +177,7 @@ impl Restorer {
         let parent_key = parent_keys.peek().unwrap().clone();
         let mut parent = self.merk.fetch_node(parent_key.as_slice())?
             .expect("Could not find parent of leaf chunk");
-        let is_left_child = self.remaining_chunks() % 2 == 0;
+        let is_left_child = self.remaining_chunks_unchecked() % 2 == 0;
         if let Some(Link::Reference { ref mut key, .. }) = parent.link_mut(is_left_child) {
             *key = tree.key().to_vec();
         } else {
@@ -192,7 +196,14 @@ impl Restorer {
             parent_keys.next();
         }
 
-        Ok(self.remaining_chunks())
+        Ok(self.remaining_chunks_unchecked())
+    }
+
+    /// Returns the number of remaining chunks to be processed. This method will
+    /// panic if called before processing the first chunk (since that chunk
+    /// gives us the information to know how many chunks to expect).
+    pub fn remaining_chunks_unchecked(&self) -> usize {
+        self.leaf_hashes.as_ref().unwrap().len()
     }
 }
 
@@ -231,6 +242,62 @@ impl Child {
                 self.tree.right.as_ref().map_or(0, |c| c.tree.height as u8),
             ),
             key: key.to_vec(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn restore() {
+        let mut original = TempMerk::new().unwrap();
+        let batch = make_batch_seq(1..100000);
+        original.apply(batch.as_slice(), &[]).unwrap();
+
+        let chunks = original.chunks().unwrap();
+
+        let path: PathBuf = "merk::restore::tests::restore".into();
+        if path.exists() {
+            std::fs::remove_dir_all(&path).unwrap();
+        }
+
+        let mut restorer = Merk::restore(path, original.root_hash(), chunks.len()).unwrap();
+
+        assert_eq!(restorer.remaining_chunks(), None);
+
+        let mut expected_remaining = chunks.len();
+        for chunk in chunks {
+            let chunk = chunk.unwrap();
+            let remaining = restorer.process_chunk(chunk.as_slice()).unwrap();
+
+            expected_remaining -= 1;
+            assert_eq!(remaining, expected_remaining);
+            assert_eq!(restorer.remaining_chunks().unwrap(), expected_remaining);
+        }
+
+        assert_eq!(expected_remaining, 0);
+
+        let restored = restorer.finalize().unwrap();
+        assert_eq!(restored.root_hash(), original.root_hash());
+
+        let mut original_entries = original.raw_iter();
+        let mut restored_entries = restored.raw_iter();
+        original_entries.seek_to_first();
+        restored_entries.seek_to_first();
+
+        loop {
+            assert_eq!(restored_entries.valid(), original_entries.valid());
+            if !restored_entries.valid() { break }
+
+            assert_eq!(restored_entries.key(), original_entries.key());
+            assert_eq!(restored_entries.value(), original_entries.value());
+
+            restored_entries.next();
+            original_entries.next();
         }
     }
 }

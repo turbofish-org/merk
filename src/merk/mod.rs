@@ -49,19 +49,14 @@ impl Merk {
         path_buf.push(path);
         let db = rocksdb::DB::open_cf_descriptors(&db_opts, &path_buf, column_families())?;
 
-        // try to load root node
-        let internal_cf = db.cf_handle(INTERNAL_CF_NAME).unwrap();
-        let tree = match db.get_pinned_cf(internal_cf, ROOT_KEY_KEY)? {
-            Some(root_key) => Some(fetch_existing_node(&db, &root_key)?),
-            None => None,
-        };
-        let tree = Cell::new(tree);
-
-        Ok(Merk {
-            tree,
+        let mut merk = Merk {
+            tree: Cell::new(None),
             db,
             path: path_buf,
-        })
+        };
+        merk.load_root()?;
+
+        Ok(merk)
     }
 
     pub fn default_db_opts() -> rocksdb::Options {
@@ -367,6 +362,15 @@ impl Merk {
 
     pub(crate) fn fetch_node(&self, key: &[u8]) -> Result<Option<Tree>> {
         fetch_node(&self.db, key)
+    }
+
+    pub(crate) fn load_root(&mut self) -> Result<()> {
+        let internal_cf = self.db.cf_handle(INTERNAL_CF_NAME).unwrap();
+        let tree = self.db.get_pinned_cf(internal_cf, ROOT_KEY_KEY)?
+            .map(|root_key| fetch_existing_node(&self.db, &root_key))
+            .transpose()?;
+        self.tree = Cell::new(tree);
+        Ok(())
     }
 }
 
