@@ -67,7 +67,7 @@ impl<'a> ChunkProducer<'a> {
 
     /// Returns the total number of chunks for the underlying Merk tree.
     pub fn len(&self) -> usize {
-        self.chunk_boundaries.len() + 1
+        self.chunk_boundaries.len() + 2
     }
 
     /// Gets the next chunk based on the `ChunkProducer`'s internal index state.
@@ -141,6 +141,18 @@ mod tests {
         },
         test_utils::*,
     };
+
+
+    #[test]
+    fn len() {
+        let mut merk = TempMerk::new().unwrap();
+        let batch = make_batch_seq(1..256);
+        merk.apply(batch.as_slice(), &[]).unwrap();
+
+        let chunks = merk.chunks().unwrap();
+        assert_eq!(chunks.len(), 17);
+        assert_eq!(chunks.into_iter().size_hint().0, 17);
+    }
 
     #[test]
     fn generate_and_verify_chunks() {
