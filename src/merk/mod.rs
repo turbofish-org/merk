@@ -6,7 +6,7 @@ use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
 use failure::bail;
-use rocksdb::{ColumnFamilyDescriptor, WriteBatch};
+use rocksdb::{ColumnFamilyDescriptor, WriteBatch, checkpoint::Checkpoint};
 
 use crate::error::Result;
 use crate::proofs::encode_into;
@@ -326,6 +326,11 @@ impl Merk {
         self.db.raw_iterator()
     }
 
+    pub fn checkpoint<P: AsRef<Path>>(&self, path: P) -> Result<Merk> {
+        Checkpoint::new(&self.db)?.create_checkpoint(&path)?;
+        Merk::open(path)
+    }
+
     fn source(&self) -> MerkSource {
         MerkSource { db: &self.db }
     }
@@ -569,5 +574,44 @@ mod test {
         )
         .unwrap();
         assert!(merk.get(&[3, 3, 3]).unwrap().is_none());
+    }
+
+    #[test]
+    fn checkpoint() {
+        let path = thread::current().name().unwrap().to_owned();
+        let mut merk = TempMerk::open(&path).expect("failed to open merk");
+
+        merk.apply(&[
+            (vec![1], Op::Put(vec![0])),
+        ], &[]).expect("apply failed");
+
+        let mut checkpoint = merk.checkpoint(path + ".checkpoint").unwrap();
+        
+        assert_eq!(merk.get(&[1]).unwrap(), Some(vec![0]));
+        assert_eq!(checkpoint.get(&[1]).unwrap(), Some(vec![0]));
+
+        merk.apply(&[
+            (vec![1], Op::Put(vec![1])),
+            (vec![2], Op::Put(vec![0])),
+        ], &[]).expect("apply failed");
+
+        assert_eq!(merk.get(&[1]).unwrap(), Some(vec![1]));
+        assert_eq!(merk.get(&[2]).unwrap(), Some(vec![0]));
+        assert_eq!(checkpoint.get(&[1]).unwrap(), Some(vec![0]));
+        assert_eq!(checkpoint.get(&[2]).unwrap(), None);
+
+        checkpoint.apply(&[
+            (vec![2], Op::Put(vec![123])),
+        ], &[]).expect("apply failed");
+
+        assert_eq!(merk.get(&[1]).unwrap(), Some(vec![1]));
+        assert_eq!(merk.get(&[2]).unwrap(), Some(vec![0]));
+        assert_eq!(checkpoint.get(&[1]).unwrap(), Some(vec![0]));
+        assert_eq!(checkpoint.get(&[2]).unwrap(), Some(vec![123]));
+
+        checkpoint.destroy().unwrap();
+
+        assert_eq!(merk.get(&[1]).unwrap(), Some(vec![1]));
+        assert_eq!(merk.get(&[2]).unwrap(), Some(vec![0])); 
     }
 }
