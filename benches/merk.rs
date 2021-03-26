@@ -321,3 +321,23 @@ fn restore_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
 
     b.bytes = (total_bytes / i) as u64;
 }
+
+#[bench]
+fn checkpoint_create_destroy_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
+    let initial_size = 1_000_000;
+    let batch_size = 1_000;
+
+    let path = thread::current().name().unwrap().to_owned();
+    let mut merk = TempMerk::open(&path).expect("failed to open merk");
+
+    for i in 0..(initial_size / batch_size) {
+        let batch = make_batch_rand(batch_size, i);
+        unsafe { merk.apply_unchecked(&batch, &[]).expect("apply failed") };
+    }
+
+    let path = path + ".checkpoint";
+    b.iter(|| {
+        let checkpoint = merk.checkpoint(&path).unwrap();
+        checkpoint.destroy().unwrap();
+    });
+}
