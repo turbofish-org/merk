@@ -66,7 +66,9 @@ where
             // return early if we have reached bottom of trunk
 
             // for leftmost node, we already have height proof
-            if is_leftmost { return Ok(()) }
+            if is_leftmost {
+                return Ok(());
+            }
 
             // add this node's hash
             proof.push(Op::Push(self.to_hash_node()));

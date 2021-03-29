@@ -142,7 +142,6 @@ mod tests {
         test_utils::*,
     };
 
-
     #[test]
     fn len() {
         let mut merk = TempMerk::new().unwrap();

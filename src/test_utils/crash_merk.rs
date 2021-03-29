@@ -1,14 +1,14 @@
+use crate::{Merk, Result};
 use std::fs;
 use std::mem::ManuallyDrop;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
-use crate::{Merk, Result};
 
 /// Wraps a Merk instance and drops it without flushing once it goes out of
 /// scope.
 pub struct CrashMerk {
     inner: Option<ManuallyDrop<Merk>>,
-    path: Box<Path>
+    path: Box<Path>,
 }
 
 impl CrashMerk {
@@ -17,7 +17,10 @@ impl CrashMerk {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<CrashMerk> {
         let merk = Merk::open(&path)?;
         let inner = Some(ManuallyDrop::new(merk));
-        Ok(CrashMerk { inner, path: path.as_ref().into() })
+        Ok(CrashMerk {
+            inner,
+            path: path.as_ref().into(),
+        })
     }
 
     pub fn crash(&mut self) -> Result<()> {
@@ -26,10 +29,7 @@ impl CrashMerk {
         // rename to invalidate rocksdb's lock
         let file_name = format!(
             "{}_crashed",
-            self.path.file_name()
-                .unwrap()
-                .to_str()
-                .unwrap()
+            self.path.file_name().unwrap().to_str().unwrap()
         );
         let new_path = self.path.with_file_name(file_name);
         fs::rename(&self.path, &new_path)?;
@@ -74,9 +74,10 @@ mod tests {
         let path = std::thread::current().name().unwrap().to_owned();
 
         let mut merk = CrashMerk::open(&path).expect("failed to open merk");
-        merk.apply(&[(vec![1,2,3], Op::Put(vec![4,5,6]))], &[]).expect("apply failed");
+        merk.apply(&[(vec![1, 2, 3], Op::Put(vec![4, 5, 6]))], &[])
+            .expect("apply failed");
         merk.crash().unwrap();
-        assert_eq!(merk.get(&[1,2,3]).expect("failed to get"), None);
+        assert_eq!(merk.get(&[1, 2, 3]).expect("failed to get"), None);
         merk.into_inner().destroy().unwrap();
     }
 }

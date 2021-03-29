@@ -1,9 +1,18 @@
 use super::Merk;
-use crate::{Hash, Result, merk::MerkSource, proofs::{Decoder, Node, chunk::{verify_leaf, verify_trunk}, verify::{Child, Tree as ProofTree}}, tree::{Tree, Link, RefWalker}};
+use crate::{
+    merk::MerkSource,
+    proofs::{
+        chunk::{verify_leaf, verify_trunk},
+        verify::{Child, Tree as ProofTree},
+        Decoder, Node,
+    },
+    tree::{Link, RefWalker, Tree},
+    Hash, Result,
+};
 use failure::bail;
 use rocksdb::WriteBatch;
-use std::{path::Path, u8};
 use std::iter::Peekable;
+use std::{path::Path, u8};
 
 /// A `Restorer` handles decoding, verifying, and storing chunk proofs to
 /// replicate an entire Merk tree. It expects the chunks to be processed in
@@ -91,7 +100,7 @@ impl Restorer {
         tree.visit_refs(&mut |proof_node| {
             let (key, value) = match &proof_node.node {
                 Node::KV(key, value) => (key, value),
-                _ => return
+                _ => return,
             };
 
             // TODO: encode tree node without cloning key/value
@@ -149,7 +158,7 @@ impl Restorer {
 
         let chunks_remaining = (2 as usize).pow(trunk_height as u32);
         assert_eq!(self.remaining_chunks_unchecked(), chunks_remaining);
-        
+
         // TODO: this one shouldn't be an assert because it comes from a peer
         assert_eq!(self.stated_length, chunks_remaining + 1);
 
@@ -187,7 +196,9 @@ impl Restorer {
     fn rewrite_parent_link(&mut self, leaf: &ProofTree) -> Result<()> {
         let parent_keys = self.parent_keys.as_mut().unwrap();
         let parent_key = parent_keys.peek().unwrap().clone();
-        let mut parent = self.merk.fetch_node(parent_key.as_slice())?
+        let mut parent = self
+            .merk
+            .fetch_node(parent_key.as_slice())?
             .expect("Could not find parent of leaf chunk");
 
         let is_left_child = self.remaining_chunks_unchecked() % 2 == 0;
@@ -209,26 +220,28 @@ impl Restorer {
     }
 
     fn rewrite_trunk_child_heights(&mut self) -> Result<()> {
-        fn recurse(mut node: RefWalker<MerkSource>, remaining_depth: usize, batch: &mut WriteBatch) -> Result<(u8, u8)> {
+        fn recurse(
+            mut node: RefWalker<MerkSource>,
+            remaining_depth: usize,
+            batch: &mut WriteBatch,
+        ) -> Result<(u8, u8)> {
             if remaining_depth == 0 {
                 return Ok(node.tree().child_heights());
             }
 
-            let mut cloned_node = Tree::decode(
-                node.tree().key().to_vec(),
-                node.tree().encode().as_slice()
-            );
+            let mut cloned_node =
+                Tree::decode(node.tree().key().to_vec(), node.tree().encode().as_slice());
 
             let left_child = node.walk(true)?.unwrap();
             let left_child_heights = recurse(left_child, remaining_depth - 1, batch)?;
             let left_height = left_child_heights.0.max(left_child_heights.1) + 1;
             *cloned_node.link_mut(true).unwrap().child_heights_mut() = left_child_heights;
-            
+
             let right_child = node.walk(false)?.unwrap();
             let right_child_heights = recurse(right_child, remaining_depth - 1, batch)?;
             let right_height = right_child_heights.0.max(right_child_heights.1) + 1;
             *cloned_node.link_mut(false).unwrap().child_heights_mut() = right_child_heights;
-            
+
             let bytes = cloned_node.encode();
             batch.put(node.tree().key(), bytes);
 
@@ -358,7 +371,9 @@ mod tests {
         let mut i = 0;
         loop {
             assert_eq!(restored_entries.valid(), original_entries.valid());
-            if !restored_entries.valid() { break }
+            if !restored_entries.valid() {
+                break;
+            }
 
             assert_eq!(restored_entries.key(), original_entries.key());
             assert_eq!(restored_entries.value(), original_entries.value());

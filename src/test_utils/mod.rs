@@ -1,19 +1,11 @@
 mod crash_merk;
 mod temp_merk;
 
-use std::ops::Range;
-use std::convert::TryInto;
+use crate::tree::{Batch, BatchEntry, NoopCommit, Op, PanicSource, Tree, Walker};
 use byteorder::{BigEndian, WriteBytesExt};
 use rand::prelude::*;
-use crate::tree::{
-    Tree,
-    Walker,
-    NoopCommit,
-    Batch,
-    Op,
-    PanicSource,
-    BatchEntry
-};
+use std::convert::TryInto;
+use std::ops::Range;
 
 pub use crash_merk::CrashMerk;
 pub use temp_merk::TempMerk;
@@ -47,8 +39,7 @@ pub fn apply_memonly_unchecked(tree: Tree, batch: &Batch) -> Tree {
         .expect("apply failed")
         .0
         .expect("expected tree");
-    tree.commit(&mut NoopCommit {})
-        .expect("commit failed");
+    tree.commit(&mut NoopCommit {}).expect("commit failed");
     tree
 }
 
@@ -59,9 +50,7 @@ pub fn apply_memonly(tree: Tree, batch: &Batch) -> Tree {
 }
 
 pub fn apply_to_memonly(maybe_tree: Option<Tree>, batch: &Batch) -> Option<Tree> {
-    let maybe_walker = maybe_tree.map(|tree| {
-        Walker::<PanicSource>::new(tree, PanicSource {})
-    });
+    let maybe_walker = maybe_tree.map(|tree| Walker::<PanicSource>::new(tree, PanicSource {}));
     Walker::<PanicSource>::apply_to(maybe_walker, batch)
         .expect("apply failed")
         .0
@@ -89,9 +78,7 @@ pub fn del_entry(n: u64) -> BatchEntry {
 }
 
 pub fn make_batch_seq(range: Range<u64>) -> Vec<BatchEntry> {
-    let mut batch = Vec::with_capacity(
-        (range.end - range.start).try_into().unwrap()
-    );
+    let mut batch = Vec::with_capacity((range.end - range.start).try_into().unwrap());
     for n in range {
         batch.push(put_entry(n));
     }
@@ -99,9 +86,7 @@ pub fn make_batch_seq(range: Range<u64>) -> Vec<BatchEntry> {
 }
 
 pub fn make_del_batch_seq(range: Range<u64>) -> Vec<BatchEntry> {
-    let mut batch = Vec::with_capacity(
-        (range.end - range.start).try_into().unwrap()
-    );
+    let mut batch = Vec::with_capacity((range.end - range.start).try_into().unwrap());
     for n in range {
         batch.push(del_entry(n));
     }
@@ -130,11 +115,7 @@ pub fn make_del_batch_rand(size: u64, seed: u64) -> Vec<BatchEntry> {
     batch
 }
 
-pub fn make_tree_rand(
-    node_count: u64,
-    batch_size: u64,
-    initial_seed: u64
-) -> Tree {
+pub fn make_tree_rand(node_count: u64, batch_size: u64, initial_seed: u64) -> Tree {
     assert!(node_count >= batch_size);
     assert!((node_count % batch_size) == 0);
 
@@ -142,7 +123,7 @@ pub fn make_tree_rand(
     let mut tree = Tree::new(vec![0; 20], value.clone());
 
     let mut seed = initial_seed;
-    
+
     let batch_count = node_count / batch_size;
     for _ in 0..batch_count {
         let batch = make_batch_rand(batch_size, seed);
@@ -163,10 +144,10 @@ pub fn make_tree_seq(node_count: u64) -> Tree {
 
     let value = vec![123; 60];
     let mut tree = Tree::new(vec![0; 20], value.clone());
-    
+
     let batch_count = node_count / batch_size;
     for i in 0..batch_count {
-        let batch = make_batch_seq((i * batch_size)..((i+1) * batch_size));
+        let batch = make_batch_seq((i * batch_size)..((i + 1) * batch_size));
         tree = apply_memonly(tree, &batch);
     }
 

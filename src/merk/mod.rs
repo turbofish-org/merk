@@ -6,7 +6,7 @@ use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
 use failure::bail;
-use rocksdb::{ColumnFamilyDescriptor, WriteBatch, checkpoint::Checkpoint};
+use rocksdb::{checkpoint::Checkpoint, ColumnFamilyDescriptor, WriteBatch};
 
 use crate::error::Result;
 use crate::proofs::encode_into;
@@ -370,7 +370,9 @@ impl Merk {
 
     pub(crate) fn load_root(&mut self) -> Result<()> {
         let internal_cf = self.db.cf_handle(INTERNAL_CF_NAME).unwrap();
-        let tree = self.db.get_pinned_cf(internal_cf, ROOT_KEY_KEY)?
+        let tree = self
+            .db
+            .get_pinned_cf(internal_cf, ROOT_KEY_KEY)?
             .map(|root_key| fetch_existing_node(&self.db, &root_key))
             .transpose()?;
         self.tree = Cell::new(tree);
@@ -581,28 +583,28 @@ mod test {
         let path = thread::current().name().unwrap().to_owned();
         let mut merk = TempMerk::open(&path).expect("failed to open merk");
 
-        merk.apply(&[
-            (vec![1], Op::Put(vec![0])),
-        ], &[]).expect("apply failed");
+        merk.apply(&[(vec![1], Op::Put(vec![0]))], &[])
+            .expect("apply failed");
 
         let mut checkpoint = merk.checkpoint(path + ".checkpoint").unwrap();
-        
+
         assert_eq!(merk.get(&[1]).unwrap(), Some(vec![0]));
         assert_eq!(checkpoint.get(&[1]).unwrap(), Some(vec![0]));
 
-        merk.apply(&[
-            (vec![1], Op::Put(vec![1])),
-            (vec![2], Op::Put(vec![0])),
-        ], &[]).expect("apply failed");
+        merk.apply(
+            &[(vec![1], Op::Put(vec![1])), (vec![2], Op::Put(vec![0]))],
+            &[],
+        )
+        .expect("apply failed");
 
         assert_eq!(merk.get(&[1]).unwrap(), Some(vec![1]));
         assert_eq!(merk.get(&[2]).unwrap(), Some(vec![0]));
         assert_eq!(checkpoint.get(&[1]).unwrap(), Some(vec![0]));
         assert_eq!(checkpoint.get(&[2]).unwrap(), None);
 
-        checkpoint.apply(&[
-            (vec![2], Op::Put(vec![123])),
-        ], &[]).expect("apply failed");
+        checkpoint
+            .apply(&[(vec![2], Op::Put(vec![123]))], &[])
+            .expect("apply failed");
 
         assert_eq!(merk.get(&[1]).unwrap(), Some(vec![1]));
         assert_eq!(merk.get(&[2]).unwrap(), Some(vec![0]));
@@ -612,6 +614,6 @@ mod test {
         checkpoint.destroy().unwrap();
 
         assert_eq!(merk.get(&[1]).unwrap(), Some(vec![1]));
-        assert_eq!(merk.get(&[2]).unwrap(), Some(vec![0])); 
+        assert_eq!(merk.get(&[2]).unwrap(), Some(vec![0]));
     }
 }

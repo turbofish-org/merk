@@ -21,6 +21,9 @@ pub use link::Link;
 pub use ops::{Batch, BatchEntry, Op, PanicSource};
 pub use walk::{Fetch, RefWalker, Walker};
 
+// TODO: remove need for `TreeInner`, and just use `Box<Self>` receiver for
+// relevant methods
+
 /// The fields of the `Tree` type, stored on the heap.
 #[derive(Encode, Decode)]
 struct TreeInner {

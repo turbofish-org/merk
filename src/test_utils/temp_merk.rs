@@ -1,12 +1,12 @@
+use crate::{Merk, Result};
 use std::env::temp_dir;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use std::time::SystemTime;
-use crate::{Merk, Result};
 
 /// Wraps a Merk instance and deletes it from disk it once it goes out of scope.
 pub struct TempMerk {
-    inner: Option<Merk>
+    inner: Option<Merk>,
 }
 
 impl TempMerk {
@@ -32,8 +32,10 @@ impl TempMerk {
 impl Drop for TempMerk {
     fn drop(&mut self) {
         self.inner
-            .take().unwrap()
-            .destroy().expect("failed to delete db");
+            .take()
+            .unwrap()
+            .destroy()
+            .expect("failed to delete db");
     }
 }
 

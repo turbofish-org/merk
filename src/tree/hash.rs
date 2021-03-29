@@ -21,14 +21,12 @@ pub fn kv_hash(key: &[u8], value: &[u8]) -> Hash {
     let mut hasher = Blake2b::new(HASH_LENGTH);
 
     // panics if key is longer than 255!
-    let key_length = u8::try_from(key.len())
-        .expect("key must be less than 256 bytes");
+    let key_length = u8::try_from(key.len()).expect("key must be less than 256 bytes");
     hasher.update(&key_length.to_be_bytes());
     hasher.update(&key);
 
     // panics if value is longer than 65535!
-    let val_length = u16::try_from(value.len())
-        .expect("value must be less than 65,536 bytes");
+    let val_length = u16::try_from(value.len()).expect("value must be less than 65,536 bytes");
     hasher.update(&val_length.to_be_bytes());
     hasher.update(&value);
 

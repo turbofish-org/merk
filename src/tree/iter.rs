@@ -7,7 +7,7 @@ use super::Tree;
 /// right child have been visited, respectively (`(left, self, right)`).
 struct StackItem<'a> {
     tree: &'a Tree,
-    traversed: (bool, bool, bool)
+    traversed: (bool, bool, bool),
 }
 
 impl<'a> StackItem<'a> {
@@ -20,37 +20,34 @@ impl<'a> StackItem<'a> {
             traversed: (
                 tree.child(true).is_none(),
                 false,
-                tree.child(false).is_none()
-            )
+                tree.child(false).is_none(),
+            ),
         }
     }
 
     /// Gets a tuple to yield from an `Iter`, `(key, value)`.
     fn to_entry(&self) -> (Vec<u8>, Vec<u8>) {
-        (
-            self.tree.key().to_vec(),
-            self.tree.value().to_vec()
-        )
+        (self.tree.key().to_vec(), self.tree.value().to_vec())
     }
 }
 
 /// An iterator which yields the key/value pairs of the tree, in order, skipping
 /// any parts of the tree which are pruned (not currently retained in memory).
 pub struct Iter<'a> {
-    stack: Vec<StackItem<'a>>
+    stack: Vec<StackItem<'a>>,
 }
 
 impl<'a> Iter<'a> {
     /// Creates a new iterator for the given tree.
     pub fn new(tree: &'a Tree) -> Self {
-        let stack = vec![ StackItem::new(tree) ];
+        let stack = vec![StackItem::new(tree)];
         Iter { stack }
     }
 }
 
 impl<'a> Tree {
     /// Creates an iterator which yields `(key, value)` tuples for all of the
-    /// tree's nodes which are retained in memory (skipping pruned subtrees). 
+    /// tree's nodes which are retained in memory (skipping pruned subtrees).
     pub fn iter(&'a self) -> Iter<'a> {
         Iter::new(self)
     }

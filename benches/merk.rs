@@ -2,10 +2,10 @@
 
 extern crate test;
 
-use merk::{Merk, Result};
-use merk::restore::Restorer;
 use merk::proofs::encode_into as encode_proof_into;
+use merk::restore::Restorer;
 use merk::test_utils::*;
+use merk::{Merk, Result};
 use rand::prelude::*;
 use std::thread;
 use test::Bencher;
@@ -308,7 +308,7 @@ fn restore_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
 
             restorer = Some(Merk::restore(&path, merk.root_hash(), chunks.len()).unwrap());
         }
-        
+
         let restorer = restorer.as_mut().unwrap();
         let chunk = chunks[i % chunks.len()].as_slice();
         restorer.process_chunk(chunk).unwrap();

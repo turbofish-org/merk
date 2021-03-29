@@ -17,8 +17,8 @@ pub mod test_utils;
 /// The core tree data structure.
 pub mod tree;
 
+pub use self::merk::restore;
 pub use self::merk::Merk;
 pub use error::{Error, Result};
 pub use proofs::verify_query;
 pub use tree::{Batch, BatchEntry, Hash, Op, PanicSource, HASH_LENGTH};
-pub use self::merk::restore;
