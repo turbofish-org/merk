@@ -180,7 +180,6 @@ fn prove_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
 fn build_trunk_chunk_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
     let initial_size = 1_000_000;
     let batch_size = 1_000;
-    let proof_size = 1;
 
     let path = thread::current().name().unwrap().to_owned();
     let mut merk = TempMerk::open(path).expect("failed to open merk");
