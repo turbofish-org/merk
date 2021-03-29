@@ -1,5 +1,3 @@
-use std::iter::Flatten;
-
 use super::{Decoder, Node, Op};
 use crate::error::Result;
 use crate::tree::{kv_hash, node_hash, Hash, NULL_HASH};
@@ -115,6 +113,7 @@ impl Tree {
 
     /// Consumes the `Tree` and does an in-order traversal over all the nodes in
     /// the tree, calling `visit_node` for each.
+    #[allow(dead_code)] // (only used in tests for now)
     pub(crate) fn visit_nodes<F: FnMut(Node)>(mut self, visit_node: &mut F) {
         if let Some(child) = self.left.take() {
             child.tree.visit_nodes(visit_node);

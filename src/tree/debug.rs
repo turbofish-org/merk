@@ -58,7 +58,7 @@ impl Debug for Tree {
                 }
                 stack.pop();
             }
-        };
+        }
 
         fn traverse_pruned(
             f: &mut Formatter,

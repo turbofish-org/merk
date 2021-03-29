@@ -1,9 +1,7 @@
-use std::env::temp_dir;
 use std::fs;
 use std::mem::ManuallyDrop;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
-use std::time::SystemTime;
 use crate::{Merk, Result};
 
 /// Wraps a Merk instance and drops it without flushing once it goes out of
@@ -33,7 +31,7 @@ impl CrashMerk {
                 .to_str()
                 .unwrap()
         );
-        let mut new_path = self.path.with_file_name(file_name);
+        let new_path = self.path.with_file_name(file_name);
         fs::rename(&self.path, &new_path)?;
 
         let mut new_merk = CrashMerk::open(&new_path)?;
@@ -67,7 +65,6 @@ impl DerefMut for CrashMerk {
 
 #[cfg(test)]
 mod tests {
-    use super::super::TempMerk;
     use super::CrashMerk;
     use crate::Op;
 

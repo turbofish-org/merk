@@ -1,13 +1,12 @@
+#![cfg(tests)]
+
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::iter::FromIterator;
 use rand::prelude::*;
-use crate::*;
 use crate::tree::*;
 use crate::test_utils::*;
 
 const ITERATIONS: usize = 2_000;
-
 type Map = BTreeMap<Vec<u8>, Vec<u8>>;
 
 #[test]

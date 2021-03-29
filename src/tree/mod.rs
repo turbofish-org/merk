@@ -543,7 +543,7 @@ mod test {
         assert_eq!(tree.child_height(false), 0);
         assert_eq!(tree.balance_factor(), -1);
 
-        let (tree, maybe_child) = unsafe { tree.detach(true) };
+        let (tree, maybe_child) = tree.detach(true);
         let tree = tree.attach(false, maybe_child);
         assert_eq!(tree.height(), 2);
         assert_eq!(tree.child_height(true), 0);
