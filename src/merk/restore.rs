@@ -1,3 +1,6 @@
+//! Provides `Restorer`, which can create a replica of a Merk instance by
+//! receiving chunk proofs.
+
 use super::Merk;
 use crate::{
     merk::MerkSource,

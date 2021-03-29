@@ -1,3 +1,6 @@
+//! Provides `ChunkProducer`, which creates chunk proofs for full replication of
+//! a Merk.
+
 use super::Merk;
 use crate::proofs::{chunk::get_next_chunk, Node, Op};
 

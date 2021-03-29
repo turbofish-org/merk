@@ -1,4 +1,4 @@
-mod chunks;
+pub mod chunks;
 pub mod restore;
 
 use std::cell::Cell;
