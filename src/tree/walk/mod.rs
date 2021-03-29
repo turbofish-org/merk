@@ -46,7 +46,7 @@ where
             let link = self.tree.slot_mut(left).take();
             match link {
                 Some(Link::Reference { .. }) => (),
-                _ => unreachable!("Expected Some(Link::Pruned)"),
+                _ => unreachable!("Expected Some(Link::Reference)"),
             }
             self.source.fetch(&link.unwrap())?
         };

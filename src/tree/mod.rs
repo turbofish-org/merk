@@ -317,7 +317,7 @@ impl Tree {
     /// write the updated nodes to a backing store.
     ///
     /// Traverses through the tree, computing hashes for all modified links and
-    /// replacing them with `Link::Stored` variants, writes out all changes to
+    /// replacing them with `Link::Loaded` variants, writes out all changes to
     /// the given `Commit` object's `write` method, and calls the its `prune`
     /// method to test whether or not to keep or prune nodes from memory.
     #[inline]

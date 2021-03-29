@@ -94,7 +94,7 @@ impl Link {
         }
     }
 
-    /// Returns `true` if the link is of the `Link::Stored` variant.
+    /// Returns `true` if the link is of the `Link::Loaded` variant.
     #[inline]
     pub fn is_stored(&self) -> bool {
         match self {
@@ -115,11 +115,11 @@ impl Link {
     }
 
     /// Returns the `Tree` instance of the tree referenced by the link. If the
-    /// link is of variant `Link::Pruned`, the returned value will be `None`.
+    /// link is of variant `Link::Reference`, the returned value will be `None`.
     #[inline]
     pub fn tree(&self) -> Option<&Tree> {
         match self {
-            // TODO: panic for Pruned, don't return Option?
+            // TODO: panic for Reference, don't return Option?
             Link::Reference { .. } => None,
             Link::Modified { tree, .. } => Some(tree),
             Link::Uncommitted { tree, .. } => Some(tree),
@@ -259,7 +259,7 @@ impl Encode for Link {
 
 impl Link {
     #[inline]
-    fn default_pruned() -> Self {
+    fn default_reference() -> Self {
         Link::Reference {
             key: Vec::with_capacity(64),
             hash: Default::default(),
@@ -271,7 +271,7 @@ impl Link {
 impl Decode for Link {
     #[inline]
     fn decode<R: Read>(input: R) -> Result<Link> {
-        let mut link = Link::default_pruned();
+        let mut link = Link::default_reference();
         Link::decode_into(&mut link, input)?;
         Ok(link)
     }
@@ -279,9 +279,9 @@ impl Decode for Link {
     #[inline]
     fn decode_into<R: Read>(&mut self, mut input: R) -> Result<()> {
         if !self.is_reference() {
-            // don't create new struct if self is already Link::Pruned,
+            // don't create new struct if self is already Link::Reference,
             // so we can re-use the key vec
-            *self = Link::default_pruned();
+            *self = Link::default_reference();
         }
 
         if let Link::Reference {

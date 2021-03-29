@@ -6,6 +6,6 @@ use crate::error::Result;
 /// but could also implement an in-memory cache for example.
 pub trait Fetch {
     /// Called when the tree needs to fetch a node with the given `Link`. The
-    /// `link` value will always be a `Link::Pruned` variant.
+    /// `link` value will always be a `Link::Reference` variant.
     fn fetch(&self, link: &Link) -> Result<Tree>;
 }
