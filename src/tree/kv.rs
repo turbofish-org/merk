@@ -68,8 +68,8 @@ impl KV {
 impl Encode for KV {
     #[inline]
     fn encode_into<W: Write>(&self, out: &mut W) -> Result<()> {
-        out.write_all(&self.hash[..]);
-        out.write_all(&self.value.as_slice());
+        out.write_all(&self.hash[..])?;
+        out.write_all(&self.value.as_slice())?;
         Ok(())
     }
 
@@ -103,13 +103,6 @@ impl Decode for KV {
 
         Ok(())
     }
-}
-
-#[inline]
-fn read_u8<R: Read>(mut input: R) -> Result<u8> {
-    let mut length = [0];
-    input.read_exact(length.as_mut())?;
-    Ok(length[0])
 }
 
 #[cfg(test)]
