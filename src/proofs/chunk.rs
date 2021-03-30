@@ -225,7 +225,7 @@ mod tests {
     use super::super::verify::Tree;
     use super::*;
     use crate::test_utils::*;
-    use crate::tree::PanicSource;
+    use crate::tree::{PanicSource, Tree as BaseTree, NoopCommit};
 
     #[derive(Default)]
     struct NodeCounts {
@@ -261,6 +261,77 @@ mod tests {
         assert_eq!(counts.hash, 5);
         assert_eq!(counts.kv, 3);
         assert_eq!(counts.kvhash, 3);
+    }
+
+    #[test]
+    fn one_node_tree_trunk_roundtrip() {
+        let mut tree = BaseTree::new(vec![0], vec![]);
+        tree.commit(&mut NoopCommit {}).unwrap();
+
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+        let proof = walker.create_trunk_proof().unwrap();
+
+        let (trunk, _) = verify_trunk(proof.into_iter().map(|op| Ok(op))).unwrap();
+        let counts = count_node_types(trunk);
+        assert_eq!(counts.hash, 0);
+        assert_eq!(counts.kv, 1);
+        assert_eq!(counts.kvhash, 0);
+    }
+
+    #[test]
+    fn two_node_right_heavy_tree_trunk_roundtrip() {
+        // 0
+        //  \
+        //   1
+        let mut tree = BaseTree::new(vec![0], vec![])
+            .attach(false, Some(BaseTree::new(vec![1], vec![])));
+        tree.commit(&mut NoopCommit {}).unwrap();
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+        let proof = walker.create_trunk_proof().unwrap();
+
+        let (trunk, _) = verify_trunk(proof.into_iter().map(|op| Ok(op))).unwrap();
+        let counts = count_node_types(trunk);
+        assert_eq!(counts.hash, 1);
+        assert_eq!(counts.kv, 1);
+        assert_eq!(counts.kvhash, 0);
+    }
+
+    #[test]
+    fn two_node_left_heavy_tree_trunk_roundtrip() {
+        //   1
+        //  /
+        // 0
+        let mut tree = BaseTree::new(vec![1], vec![])
+            .attach(true, Some(BaseTree::new(vec![0], vec![])));
+        tree.commit(&mut NoopCommit {}).unwrap();
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+        let proof = walker.create_trunk_proof().unwrap();
+
+        let (trunk, _) = verify_trunk(proof.into_iter().map(|op| Ok(op))).unwrap();
+        let counts = count_node_types(trunk);
+        assert_eq!(counts.hash, 1);
+        assert_eq!(counts.kv, 1);
+        assert_eq!(counts.kvhash, 0);
+    }
+
+    #[test]
+    fn three_node_tree_trunk_roundtrip() {
+        //   1
+        //  / \
+        // 0   2
+        let mut tree = BaseTree::new(vec![1], vec![])
+            .attach(true, Some(BaseTree::new(vec![0], vec![])))
+            .attach(false, Some(BaseTree::new(vec![2], vec![])));
+        tree.commit(&mut NoopCommit {}).unwrap();
+
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+        let proof = walker.create_trunk_proof().unwrap();
+
+        let (trunk, _) = verify_trunk(proof.into_iter().map(|op| Ok(op))).unwrap();
+        let counts = count_node_types(trunk);
+        assert_eq!(counts.hash, 1);
+        assert_eq!(counts.kv, 1);
+        assert_eq!(counts.kvhash, 1);
     }
 
     #[test]
