@@ -328,24 +328,24 @@ impl Child {
 mod tests {
     use super::*;
     use crate::test_utils::*;
+    use crate::tree::{Op, Batch};
     use std::path::PathBuf;
 
-    #[test]
-    fn restore() {
+    fn restore_test(batches: &[&Batch], expected_nodes: usize) {
         let mut original = TempMerk::new().unwrap();
-        let length = 100_000;
-        let batch = make_batch_seq(0..length);
-        original.apply(batch.as_slice(), &[]).unwrap();
+        for batch in batches {
+            original.apply(batch, &[]).unwrap();
+        }
         original.flush().unwrap();
 
         let chunks = original.chunks().unwrap();
 
-        let path: PathBuf = "merk::restore::tests::restore".into();
+        let path: PathBuf = std::thread::current().name().unwrap().into();
         if path.exists() {
             std::fs::remove_dir_all(&path).unwrap();
         }
 
-        let mut restorer = Merk::restore(path, original.root_hash(), chunks.len()).unwrap();
+        let mut restorer = Merk::restore(&path, original.root_hash(), chunks.len()).unwrap();
 
         assert_eq!(restorer.remaining_chunks(), None);
 
@@ -362,7 +362,40 @@ mod tests {
 
         let restored = restorer.finalize().unwrap();
         assert_eq!(restored.root_hash(), original.root_hash());
-        assert_raw_db_entries_eq(&restored, &original, length as usize);
+        assert_raw_db_entries_eq(&restored, &original, expected_nodes);
+       
+        std::fs::remove_dir_all(&path).unwrap();
+    }
+
+    #[test]
+    fn restore_10000() {
+        restore_test(&[&make_batch_seq(0..10_000)], 10_000);
+    }
+
+    #[test]
+    fn restore_3() {
+        restore_test(&[&make_batch_seq(0..3)], 3);
+    }
+
+    #[test]
+    fn restore_2_left_heavy() {
+        restore_test(&[
+            &[(vec![0], Op::Put(vec![]))],
+            &[(vec![1], Op::Put(vec![]))],
+        ], 2);
+    }
+
+    #[test]
+    fn restore_2_right_heavy() {
+        restore_test(&[
+            &[(vec![1], Op::Put(vec![]))],
+            &[(vec![0], Op::Put(vec![]))],
+        ], 2);
+    }
+
+    #[test]
+    fn restore_1() {
+        restore_test(&[&make_batch_seq(0..1)], 1);
     }
 
     fn assert_raw_db_entries_eq(restored: &Merk, original: &Merk, length: usize) {
