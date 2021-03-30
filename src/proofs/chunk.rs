@@ -34,7 +34,7 @@ where
         let trunk_height = if let Some(mut left) = maybe_left {
             left.traverse_for_height_proof(proof, depth + 1)?
         } else {
-            depth / 2
+            (depth / 2).max(1)
         };
 
         if depth > trunk_height {
@@ -76,18 +76,25 @@ where
             return Ok(());
         }
 
-        // traverse left, guaranteed to have child
-        let mut left = self.walk(true)?.unwrap();
-        left.traverse_for_trunk(proof, remaining_depth - 1, is_leftmost)?;
+        // traverse left
+        let has_left_child = self.tree().child(true).is_some();
+        if has_left_child {
+            let mut left = self.walk(true)?.unwrap();
+            left.traverse_for_trunk(proof, remaining_depth - 1, is_leftmost)?;
+        }
 
         // add this node's data
         proof.push(Op::Push(self.to_kv_node()));
-        proof.push(Op::Parent);
 
-        // traverse right, guaranteed to have child
-        let mut right = self.walk(false)?.unwrap();
-        right.traverse_for_trunk(proof, remaining_depth - 1, false)?;
-        proof.push(Op::Child);
+        if has_left_child {
+            proof.push(Op::Parent);
+        }
+
+        // traverse right
+        if let Some(mut right) = self.walk(false)? {
+            right.traverse_for_trunk(proof, remaining_depth - 1, false)?;
+            proof.push(Op::Child);
+        }
 
         Ok(())
     }
@@ -183,10 +190,12 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
         })
     }
 
-    fn verify_completeness(tree: &ProofTree, remaining_depth: usize, leftmost: bool) -> Result<()> {
-        let recurse = |left, leftmost| match tree.child(left) {
-            Some(child) => verify_completeness(&child.tree, remaining_depth - 1, left && leftmost),
-            None => bail!("Trunk is missing expected nodes"),
+    fn verify_completeness(tree: &ProofTree, remaining_depth: usize, depth: usize, leftmost: bool) -> Result<()> {
+        let recurse = |left, leftmost| {
+            if let Some(child) = tree.child(left) {
+                verify_completeness(&child.tree, remaining_depth - 1, depth + 1, left && leftmost)?;
+            }
+            Ok(())
         };
 
         if remaining_depth > 0 {
@@ -212,8 +221,8 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
     let tree = execute(ops, false, |_| Ok(()))?;
 
     let height = verify_height_proof(&tree)?;
-    let expected_depth = height / 2;
-    verify_completeness(&tree, expected_depth, true)?;
+    let expected_depth = (height / 2).max(1);
+    verify_completeness(&tree, expected_depth, 0, true)?;
 
     Ok((tree, height))
 }
@@ -309,9 +318,9 @@ mod tests {
 
         let (trunk, _) = verify_trunk(proof.into_iter().map(|op| Ok(op))).unwrap();
         let counts = count_node_types(trunk);
-        assert_eq!(counts.hash, 1);
+        assert_eq!(counts.hash, 0);
         assert_eq!(counts.kv, 1);
-        assert_eq!(counts.kvhash, 0);
+        assert_eq!(counts.kvhash, 1);
     }
 
     #[test]

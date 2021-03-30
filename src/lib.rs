@@ -17,7 +17,7 @@ pub mod test_utils;
 /// The core tree data structure.
 pub mod tree;
 
-pub use merk::{chunks, Merk, restore};
+pub use crate::merk::{chunks, Merk, restore};
 
 pub use error::{Error, Result};
 pub use proofs::verify_query;
