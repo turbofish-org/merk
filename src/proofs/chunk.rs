@@ -59,8 +59,8 @@ where
                 proof.push(Op::Parent);
             }
 
-            if let Some(right) = self.tree().child(false) {
-                proof.push(Op::Push(Node::Hash(right.hash())));
+            if let Some(right) = self.tree().link(false) {
+                proof.push(Op::Push(Node::Hash(*right.hash())));
                 proof.push(Op::Child);
             }
         }
@@ -92,7 +92,7 @@ where
         }
 
         // traverse left
-        let has_left_child = self.tree().child(true).is_some();
+        let has_left_child = self.tree().link(true).is_some();
         if has_left_child {
             let mut left = self.walk(true)?.unwrap();
             left.traverse_for_trunk(proof, remaining_depth - 1, is_leftmost)?;
