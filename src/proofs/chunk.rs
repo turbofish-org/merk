@@ -8,20 +8,35 @@ use super::{
 use crate::error::Result;
 use crate::tree::{Fetch, Hash, RefWalker, Tree};
 
+/// The minimum number of layers the trunk will be guaranteed to have before
+/// splitting into multiple chunks. If the tree's height is less than double
+/// this value, the trunk should be verified as a leaf chunk.
+pub const MIN_TRUNK_HEIGHT: usize = 5;
+
 impl<'a, S> RefWalker<'a, S>
 where
     S: Fetch + Sized + Send + Clone,
 {
     /// Generates a trunk proof by traversing the tree.
-    pub fn create_trunk_proof(&mut self) -> Result<Vec<Op>> {
+    ///
+    /// Returns a tuple containing the produced proof, and a boolean indicating
+    /// whether or not there will be more chunks to follow. If the chunk
+    /// contains the entire tree, the boolean will be `false`, if the chunk
+    /// is abdriged and will be connected to leaf chunks, it will be `true`.
+    pub fn create_trunk_proof(&mut self) -> Result<(Vec<Op>, bool)> {
         let approx_size = 2usize.pow((self.tree().height() / 2) as u32) * 3;
         let mut proof = Vec::with_capacity(approx_size);
 
         let trunk_height = self.traverse_for_height_proof(&mut proof, 1)?;
 
-        self.traverse_for_trunk(&mut proof, trunk_height, true)?;
-
-        Ok(proof)
+        if trunk_height < MIN_TRUNK_HEIGHT {
+            proof.clear();
+            self.traverse_for_trunk(&mut proof, usize::MAX, true)?;
+            Ok((proof, false))
+        } else {
+            self.traverse_for_trunk(&mut proof, trunk_height, true)?;
+            Ok((proof, true))
+        }
     }
 
     /// Traverses down the left edge of the tree and pushes ops to the proof, to
@@ -34,7 +49,7 @@ where
         let trunk_height = if let Some(mut left) = maybe_left {
             left.traverse_for_height_proof(proof, depth + 1)?
         } else {
-            (depth / 2).max(1)
+            depth / 2
         };
 
         if depth > trunk_height {
@@ -190,10 +205,10 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
         })
     }
 
-    fn verify_completeness(tree: &ProofTree, remaining_depth: usize, depth: usize, leftmost: bool) -> Result<()> {
+    fn verify_completeness(tree: &ProofTree, remaining_depth: usize, leftmost: bool) -> Result<()> {
         let recurse = |left, leftmost| {
             if let Some(child) = tree.child(left) {
-                verify_completeness(&child.tree, remaining_depth - 1, depth + 1, left && leftmost)?;
+                verify_completeness(&child.tree, remaining_depth - 1, left && leftmost)?;
             }
             Ok(())
         };
@@ -218,11 +233,25 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
         }
     }
 
-    let tree = execute(ops, false, |_| Ok(()))?;
+    let mut kv_only = true;
+    let tree = execute(ops, false, |node| {
+        kv_only &= match node {
+            Node::KV(_, _) => true,
+            _ => false,
+        };
+        Ok(())
+    })?;
 
     let height = verify_height_proof(&tree)?;
-    let expected_depth = (height / 2).max(1);
-    verify_completeness(&tree, expected_depth, 0, true)?;
+    let trunk_height = height / 2;
+
+    if trunk_height < MIN_TRUNK_HEIGHT {
+        if !kv_only {
+            bail!("Leaf chunks must contain full subtree");
+        }
+    } else {
+        verify_completeness(&tree, trunk_height, true)?;
+    }
 
     Ok((tree, height))
 }
@@ -258,18 +287,36 @@ mod tests {
     }
 
     #[test]
-    fn trunk_roundtrip() {
+    fn small_trunk_roundtrip() {
         let mut tree = make_tree_seq(31);
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
 
-        let proof = walker.create_trunk_proof().unwrap();
+        let (proof, has_more) = walker.create_trunk_proof().unwrap();
+        assert!(!has_more);
+
+        println!("{:?}", &proof);
         let (trunk, _) = verify_trunk(proof.into_iter().map(|op| Ok(op))).unwrap();
 
         let counts = count_node_types(trunk);
-        // counted based on the deterministic structure of this 31-node tree
-        assert_eq!(counts.hash, 5);
-        assert_eq!(counts.kv, 3);
-        assert_eq!(counts.kvhash, 3);
+        assert_eq!(counts.hash, 0);
+        assert_eq!(counts.kv, 32);
+        assert_eq!(counts.kvhash, 0);
+    }
+
+    #[test]
+    fn big_trunk_roundtrip() {
+        let mut tree = make_tree_seq(2u64.pow(MIN_TRUNK_HEIGHT as u32 * 2 + 1) - 1);
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+
+        let (proof, has_more) = walker.create_trunk_proof().unwrap();
+        assert!(has_more);
+        let (trunk, _) = verify_trunk(proof.into_iter().map(|op| Ok(op))).unwrap();
+
+        let counts = count_node_types(trunk);
+        // are these formulas correct for all values of `MIN_TRUNK_HEIGHT`? 🤔
+        assert_eq!(counts.hash, 2usize.pow(MIN_TRUNK_HEIGHT as u32) + MIN_TRUNK_HEIGHT - 1);
+        assert_eq!(counts.kv, 2usize.pow(MIN_TRUNK_HEIGHT as u32) - 1);
+        assert_eq!(counts.kvhash, MIN_TRUNK_HEIGHT + 1);
     }
 
     #[test]
@@ -278,7 +325,8 @@ mod tests {
         tree.commit(&mut NoopCommit {}).unwrap();
 
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
-        let proof = walker.create_trunk_proof().unwrap();
+        let (proof, has_more) = walker.create_trunk_proof().unwrap();
+        assert!(!has_more);
 
         let (trunk, _) = verify_trunk(proof.into_iter().map(|op| Ok(op))).unwrap();
         let counts = count_node_types(trunk);
@@ -296,12 +344,13 @@ mod tests {
             .attach(false, Some(BaseTree::new(vec![1], vec![])));
         tree.commit(&mut NoopCommit {}).unwrap();
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
-        let proof = walker.create_trunk_proof().unwrap();
+        let (proof, has_more) = walker.create_trunk_proof().unwrap();
+        assert!(!has_more);
 
         let (trunk, _) = verify_trunk(proof.into_iter().map(|op| Ok(op))).unwrap();
         let counts = count_node_types(trunk);
-        assert_eq!(counts.hash, 1);
-        assert_eq!(counts.kv, 1);
+        assert_eq!(counts.hash, 0);
+        assert_eq!(counts.kv, 2);
         assert_eq!(counts.kvhash, 0);
     }
 
@@ -314,13 +363,14 @@ mod tests {
             .attach(true, Some(BaseTree::new(vec![0], vec![])));
         tree.commit(&mut NoopCommit {}).unwrap();
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
-        let proof = walker.create_trunk_proof().unwrap();
+        let (proof, has_more) = walker.create_trunk_proof().unwrap();
+        assert!(!has_more);
 
         let (trunk, _) = verify_trunk(proof.into_iter().map(|op| Ok(op))).unwrap();
         let counts = count_node_types(trunk);
         assert_eq!(counts.hash, 0);
-        assert_eq!(counts.kv, 1);
-        assert_eq!(counts.kvhash, 1);
+        assert_eq!(counts.kv, 2);
+        assert_eq!(counts.kvhash, 0);
     }
 
     #[test]
@@ -334,13 +384,14 @@ mod tests {
         tree.commit(&mut NoopCommit {}).unwrap();
 
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
-        let proof = walker.create_trunk_proof().unwrap();
+        let (proof, has_more) = walker.create_trunk_proof().unwrap();
+        assert!(!has_more);
 
         let (trunk, _) = verify_trunk(proof.into_iter().map(|op| Ok(op))).unwrap();
         let counts = count_node_types(trunk);
-        assert_eq!(counts.hash, 1);
-        assert_eq!(counts.kv, 1);
-        assert_eq!(counts.kvhash, 1);
+        assert_eq!(counts.hash, 0);
+        assert_eq!(counts.kv, 3);
+        assert_eq!(counts.kvhash, 0);
     }
 
     #[test]

@@ -5,7 +5,7 @@ use super::Merk;
 use crate::{
     merk::MerkSource,
     proofs::{
-        chunk::{verify_leaf, verify_trunk},
+        chunk::{verify_leaf, verify_trunk, MIN_TRUNK_HEIGHT},
         verify::{Child, Tree as ProofTree},
         Decoder, Node,
     },
@@ -83,7 +83,12 @@ impl Restorer {
             bail!("Called finalize before all chunks were processed");
         }
 
-        self.rewrite_trunk_child_heights()?;
+        if self.trunk_height.unwrap() >= MIN_TRUNK_HEIGHT {
+            self.rewrite_trunk_child_heights()?;
+        }
+
+        self.merk.flush()?;
+        self.merk.load_root()?;
 
         Ok(self.merk)
     }
@@ -139,30 +144,37 @@ impl Restorer {
         let trunk_height = height / 2;
         self.trunk_height = Some(trunk_height);
 
-        let leaf_hashes = trunk
-            .layer(trunk_height)
-            .map(|node| node.hash())
-            .collect::<Vec<Hash>>()
-            .into_iter()
-            .peekable();
-        self.leaf_hashes = Some(leaf_hashes);
+        let chunks_remaining = if trunk_height >= MIN_TRUNK_HEIGHT {
+            let leaf_hashes = trunk
+                .layer(trunk_height)
+                .map(|node| node.hash())
+                .collect::<Vec<Hash>>()
+                .into_iter()
+                .peekable();
+            self.leaf_hashes = Some(leaf_hashes);
 
-        let parent_keys = trunk
-            .layer(trunk_height - 1)
-            .map(|node| node.key().to_vec())
-            .collect::<Vec<Vec<u8>>>()
-            .into_iter()
-            .peekable();
-        self.parent_keys = Some(parent_keys);
-        assert_eq!(
-            self.parent_keys.as_ref().unwrap().len(),
-            self.leaf_hashes.as_ref().unwrap().len() / 2
-        );
+            let parent_keys = trunk
+                .layer(trunk_height - 1)
+                .map(|node| node.key().to_vec())
+                .collect::<Vec<Vec<u8>>>()
+                .into_iter()
+                .peekable();
+            self.parent_keys = Some(parent_keys);
+            assert_eq!(
+                self.parent_keys.as_ref().unwrap().len(),
+                self.leaf_hashes.as_ref().unwrap().len() / 2
+            );
 
-        let chunks_remaining = (2 as usize).pow(trunk_height as u32);
-        assert_eq!(self.remaining_chunks_unchecked(), chunks_remaining);
+            let chunks_remaining = (2 as usize).pow(trunk_height as u32);
+            assert_eq!(self.remaining_chunks_unchecked(), chunks_remaining);
+            chunks_remaining
+        } else {
+            self.leaf_hashes = Some(vec![].into_iter().peekable());
+            self.parent_keys = Some(vec![].into_iter().peekable());
+            0
+        };
 
-        // TODO: this one shouldn't be an assert because it comes from a peer
+        // FIXME: this one shouldn't be an assert because it comes from a peer
         assert_eq!(self.stated_length, chunks_remaining + 1);
 
         // note that these writes don't happen atomically, which is fine here
@@ -264,9 +276,6 @@ impl Restorer {
         })?;
 
         self.merk.write(batch)?;
-
-        self.merk.flush()?;
-        self.merk.load_root()?;
 
         Ok(())
     }

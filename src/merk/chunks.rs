@@ -23,18 +23,22 @@ impl<'a> ChunkProducer<'a> {
     /// Creates a new `ChunkProducer` for the given `Merk` instance. In the
     /// constructor, the first chunk (the "trunk") will be created.
     pub fn new(merk: &'a Merk) -> Result<Self> {
-        let trunk = merk.walk(|maybe_walker| match maybe_walker {
+        let (trunk, has_more) = merk.walk(|maybe_walker| match maybe_walker {
             Some(mut walker) => walker.create_trunk_proof(),
-            None => Ok(vec![]),
+            None => Ok((vec![], false)),
         })?;
 
-        let chunk_boundaries = trunk
-            .iter()
-            .filter_map(|op| match op {
-                Op::Push(Node::KV(key, _)) => Some(key.clone()),
-                _ => None,
-            })
-            .collect();
+        let chunk_boundaries = if has_more {
+            trunk
+                .iter()
+                .filter_map(|op| match op {
+                    Op::Push(Node::KV(key, _)) => Some(key.clone()),
+                    _ => None,
+                })
+                .collect()
+        } else {
+            vec![]
+        };
 
         let mut raw_iter = merk.raw_iter();
         raw_iter.seek_to_first();
@@ -70,7 +74,12 @@ impl<'a> ChunkProducer<'a> {
 
     /// Returns the total number of chunks for the underlying Merk tree.
     pub fn len(&self) -> usize {
-        self.chunk_boundaries.len() + 2
+        let boundaries_len = self.chunk_boundaries.len();
+        if boundaries_len == 0 {
+            1
+        } else {
+            boundaries_len + 2
+        }
     }
 
     /// Gets the next chunk based on the `ChunkProducer`'s internal index state.
@@ -146,14 +155,25 @@ mod tests {
     };
 
     #[test]
-    fn len() {
+    fn len_small() {
         let mut merk = TempMerk::new().unwrap();
         let batch = make_batch_seq(1..256);
         merk.apply(batch.as_slice(), &[]).unwrap();
 
         let chunks = merk.chunks().unwrap();
-        assert_eq!(chunks.len(), 17);
-        assert_eq!(chunks.into_iter().size_hint().0, 17);
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(chunks.into_iter().size_hint().0, 1);
+    }
+
+    #[test]
+    fn len_big() {
+        let mut merk = TempMerk::new().unwrap();
+        let batch = make_batch_seq(1..10_000);
+        merk.apply(batch.as_slice(), &[]).unwrap();
+
+        let chunks = merk.chunks().unwrap();
+        assert_eq!(chunks.len(), 129);
+        assert_eq!(chunks.into_iter().size_hint().0, 129);
     }
 
     #[test]
