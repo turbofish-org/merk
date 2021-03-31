@@ -194,7 +194,7 @@ fn build_trunk_chunk_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
     b.iter(|| {
         bytes.clear();
 
-        let ops = merk.walk(|walker| walker.unwrap().create_trunk_proof().unwrap());
+        let (ops, _) = merk.walk(|walker| walker.unwrap().create_trunk_proof().unwrap());
         encode_proof_into(ops.iter(), &mut bytes);
 
         merk.commit(std::collections::LinkedList::new(), &[])

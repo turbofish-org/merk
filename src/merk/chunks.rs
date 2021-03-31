@@ -179,7 +179,7 @@ mod tests {
     #[test]
     fn generate_and_verify_chunks() {
         let mut merk = TempMerk::new().unwrap();
-        let batch = make_batch_seq(1..111);
+        let batch = make_batch_seq(1..10_000);
         merk.apply(batch.as_slice(), &[]).unwrap();
 
         let mut chunks = merk.chunks().unwrap().into_iter().map(Result::unwrap);
@@ -187,14 +187,61 @@ mod tests {
         let chunk = chunks.next().unwrap();
         let ops = Decoder::new(chunk.as_slice());
         let (trunk, height) = verify_trunk(ops).unwrap();
-        assert_eq!(height, 7);
+        assert_eq!(height, 14);
+        assert_eq!(trunk.hash(), merk.root_hash());
 
-        assert_eq!(trunk.layer(3).count(), 8);
+        assert_eq!(trunk.layer(7).count(), 128);
 
         for (chunk, node) in chunks.zip(trunk.layer(height / 2)) {
             let ops = Decoder::new(chunk.as_slice());
             verify_leaf(ops, node.hash()).unwrap();
         }
+    }
+
+    #[test]
+    fn chunks_from_reopen() {
+        let time = std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = format!("chunks_from_reopen_{}.db", time);
+
+        let original_chunks = {
+            let mut merk = Merk::open(&path).unwrap();
+            let batch = make_batch_seq(1..10);
+            merk.apply(batch.as_slice(), &[]).unwrap();
+
+            merk.chunks().unwrap().into_iter().map(Result::unwrap).collect::<Vec<_>>().into_iter()
+        };
+        
+        let merk = TempMerk::open(path).unwrap();
+        let reopen_chunks = merk.chunks().unwrap().into_iter().map(Result::unwrap);
+
+        for (original, checkpoint) in original_chunks.zip(reopen_chunks) {
+            assert_eq!(original.len(), checkpoint.len());
+        }
+    }
+
+    #[test]
+    fn chunks_from_checkpoint() {
+        let mut merk = TempMerk::new().unwrap();
+        let batch = make_batch_seq(1..10);
+        merk.apply(batch.as_slice(), &[]).unwrap();
+
+        let path: std::path::PathBuf = "generate_and_verify_chunks_from_checkpoint.db".into();
+        if path.exists() {
+            std::fs::remove_dir_all(&path).unwrap();
+        }
+        let checkpoint = merk.checkpoint(&path).unwrap();
+
+        let original_chunks = merk.chunks().unwrap().into_iter().map(Result::unwrap);
+        let checkpoint_chunks = checkpoint.chunks().unwrap().into_iter().map(Result::unwrap);
+
+        for (original, checkpoint) in original_chunks.zip(checkpoint_chunks) {
+            assert_eq!(original.len(), checkpoint.len());
+        }
+
+        std::fs::remove_dir_all(&path).unwrap();
     }
 
     #[test]

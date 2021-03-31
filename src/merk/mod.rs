@@ -440,6 +440,7 @@ fn fetch_existing_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
 
 #[cfg(test)]
 mod test {
+    use super::{RefWalker, Merk, MerkSource};
     use crate::test_utils::*;
     use crate::Op;
     use std::thread;
@@ -579,6 +580,78 @@ mod test {
     }
 
     #[test]
+    fn reopen() {
+        fn collect(mut node: RefWalker<MerkSource>, nodes: &mut Vec<Vec<u8>>) {
+            nodes.push(node.tree().encode());
+            node.walk(true).unwrap().map(|c| collect(c, nodes));
+            node.walk(false).unwrap().map(|c| collect(c, nodes));
+        }
+
+        let time = std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = format!("merk_reopen_{}.db", time);
+
+        let original_nodes = {
+            let mut merk = Merk::open(&path).unwrap();
+            let batch = make_batch_seq(1..10_000);
+            merk.apply(batch.as_slice(), &[]).unwrap();
+            let mut tree = merk.tree.take().unwrap();
+            let walker = RefWalker::new(&mut tree, merk.source());
+
+            let mut nodes = vec![];
+            collect(walker, &mut nodes);
+            nodes
+        };
+        
+        let merk = TempMerk::open(&path).unwrap();
+        let mut tree = merk.tree.take().unwrap();
+        let walker = RefWalker::new(&mut tree, merk.source());
+
+        let mut reopen_nodes = vec![];
+        collect(walker, &mut reopen_nodes);
+        
+        assert_eq!(reopen_nodes, original_nodes);
+    }
+
+    #[test]
+    fn reopen_iter() {
+        fn collect(iter: &mut rocksdb::DBRawIterator, nodes: &mut Vec<(Vec<u8>, Vec<u8>)>) {
+            while iter.valid() {
+                nodes.push((
+                    iter.key().unwrap().to_vec(),
+                    iter.value().unwrap().to_vec()
+                ));
+                iter.next();
+            }
+        }
+
+        let time = std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = format!("merk_reopen_{}.db", time);
+
+        let original_nodes = {
+            let mut merk = Merk::open(&path).unwrap();
+            let batch = make_batch_seq(1..10_000);
+            merk.apply(batch.as_slice(), &[]).unwrap();
+
+            let mut nodes = vec![];
+            collect(&mut merk.raw_iter(), &mut nodes);
+            nodes
+        };
+        
+        let merk = TempMerk::open(&path).unwrap();
+
+        let mut reopen_nodes = vec![];
+        collect(&mut merk.raw_iter(), &mut reopen_nodes);
+        
+        assert_eq!(reopen_nodes, original_nodes);
+    }
+
+    #[test]
     fn checkpoint() {
         let path = thread::current().name().unwrap().to_owned();
         let mut merk = TempMerk::open(&path).expect("failed to open merk");
@@ -615,5 +688,38 @@ mod test {
 
         assert_eq!(merk.get(&[1]).unwrap(), Some(vec![1]));
         assert_eq!(merk.get(&[2]).unwrap(), Some(vec![0]));
+    }
+
+    #[test]
+    fn checkpoint_iterator() {
+        let path = thread::current().name().unwrap().to_owned();
+        let mut merk = TempMerk::open(&path).expect("failed to open merk");
+
+        merk.apply(&make_batch_seq(1..100), &[])
+            .expect("apply failed");
+
+        let path: std::path::PathBuf = (path + ".checkpoint").into();
+        if path.exists() {
+            std::fs::remove_dir_all(&path).unwrap();
+        }
+        let checkpoint = merk.checkpoint(&path).unwrap();
+
+        let mut merk_iter = merk.raw_iter();
+        let mut checkpoint_iter = checkpoint.raw_iter();
+
+        loop {
+            assert_eq!(merk_iter.valid(), checkpoint_iter.valid());
+            if !merk_iter.valid() {
+                break
+            }
+
+            assert_eq!(merk_iter.key(), checkpoint_iter.key());
+            assert_eq!(merk_iter.value(), checkpoint_iter.value());
+            
+            merk_iter.next();
+            checkpoint_iter.next();
+        }
+
+        std::fs::remove_dir_all(&path).unwrap();
     }
 }
