@@ -6,19 +6,19 @@ use failure::bail;
 /// Contains a tree's child node and its hash. The hash can always be assumed to
 /// be up-to-date.
 #[derive(Debug)]
-pub(crate) struct Child {
-    pub(crate) tree: Box<Tree>,
-    pub(crate) hash: Hash,
+pub struct Child {
+    pub tree: Box<Tree>,
+    pub hash: Hash,
 }
 
 /// A binary tree data structure used to represent a select subset of a tree
 /// when verifying Merkle proofs.
 #[derive(Debug)]
-pub(crate) struct Tree {
-    pub(crate) node: Node,
-    pub(crate) left: Option<Child>,
-    pub(crate) right: Option<Child>,
-    pub(crate) height: usize,
+pub struct Tree {
+    pub node: Node,
+    pub left: Option<Child>,
+    pub right: Option<Child>,
+    pub height: usize,
 }
 
 impl From<Node> for Tree {
@@ -34,15 +34,68 @@ impl From<Node> for Tree {
 }
 
 impl PartialEq for Tree {
-    /// Checks equality for the hashes of the two trees.
+    /// Checks equality for the root hashes of the two trees.
     fn eq(&self, other: &Self) -> bool {
         self.hash() == other.hash()
     }
 }
 
 impl Tree {
+    /// Gets or computes the hash for this tree node.
+    pub fn hash(&self) -> Hash {
+        fn compute_hash(tree: &Tree, kv_hash: Hash) -> Hash {
+            node_hash(&kv_hash, &tree.child_hash(true), &tree.child_hash(false))
+        }
+
+        match &self.node {
+            Node::Hash(hash) => *hash,
+            Node::KVHash(kv_hash) => compute_hash(&self, *kv_hash),
+            Node::KV(key, value) => {
+                let kv_hash = kv_hash(key.as_slice(), value.as_slice());
+                compute_hash(&self, kv_hash)
+            }
+        }
+    }
+
+    /// Creates an iterator that yields the in-order traversal of the nodes at
+    /// the given depth.
+    pub fn layer(&self, depth: usize) -> LayerIter {
+        LayerIter::new(self, depth)
+    }
+
+    /// Consumes the `Tree` and does an in-order traversal over all the nodes in
+    /// the tree, calling `visit_node` for each.
+    pub fn visit_nodes<F: FnMut(Node)>(mut self, visit_node: &mut F) {
+        if let Some(child) = self.left.take() {
+            child.tree.visit_nodes(visit_node);
+        }
+
+        let maybe_right_child = self.right.take();
+        visit_node(self.node);
+
+        if let Some(child) = maybe_right_child {
+            child.tree.visit_nodes(visit_node);
+        }
+    }
+
+    /// Does an in-order traversal over references to all the nodes in the tree,
+    /// calling `visit_node` for each.
+    pub fn visit_refs<F: FnMut(&Tree)>(&self, visit_node: &mut F) {
+        if let Some(child) = &self.left {
+            child.tree.visit_refs(visit_node);
+        }
+
+        visit_node(self);
+
+        if let Some(child) = &self.right {
+            child.tree.visit_refs(visit_node);
+        }
+    }
+
+
+
     /// Returns an immutable reference to the child on the given side, if any.
-    pub(crate) fn child(&self, left: bool) -> Option<&Child> {
+    pub fn child(&self, left: bool) -> Option<&Child> {
         if left {
             self.left.as_ref()
         } else {
@@ -89,58 +142,6 @@ impl Tree {
         Node::Hash(self.hash()).into()
     }
 
-    /// Gets or computes the hash for this tree node.
-    pub(crate) fn hash(&self) -> Hash {
-        fn compute_hash(tree: &Tree, kv_hash: Hash) -> Hash {
-            node_hash(&kv_hash, &tree.child_hash(true), &tree.child_hash(false))
-        }
-
-        match &self.node {
-            Node::Hash(hash) => *hash,
-            Node::KVHash(kv_hash) => compute_hash(&self, *kv_hash),
-            Node::KV(key, value) => {
-                let kv_hash = kv_hash(key.as_slice(), value.as_slice());
-                compute_hash(&self, kv_hash)
-            }
-        }
-    }
-
-    /// Creates an iterator that yields the in-order traversal of the nodes at
-    /// the given depth.
-    pub(crate) fn layer(&self, depth: usize) -> LayerIter {
-        LayerIter::new(self, depth)
-    }
-
-    /// Consumes the `Tree` and does an in-order traversal over all the nodes in
-    /// the tree, calling `visit_node` for each.
-    #[allow(dead_code)] // (only used in tests for now)
-    pub(crate) fn visit_nodes<F: FnMut(Node)>(mut self, visit_node: &mut F) {
-        if let Some(child) = self.left.take() {
-            child.tree.visit_nodes(visit_node);
-        }
-
-        let maybe_right_child = self.right.take();
-        visit_node(self.node);
-
-        if let Some(child) = maybe_right_child {
-            child.tree.visit_nodes(visit_node);
-        }
-    }
-
-    /// Does an in-order traversal over references to all the nodes in the tree,
-    /// calling `visit_node` for each.
-    pub(crate) fn visit_refs<F: FnMut(&Tree)>(&self, visit_node: &mut F) {
-        if let Some(child) = &self.left {
-            child.tree.visit_refs(visit_node);
-        }
-
-        visit_node(self);
-
-        if let Some(child) = &self.right {
-            child.tree.visit_refs(visit_node);
-        }
-    }
-
     pub(crate) fn key(&self) -> &[u8] {
         match self.node {
             Node::KV(ref key, _) => key,
@@ -151,7 +152,7 @@ impl Tree {
 
 /// `LayerIter` iterates over the nodes in a `Tree` at a given depth. Nodes are
 /// visited in order.
-pub(crate) struct LayerIter<'a> {
+pub struct LayerIter<'a> {
     stack: Vec<&'a Tree>,
     depth: usize,
 }

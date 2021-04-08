@@ -1,13 +1,13 @@
 pub mod chunk;
-mod encoding;
-pub(crate) mod query;
-pub mod verify;
+pub mod encoding;
+pub mod query;
+pub mod tree;
 
 use crate::tree::Hash;
 
 pub use query::Query;
 pub use encoding::{encode_into, Decoder};
-pub use verify::verify_query;
+pub use tree::Tree;
 
 /// A proof operator, executed to verify the data in a Merkle proof.
 #[derive(Debug, PartialEq)]

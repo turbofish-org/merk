@@ -2,7 +2,7 @@ use failure::bail;
 use rocksdb::DBRawIterator;
 
 use super::{
-    verify::{execute, Tree as ProofTree},
+    tree::{execute, Tree as ProofTree},
     Node, Op,
 };
 use crate::error::Result;
@@ -260,7 +260,7 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
 mod tests {
     use std::usize;
 
-    use super::super::verify::Tree;
+    use super::super::tree::Tree;
     use super::*;
     use crate::test_utils::*;
     use crate::tree::{NoopCommit, PanicSource, Tree as BaseTree};

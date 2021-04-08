@@ -6,7 +6,7 @@ use crate::{
     merk::MerkSource,
     proofs::{
         chunk::{verify_leaf, verify_trunk, MIN_TRUNK_HEIGHT},
-        verify::{Child, Tree as ProofTree},
+        tree::{Child, Tree as ProofTree},
         Decoder, Node,
     },
     tree::{Link, RefWalker, Tree},
