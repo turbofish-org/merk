@@ -1,39 +1,67 @@
 use super::{Node, Op};
 use std::collections::{LinkedList, BTreeSet};
-use std::ops::{Range, RangeInclusive, RangeBounds, Bound};
+use std::ops::{Range, RangeInclusive};
 use std::cmp::{Ordering, min, max};
 use crate::error::Result;
 use crate::tree::{Fetch, Link, RefWalker};
 
+/// `Query` represents one or more keys or ranges of keys, which can be used to
+/// resolve a proof which will include all of the requested values.
 #[derive(Default)]
 pub struct Query {
     items: BTreeSet<QueryItem>
 }
 
 impl Query {
+    /// Creates a new query which contains no items.
     pub fn new() -> Self {
         Default::default()
     }
 
+    /// Adds an individual key to the query, so that its value (or its absence)
+    /// in the tree will be included in the resulting proof.
+    ///
+    /// If the key or a range including the key already exists in the query,
+    /// this will have no effect. If the query already includes a range that has
+    /// a non-inclusive bound equal to the key, the bound will be changed to be
+    /// inclusive.
     pub fn insert_key(&mut self, key: Vec<u8>) {
         let key = QueryItem::Key(key);
         self.items.insert(key);
     }
 
+    /// Adds a range to the query, so that all the entries in the tree with keys
+    /// in the range will be included in the resulting proof. 
+    ///
+    /// If a range including the range already exists in the query, this will
+    /// have no effect. If the query already includes a range that overlaps with
+    /// the range, the ranges will be joined together.
     pub fn insert_range(&mut self, range: Range<Vec<u8>>) {
         let range = QueryItem::Range(range);
         self.merge_or_insert(range);
     }
 
+    /// Adds an inclusive range to the query, so that all the entries in the
+    /// tree with keys in the range will be included in the resulting proof. 
+    ///
+    /// If a range including the range already exists in the query, this will
+    /// have no effect. If the query already includes a range that overlaps with
+    /// the range, the ranges will be merged together.
     pub fn insert_range_inclusive(&mut self, range: RangeInclusive<Vec<u8>>) {
         let range = QueryItem::RangeInclusive(range);
         self.merge_or_insert(range);
     }
 
+    /// Adds the `QueryItem` to the query, first checking to see if it collides
+    /// with any existing ranges or keys. All colliding items will be removed
+    /// then merged together so that the query includes the minimum number of
+    /// items (with no items covering any duplicate parts of keyspace) while
+    /// still including every key or range that has been added to the query.
     fn merge_or_insert(&mut self, mut item: QueryItem) {
-        while let Some(existing) = self.items.get(&item) {
-            let existing = existing.clone();
-            self.items.remove(&existing);
+        // since `QueryItem::eq` considers items equal if they collide at all
+        // (including keys within ranges or ranges which partially overlap),
+        // `items.take` will remove the first item which collides
+        while let Some(existing) = self.items.take(&item) {
             item = item.merge(existing);
         }
 
@@ -47,6 +75,7 @@ impl Into<Vec<QueryItem>> for Query {
     }
 }
 
+/// A `QueryItem` represents a key or range of keys to be included in a proof.
 #[derive(Clone, Debug)]
 pub(crate) enum QueryItem {
     Key(Vec<u8>),
