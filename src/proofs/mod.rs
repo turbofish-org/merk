@@ -5,6 +5,7 @@ pub mod verify;
 
 use crate::tree::Hash;
 
+pub use query::Query;
 pub use encoding::{encode_into, Decoder};
 pub use verify::verify_query;
 
