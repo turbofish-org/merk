@@ -3,7 +3,7 @@ use std::ops::{Deref, DerefMut};
 /// A container type which holds a value that may be temporarily owned by a
 /// consumer.
 pub struct Owner<T> {
-    inner: Option<T>
+    inner: Option<T>,
 }
 
 impl<T> Owner<T> {
@@ -50,9 +50,9 @@ impl<T> Owner<T> {
     /// let doubled = owner.own_return(|n| (n, n * 2));
     /// ```
     pub fn own_return<R, F>(&mut self, f: F) -> R
-        where
-            R: Sized,
-            F: FnOnce(T) -> (T, R)
+    where
+        R: Sized,
+        F: FnOnce(T) -> (T, R),
     {
         let old_value = unwrap(self.inner.take());
         let (new_value, return_value) = f(old_value);
@@ -83,7 +83,7 @@ impl<T> DerefMut for Owner<T> {
 fn unwrap<T>(option: Option<T>) -> T {
     match option {
         Some(value) => value,
-        None => unreachable!("value should be Some")
+        None => unreachable!("value should be Some"),
     }
 }
 

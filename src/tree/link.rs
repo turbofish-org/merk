@@ -12,26 +12,36 @@ use super::Tree;
 /// the child's `Tree` instance (storing its key if not).
 pub enum Link {
     /// Represents a child tree node which has been pruned from memory, only
-    /// retaining its key. The child node can always be fetched from the backing
-    /// store by this key when necessary.
-    Pruned {
+    /// retaining a reference to it (its key). The child node can always be
+    /// fetched from the backing store by this key when necessary.
+    Reference {
         hash: Hash,
         child_heights: (u8, u8),
         key: Vec<u8>,
     },
 
     /// Represents a tree node which has been modified since the `Tree`'s last
-    /// commit. The child's hash is not stored since it has not yet been
-    /// recomputed. The child's `Tree` instance is stored in the link.
+    /// hash computation. The child's hash is not stored since it has not yet
+    /// been recomputed. The child's `Tree` instance is stored in the link.
+    #[rustfmt::skip]
     Modified {
-        pending_writes: usize,
+        pending_writes: usize, // TODO: rename to `pending_hashes`
+        child_heights: (u8, u8),
+        tree: Tree
+    },
+
+    // Represents a tree node which has been modified since the `Tree`'s last
+    // commit, but which has an up-to-date hash. The child's `Tree` instance is
+    // stored in the link.
+    Uncommitted {
+        hash: Hash,
         child_heights: (u8, u8),
         tree: Tree,
     },
 
     /// Represents a tree node which has not been modified, has an up-to-date
     /// hash, and which is being retained in memory.
-    Stored {
+    Loaded {
         hash: Hash,
         child_heights: (u8, u8),
         tree: Tree,
@@ -57,11 +67,11 @@ impl Link {
         maybe_tree.map(Link::from_modified_tree)
     }
 
-    /// Returns `true` if the link is of the `Link::Pruned` variant.
+    /// Returns `true` if the link is of the `Link::Reference` variant.
     #[inline]
-    pub fn is_pruned(&self) -> bool {
+    pub fn is_reference(&self) -> bool {
         match self {
-            Link::Pruned { .. } => true,
+            Link::Reference { .. } => true,
             _ => false,
         }
     }
@@ -75,11 +85,20 @@ impl Link {
         }
     }
 
-    /// Returns `true` if the link is of the `Link::Stored` variant.
+    /// Returns `true` if the link is of the `Link::Uncommitted` variant.
+    #[inline]
+    pub fn is_uncommitted(&self) -> bool {
+        match self {
+            Link::Uncommitted { .. } => true,
+            _ => false,
+        }
+    }
+
+    /// Returns `true` if the link is of the `Link::Loaded` variant.
     #[inline]
     pub fn is_stored(&self) -> bool {
         match self {
-            Link::Stored { .. } => true,
+            Link::Loaded { .. } => true,
             _ => false,
         }
     }
@@ -88,21 +107,23 @@ impl Link {
     #[inline]
     pub fn key(&self) -> &[u8] {
         match self {
-            Link::Pruned { key, .. } => key.as_slice(),
+            Link::Reference { key, .. } => key.as_slice(),
             Link::Modified { tree, .. } => tree.key(),
-            Link::Stored { tree, .. } => tree.key(),
+            Link::Uncommitted { tree, .. } => tree.key(),
+            Link::Loaded { tree, .. } => tree.key(),
         }
     }
 
     /// Returns the `Tree` instance of the tree referenced by the link. If the
-    /// link is of variant `Link::Pruned`, the returned value will be `None`.
+    /// link is of variant `Link::Reference`, the returned value will be `None`.
     #[inline]
     pub fn tree(&self) -> Option<&Tree> {
         match self {
-            // TODO: panic for Pruned, don't return Option?
-            Link::Pruned { .. } => None,
+            // TODO: panic for Reference, don't return Option?
+            Link::Reference { .. } => None,
             Link::Modified { tree, .. } => Some(tree),
-            Link::Stored { tree, .. } => Some(tree),
+            Link::Uncommitted { tree, .. } => Some(tree),
+            Link::Loaded { tree, .. } => Some(tree),
         }
     }
 
@@ -113,8 +134,9 @@ impl Link {
     pub fn hash(&self) -> &Hash {
         match self {
             Link::Modified { .. } => panic!("Cannot get hash from modified link"),
-            Link::Pruned { hash, .. } => hash,
-            Link::Stored { hash, .. } => hash,
+            Link::Reference { hash, .. } => hash,
+            Link::Uncommitted { hash, .. } => hash,
+            Link::Loaded { hash, .. } => hash,
         }
     }
 
@@ -124,9 +146,10 @@ impl Link {
     #[inline]
     pub fn height(&self) -> u8 {
         let (left_height, right_height) = match self {
-            Link::Pruned { child_heights, .. } => *child_heights,
+            Link::Reference { child_heights, .. } => *child_heights,
             Link::Modified { child_heights, .. } => *child_heights,
-            Link::Stored { child_heights, .. } => *child_heights,
+            Link::Uncommitted { child_heights, .. } => *child_heights,
+            Link::Loaded { child_heights, .. } => *child_heights,
         };
         1 + max(left_height, right_height)
     }
@@ -135,29 +158,53 @@ impl Link {
     #[inline]
     pub fn balance_factor(&self) -> i8 {
         let (left_height, right_height) = match self {
-            Link::Pruned { child_heights, .. } => *child_heights,
+            Link::Reference { child_heights, .. } => *child_heights,
             Link::Modified { child_heights, .. } => *child_heights,
-            Link::Stored { child_heights, .. } => *child_heights,
+            Link::Uncommitted { child_heights, .. } => *child_heights,
+            Link::Loaded { child_heights, .. } => *child_heights,
         };
         right_height as i8 - left_height as i8
     }
 
-    /// Consumes the link and converts to variant `Link::Pruned`. Panics if the
-    /// link is of variant `Link::Modified`.
+    /// Consumes the link and converts to variant `Link::Reference`. Panics if the
+    /// link is of variant `Link::Modified` or `Link::Uncommitted`.
     #[inline]
-    pub fn into_pruned(self) -> Self {
+    pub fn into_reference(self) -> Self {
         match self {
-            Link::Pruned { .. } => self,
+            Link::Reference { .. } => self,
             Link::Modified { .. } => panic!("Cannot prune Modified tree"),
-            Link::Stored {
+            Link::Uncommitted { .. } => panic!("Cannot prune Uncommitted tree"),
+            Link::Loaded {
                 hash,
                 child_heights,
                 tree,
-            } => Link::Pruned {
+            } => Link::Reference {
                 hash,
                 child_heights,
                 key: tree.take_key(),
             },
+        }
+    }
+
+    #[inline]
+    pub(crate) fn child_heights_mut(&mut self) -> &mut (u8, u8) {
+        match self {
+            Link::Reference {
+                ref mut child_heights,
+                ..
+            } => child_heights,
+            Link::Modified {
+                ref mut child_heights,
+                ..
+            } => child_heights,
+            Link::Uncommitted {
+                ref mut child_heights,
+                ..
+            } => child_heights,
+            Link::Loaded {
+                ref mut child_heights,
+                ..
+            } => child_heights,
         }
     }
 }
@@ -166,16 +213,22 @@ impl Encode for Link {
     #[inline]
     fn encode_into<W: Write>(&self, out: &mut W) -> Result<()> {
         let (hash, key, (left_height, right_height)) = match self {
-            Link::Pruned {
+            Link::Reference {
                 hash,
                 key,
                 child_heights,
             } => (hash, key.as_slice(), child_heights),
-            Link::Stored {
+            Link::Loaded {
                 hash,
                 tree,
                 child_heights,
             } => (hash, tree.key(), child_heights),
+            Link::Uncommitted {
+                hash,
+                tree,
+                child_heights,
+            } => (hash, tree.key(), child_heights),
+
             Link::Modified { .. } => panic!("No encoding for Link::Modified"),
         };
 
@@ -196,17 +249,18 @@ impl Encode for Link {
         debug_assert!(self.key().len() < 256, "Key length must be less than 256");
 
         Ok(match self {
-            Link::Pruned { key, .. } => 1 + key.len() + 20 + 2,
+            Link::Reference { key, .. } => 1 + key.len() + 20 + 2,
             Link::Modified { .. } => panic!("No encoding for Link::Modified"),
-            Link::Stored { tree, .. } => 1 + tree.key().len() + 20 + 2,
+            Link::Uncommitted { tree, .. } => 1 + tree.key().len() + 20 + 2,
+            Link::Loaded { tree, .. } => 1 + tree.key().len() + 20 + 2,
         })
     }
 }
 
 impl Link {
     #[inline]
-    fn default_pruned() -> Self {
-        Link::Pruned {
+    fn default_reference() -> Self {
+        Link::Reference {
             key: Vec::with_capacity(64),
             hash: Default::default(),
             child_heights: (0, 0),
@@ -217,20 +271,20 @@ impl Link {
 impl Decode for Link {
     #[inline]
     fn decode<R: Read>(input: R) -> Result<Link> {
-        let mut link = Link::default_pruned();
+        let mut link = Link::default_reference();
         Link::decode_into(&mut link, input)?;
         Ok(link)
     }
 
     #[inline]
     fn decode_into<R: Read>(&mut self, mut input: R) -> Result<()> {
-        if !self.is_pruned() {
-            // don't create new struct if self is already Link::Pruned,
+        if !self.is_reference() {
+            // don't create new struct if self is already Link::Reference,
             // so we can re-use the key vec
-            *self = Link::default_pruned();
+            *self = Link::default_reference();
         }
 
-        if let Link::Pruned {
+        if let Link::Reference {
             ref mut key,
             ref mut hash,
             ref mut child_heights,
@@ -300,7 +354,7 @@ mod test {
         let key = vec![0];
         let tree = || Tree::new(vec![0], vec![1]);
 
-        let pruned = Link::Pruned {
+        let reference = Link::Reference {
             hash,
             child_heights,
             key,
@@ -310,33 +364,49 @@ mod test {
             child_heights,
             tree: tree(),
         };
-        let stored = Link::Stored {
+        let uncommitted = Link::Uncommitted {
+            hash,
+            child_heights,
+            tree: tree(),
+        };
+        let loaded = Link::Loaded {
             hash,
             child_heights,
             tree: tree(),
         };
 
-        assert!(pruned.is_pruned());
-        assert!(!pruned.is_modified());
-        assert!(!pruned.is_stored());
-        assert!(pruned.tree().is_none());
-        assert_eq!(pruned.hash(), &[0; 20]);
-        assert_eq!(pruned.height(), 1);
-        assert!(pruned.into_pruned().is_pruned());
+        assert!(reference.is_reference());
+        assert!(!reference.is_modified());
+        assert!(!reference.is_uncommitted());
+        assert!(!reference.is_stored());
+        assert!(reference.tree().is_none());
+        assert_eq!(reference.hash(), &[0; 20]);
+        assert_eq!(reference.height(), 1);
+        assert!(reference.into_reference().is_reference());
 
-        assert!(!modified.is_pruned());
+        assert!(!modified.is_reference());
         assert!(modified.is_modified());
+        assert!(!modified.is_uncommitted());
         assert!(!modified.is_stored());
         assert!(modified.tree().is_some());
         assert_eq!(modified.height(), 1);
 
-        assert!(!stored.is_pruned());
-        assert!(!stored.is_modified());
-        assert!(stored.is_stored());
-        assert!(stored.tree().is_some());
-        assert_eq!(stored.hash(), &[0; 20]);
-        assert_eq!(stored.height(), 1);
-        assert!(stored.into_pruned().is_pruned());
+        assert!(!uncommitted.is_reference());
+        assert!(!uncommitted.is_modified());
+        assert!(uncommitted.is_uncommitted());
+        assert!(!uncommitted.is_stored());
+        assert!(uncommitted.tree().is_some());
+        assert_eq!(uncommitted.hash(), &[0; 20]);
+        assert_eq!(uncommitted.height(), 1);
+
+        assert!(!loaded.is_reference());
+        assert!(!loaded.is_modified());
+        assert!(!loaded.is_uncommitted());
+        assert!(loaded.is_stored());
+        assert!(loaded.tree().is_some());
+        assert_eq!(loaded.hash(), &[0; 20]);
+        assert_eq!(loaded.height(), 1);
+        assert!(loaded.into_reference().is_reference());
     }
 
     #[test]
@@ -352,18 +422,29 @@ mod test {
 
     #[test]
     #[should_panic]
-    fn modified_into_pruned() {
+    fn modified_into_reference() {
         Link::Modified {
             pending_writes: 1,
             child_heights: (1, 1),
             tree: Tree::new(vec![0], vec![1]),
         }
-        .into_pruned();
+        .into_reference();
+    }
+
+    #[test]
+    #[should_panic]
+    fn uncommitted_into_reference() {
+        Link::Uncommitted {
+            hash: [1; 20],
+            child_heights: (1, 1),
+            tree: Tree::new(vec![0], vec![1]),
+        }
+        .into_reference();
     }
 
     #[test]
     fn encode_link() {
-        let link = Link::Pruned {
+        let link = Link::Reference {
             key: vec![1, 2, 3],
             child_heights: (123, 124),
             hash: [55; 20],
@@ -384,7 +465,7 @@ mod test {
     #[test]
     #[should_panic]
     fn encode_link_long_key() {
-        let link = Link::Pruned {
+        let link = Link::Reference {
             key: vec![123; 300],
             child_heights: (123, 124),
             hash: [55; 20],

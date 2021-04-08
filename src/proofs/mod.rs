@@ -1,12 +1,12 @@
-mod chunk;
+pub mod chunk;
 mod encoding;
 mod query;
-mod verify;
+pub mod verify;
 
-use crate::tree::{Link, RefWalker, Fetch, Hash};
+use crate::tree::Hash;
 
 pub use encoding::{encode_into, Decoder};
-pub use verify::verify;
+pub use verify::verify_query;
 
 /// A proof operator, executed to verify the data in a Merkle proof.
 #[derive(Debug, PartialEq)]
@@ -22,7 +22,7 @@ pub enum Op {
     /// Pops the top stack item as `child`. Pops the next top stack item as
     /// `parent`. Attaches `child` as the right child of `parent`. Pushes the
     /// updated `parent` back on the stack.
-    Child
+    Child,
 }
 
 /// A selected piece of data about a single tree node, to be contained in a
@@ -36,6 +36,5 @@ pub enum Node {
     KVHash(Hash),
 
     /// Represents the key and value of a tree node.
-    KV(Vec<u8>, Vec<u8>)
+    KV(Vec<u8>, Vec<u8>),
 }
-

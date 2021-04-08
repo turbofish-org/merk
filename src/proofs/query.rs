@@ -1,33 +1,31 @@
-use std::collections::LinkedList;
+use super::{Node, Op};
 use crate::error::Result;
-use crate::tree::Hash;
-use super::{Op, Node, encoding::encode_into};
-use crate::tree::{Link, RefWalker, Fetch};
+use crate::tree::{Fetch, Link, RefWalker};
+use std::collections::LinkedList;
 
 impl Link {
     /// Creates a `Node::Hash` from this link. Panics if the link is of variant
     /// `Link::Modified` since its hash has not yet been computed.
     fn to_hash_node(&self) -> Node {
         let hash = match self {
+            Link::Reference { hash, .. } => hash,
             Link::Modified { .. } => {
                 panic!("Cannot convert Link::Modified to proof hash node");
-            },
-            Link::Pruned { hash, .. } => hash,
-            Link::Stored { hash, .. } => hash
+            }
+            Link::Uncommitted { hash, .. } => hash,
+            Link::Loaded { hash, .. } => hash,
         };
         Node::Hash(*hash)
     }
 }
 
 impl<'a, S> RefWalker<'a, S>
-    where S: Fetch + Sized + Send + Clone
+where
+    S: Fetch + Sized + Send + Clone,
 {
     /// Creates a `Node::KV` from the key/value pair of the root node.
     pub(crate) fn to_kv_node(&self) -> Node {
-        Node::KV(
-            self.tree().key().to_vec(),
-            self.tree().value().to_vec()
-        )
+        Node::KV(self.tree().key().to_vec(), self.tree().value().to_vec())
     }
 
     /// Creates a `Node::KVHash` from the hash of the key/value pair of the root
@@ -48,28 +46,18 @@ impl<'a, S> RefWalker<'a, S>
     pub(crate) fn create_proof(
         &mut self,
         keys: &[Vec<u8>],
-    ) -> Result<(
-        LinkedList<Op>,
-        (bool, bool)
-    )> {
-        let search = keys.binary_search_by(
-            |key| key.as_slice().cmp(self.tree().key())
-        );
+    ) -> Result<(LinkedList<Op>, (bool, bool))> {
+        let search = keys.binary_search_by(|key| key.as_slice().cmp(self.tree().key()));
 
         let (left_keys, right_keys) = match search {
-            Ok(index) => (&keys[..index], &keys[index+1..]),
-            Err(index) => (&keys[..index], &keys[index..])
+            Ok(index) => (&keys[..index], &keys[index + 1..]),
+            Err(index) => (&keys[..index], &keys[index..]),
         };
 
-        let (mut proof, left_absence) =
-            self.create_child_proof(true, left_keys)?;
-        let (mut right_proof, right_absence) =
-            self.create_child_proof(false, right_keys)?;
+        let (mut proof, left_absence) = self.create_child_proof(true, left_keys)?;
+        let (mut right_proof, right_absence) = self.create_child_proof(false, right_keys)?;
 
-        let (has_left, has_right) = (
-            !proof.is_empty(),
-            !right_proof.is_empty()
-        );
+        let (has_left, has_right) = (!proof.is_empty(), !right_proof.is_empty());
 
         proof.push_back(match search {
             Ok(_) => Op::Push(self.to_kv_node()),
@@ -91,10 +79,7 @@ impl<'a, S> RefWalker<'a, S>
             proof.push_back(Op::Child);
         }
 
-        Ok((
-            proof,
-            (left_absence.0, right_absence.1)
-        ))
+        Ok((proof, (left_absence.0, right_absence.1)))
     }
 
     /// Similar to `create_proof`. Recurses into the child on the given side and
@@ -102,11 +87,8 @@ impl<'a, S> RefWalker<'a, S>
     fn create_child_proof(
         &mut self,
         left: bool,
-        keys: &[Vec<u8>]
-    ) -> Result<(
-        LinkedList<Op>,
-        (bool, bool)
-    )> {
+        keys: &[Vec<u8>],
+    ) -> Result<(LinkedList<Op>, (bool, bool))> {
         Ok(if !keys.is_empty() {
             if let Some(mut child) = self.walk(left)? {
                 child.create_proof(keys)?
@@ -125,28 +107,25 @@ impl<'a, S> RefWalker<'a, S>
 
 #[cfg(test)]
 mod test {
+    use super::super::encoding::encode_into;
     use super::*;
-    use crate::tree::{Tree, PanicSource, RefWalker};
+    use crate::tree::{PanicSource, RefWalker, Tree};
 
     fn make_3_node_tree() -> Tree {
         Tree::from_fields(
-            vec![5], vec![5], [105; 20],
-            Some(Link::Stored {
+            vec![5],
+            vec![5],
+            [105; 20],
+            Some(Link::Loaded {
                 child_heights: (0, 0),
                 hash: [3; 20],
-                tree: Tree::from_fields(
-                    vec![3], vec![3], [103; 20],
-                    None, None
-                )
+                tree: Tree::from_fields(vec![3], vec![3], [103; 20], None, None),
             }),
-            Some(Link::Stored {
+            Some(Link::Loaded {
                 child_heights: (0, 0),
                 hash: [7; 20],
-                tree: Tree::from_fields(
-                    vec![7], vec![7], [107; 20],
-                    None, None
-                )
-            })
+                tree: Tree::from_fields(vec![7], vec![7], [107; 20], None, None),
+            }),
         )
     }
 
@@ -286,93 +265,87 @@ mod test {
     #[test]
     fn doc_proof() {
         let mut tree = Tree::from_fields(
-            vec![5], vec![5], [105; 20],
-            Some(Link::Stored {
+            vec![5],
+            vec![5],
+            [105; 20],
+            Some(Link::Loaded {
                 child_heights: (0, 0),
                 hash: [2; 20],
                 tree: Tree::from_fields(
-                    vec![2], vec![2], [102; 20],
-                    Some(Link::Stored {
+                    vec![2],
+                    vec![2],
+                    [102; 20],
+                    Some(Link::Loaded {
                         child_heights: (0, 0),
                         hash: [1; 20],
-                        tree: Tree::from_fields(
-                            vec![1], vec![1], [101; 20],
-                            None, None
-                        )
+                        tree: Tree::from_fields(vec![1], vec![1], [101; 20], None, None),
                     }),
-                    Some(Link::Stored {
+                    Some(Link::Loaded {
                         child_heights: (0, 0),
                         hash: [4; 20],
                         tree: Tree::from_fields(
-                            vec![4], vec![4], [104; 20],
-                            Some(Link::Stored {
+                            vec![4],
+                            vec![4],
+                            [104; 20],
+                            Some(Link::Loaded {
                                 child_heights: (0, 0),
                                 hash: [3; 20],
-                                tree: Tree::from_fields(
-                                    vec![3], vec![3], [103; 20],
-                                    None, None
-                                )
+                                tree: Tree::from_fields(vec![3], vec![3], [103; 20], None, None),
                             }),
-                            None
-                        )
-                    })
-                )
+                            None,
+                        ),
+                    }),
+                ),
             }),
-            Some(Link::Stored {
+            Some(Link::Loaded {
                 child_heights: (0, 0),
                 hash: [9; 20],
                 tree: Tree::from_fields(
-                    vec![9], vec![9], [109; 20],
-                    Some(Link::Stored {
+                    vec![9],
+                    vec![9],
+                    [109; 20],
+                    Some(Link::Loaded {
                         child_heights: (0, 0),
                         hash: [7; 20],
                         tree: Tree::from_fields(
-                            vec![7], vec![7], [107; 20],
-                            Some(Link::Stored {
+                            vec![7],
+                            vec![7],
+                            [107; 20],
+                            Some(Link::Loaded {
                                 child_heights: (0, 0),
                                 hash: [6; 20],
-                                tree: Tree::from_fields(
-                                    vec![6], vec![6], [106; 20],
-                                    None, None
-                                )
+                                tree: Tree::from_fields(vec![6], vec![6], [106; 20], None, None),
                             }),
-                            Some(Link::Stored {
+                            Some(Link::Loaded {
                                 child_heights: (0, 0),
                                 hash: [8; 20],
-                                tree: Tree::from_fields(
-                                    vec![8], vec![8], [108; 20],
-                                    None, None
-                                )
-                            })
-                        )
+                                tree: Tree::from_fields(vec![8], vec![8], [108; 20], None, None),
+                            }),
+                        ),
                     }),
-                    Some(Link::Stored {
+                    Some(Link::Loaded {
                         child_heights: (0, 0),
                         hash: [11; 20],
                         tree: Tree::from_fields(
-                            vec![11], vec![11], [111; 20],
-                            Some(Link::Stored {
+                            vec![11],
+                            vec![11],
+                            [111; 20],
+                            Some(Link::Loaded {
                                 child_heights: (0, 0),
                                 hash: [10; 20],
-                                tree: Tree::from_fields(
-                                    vec![10], vec![10], [110; 20],
-                                    None, None
-                                )
+                                tree: Tree::from_fields(vec![10], vec![10], [110; 20], None, None),
                             }),
-                            None
-                        )
-                    })
-                )
-            })
+                            None,
+                        ),
+                    }),
+                ),
+            }),
         );
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
 
-        let (proof, absence) = walker.create_proof(vec![
-            vec![1],
-            vec![2],
-            vec![3],
-            vec![4]
-        ].as_slice()).expect("create_proof errored");
+        let (proof, absence) = walker
+            .create_proof(vec![vec![1], vec![2], vec![3], vec![4]].as_slice())
+            .expect("create_proof errored");
 
         let mut iter = proof.iter();
         assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![1], vec![1]))));
@@ -391,6 +364,14 @@ mod test {
 
         let mut bytes = vec![];
         encode_into(proof.iter(), &mut bytes);
-        assert_eq!(bytes, vec![3, 1, 1, 0, 1, 1, 3, 1, 2, 0, 1, 2, 16, 3, 1, 3, 0, 1, 3, 3, 1, 4, 0, 1, 4, 16, 17, 2, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 16, 1, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 17]);
+        assert_eq!(
+            bytes,
+            vec![
+                3, 1, 1, 0, 1, 1, 3, 1, 2, 0, 1, 2, 16, 3, 1, 3, 0, 1, 3, 3, 1, 4, 0, 1, 4, 16, 17,
+                2, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105,
+                105, 105, 105, 105, 16, 1, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+                9, 17
+            ]
+        );
     }
 }

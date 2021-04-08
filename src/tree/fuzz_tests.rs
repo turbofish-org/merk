@@ -1,13 +1,12 @@
+#![cfg(tests)]
+
+use crate::test_utils::*;
+use crate::tree::*;
+use rand::prelude::*;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::iter::FromIterator;
-use rand::prelude::*;
-use crate::*;
-use crate::tree::*;
-use crate::test_utils::*;
 
 const ITERATIONS: usize = 2_000;
-
 type Map = BTreeMap<Vec<u8>, Vec<u8>>;
 
 #[test]
@@ -57,9 +56,7 @@ fn fuzz_case(seed: u64) {
 }
 
 fn make_batch(maybe_tree: Option<&Tree>, size: u64, seed: u64) -> Vec<BatchEntry> {
-    let rng: RefCell<SmallRng> = RefCell::new(
-        SeedableRng::seed_from_u64(seed)
-    );
+    let rng: RefCell<SmallRng> = RefCell::new(SeedableRng::seed_from_u64(seed));
     let mut batch = Vec::with_capacity(size as usize);
 
     let get_random_key = || {
@@ -75,9 +72,7 @@ fn make_batch(maybe_tree: Option<&Tree>, size: u64, seed: u64) -> Vec<BatchEntry
         value
     };
 
-    let insert = || {
-        (random_value(2), Op::Put(random_value(2)))
-    };
+    let insert = || (random_value(2), Op::Put(random_value(2)));
     let update = || {
         let key = get_random_key();
         (key.to_vec(), Op::Put(random_value(2)))
@@ -90,9 +85,13 @@ fn make_batch(maybe_tree: Option<&Tree>, size: u64, seed: u64) -> Vec<BatchEntry
     for _ in 0..size {
         let entry = if maybe_tree.is_some() {
             let kind = rng.borrow_mut().gen::<u64>() % 3;
-            if kind == 0 { insert() }
-            else if kind == 1 { update() }
-            else { delete() }
+            if kind == 0 {
+                insert()
+            } else if kind == 1 {
+                update()
+            } else {
+                delete()
+            }
         } else {
             insert()
         };
@@ -121,7 +120,7 @@ fn apply_to_map(map: &mut Map, batch: &Batch) {
         match entry {
             (key, Op::Put(value)) => {
                 map.insert(key.to_vec(), value.to_vec());
-            },
+            }
             (key, Op::Delete) => {
                 map.remove(key);
             }

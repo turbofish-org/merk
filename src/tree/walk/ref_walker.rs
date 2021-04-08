@@ -1,6 +1,6 @@
-use crate::error::Result;
+use super::super::{Link, Tree};
 use super::Fetch;
-use super::super::{Tree, Link};
+use crate::error::Result;
 
 /// Allows read-only traversal of a `Tree`, fetching from the given source when
 /// traversing to a pruned node. The fetched nodes are then retained in memory
@@ -9,14 +9,16 @@ use super::super::{Tree, Link};
 /// Only finalized trees may be walked (trees which have had `commit` called
 /// since the last update).
 pub struct RefWalker<'a, S>
-    where S: Fetch + Sized + Clone + Send
+where
+    S: Fetch + Sized + Clone + Send,
 {
     tree: &'a mut Tree,
-    source: S
+    source: S,
 }
 
 impl<'a, S> RefWalker<'a, S>
-    where S: Fetch + Sized + Clone + Send
+where
+    S: Fetch + Sized + Clone + Send,
 {
     /// Creates a `RefWalker` with the given tree and source.
     pub fn new(tree: &'a mut Tree, source: S) -> Self {
@@ -31,19 +33,19 @@ impl<'a, S> RefWalker<'a, S>
 
     /// Traverses to the child on the given side (if any), fetching from the
     /// source if pruned. When fetching, the link is upgraded from
-    /// `Link::Pruned` to `Link::Stored`.
+    /// `Link::Reference` to `Link::Loaded`.
     pub fn walk<'b>(&'b mut self, left: bool) -> Result<Option<RefWalker<'b, S>>> {
         let link = match self.tree.link(left) {
             None => return Ok(None),
-            Some(link) => link
+            Some(link) => link,
         };
 
         match link {
-            Link::Modified { .. } => panic!("Cannot traverse Link::Modified"),
-            Link::Stored { .. } => {},
-            Link::Pruned { .. } => {
+            Link::Reference { .. } => {
                 self.tree.load(left, &self.source)?;
             }
+            Link::Modified { .. } => panic!("Cannot traverse Link::Modified"),
+            Link::Uncommitted { .. } | Link::Loaded { .. } => {}
         }
 
         let child = self.tree.child_mut(left).unwrap();

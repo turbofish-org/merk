@@ -1,15 +1,28 @@
+pub mod chunks;
+pub mod restore;
+
 use std::cell::Cell;
 use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
-use failure::{bail, format_err};
-use rocksdb::ColumnFamilyDescriptor;
+use failure::bail;
+use rocksdb::{checkpoint::Checkpoint, ColumnFamilyDescriptor, WriteBatch};
 
 use crate::error::Result;
 use crate::proofs::encode_into;
 use crate::tree::{Batch, Commit, Fetch, Hash, Link, Op, RefWalker, Tree, Walker, NULL_HASH};
 
-const ROOT_KEY_KEY: [u8; 4] = *b"root";
+const ROOT_KEY_KEY: &[u8] = b"root";
+const AUX_CF_NAME: &str = "aux";
+const INTERNAL_CF_NAME: &str = "internal";
+
+fn column_families() -> Vec<ColumnFamilyDescriptor> {
+    vec![
+        // TODO: clone opts or take args
+        ColumnFamilyDescriptor::new(AUX_CF_NAME, Merk::default_db_opts()),
+        ColumnFamilyDescriptor::new(INTERNAL_CF_NAME, Merk::default_db_opts()),
+    ]
+}
 
 /// A handle to a Merkle key/value store backed by RocksDB.
 pub struct Merk {
@@ -34,26 +47,16 @@ impl Merk {
     {
         let mut path_buf = PathBuf::new();
         path_buf.push(path);
-        let cfs = vec![
-            // TODO: clone opts or take args
-            ColumnFamilyDescriptor::new("aux", Merk::default_db_opts()),
-            ColumnFamilyDescriptor::new("internal", Merk::default_db_opts()),
-        ];
-        let db = rocksdb::DB::open_cf_descriptors(&db_opts, &path_buf, cfs)?;
+        let db = rocksdb::DB::open_cf_descriptors(&db_opts, &path_buf, column_families())?;
 
-        // try to load root node
-        let internal_cf = db.cf_handle("internal").unwrap();
-        let tree = match db.get_pinned_cf(internal_cf, ROOT_KEY_KEY)? {
-            Some(root_key) => Some(fetch_existing_node(&db, &root_key)?),
-            None => None,
-        };
-        let tree = Cell::new(tree);
-
-        Ok(Merk {
-            tree,
+        let mut merk = Merk {
+            tree: Cell::new(None),
             db,
             path: path_buf,
-        })
+        };
+        merk.load_root()?;
+
+        Ok(merk)
     }
 
     pub fn default_db_opts() -> rocksdb::Options {
@@ -71,7 +74,7 @@ impl Merk {
 
     /// Gets an auxiliary value.
     pub fn get_aux(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
-        let aux_cf = self.db.cf_handle("aux");
+        let aux_cf = self.db.cf_handle(AUX_CF_NAME);
         Ok(self.db.get_cf(aux_cf.unwrap(), key)?)
     }
 
@@ -259,8 +262,8 @@ impl Merk {
     }
 
     pub fn commit(&mut self, deleted_keys: LinkedList<Vec<u8>>, aux: &Batch) -> Result<()> {
-        let internal_cf = self.db.cf_handle("internal").unwrap();
-        let aux_cf = self.db.cf_handle("aux").unwrap();
+        let internal_cf = self.db.cf_handle(INTERNAL_CF_NAME).unwrap();
+        let aux_cf = self.db.cf_handle(AUX_CF_NAME).unwrap();
 
         let mut batch = rocksdb::WriteBatch::default();
         let mut to_batch =
@@ -268,7 +271,7 @@ impl Merk {
                 // TODO: concurrent commit
                 if let Some(tree) = maybe_tree {
                     // TODO: configurable committer
-                    let mut committer = MerkCommitter::new(tree.height(), 1);
+                    let mut committer = MerkCommitter::new(tree.height(), 100);
                     tree.commit(&mut committer)?;
 
                     // update pointer to root node
@@ -304,10 +307,7 @@ impl Merk {
         }
 
         // write to db
-        let mut opts = rocksdb::WriteOptions::default();
-        opts.set_sync(false);
-        // TODO: disable WAL once we can ensure consistency with transactions
-        self.db.write_opt(batch, &opts)?;
+        self.write(batch)?;
 
         Ok(())
     }
@@ -323,8 +323,12 @@ impl Merk {
     }
 
     pub fn raw_iter(&self) -> rocksdb::DBRawIterator {
-        let internal_cf = self.db.cf_handle("internal").unwrap();
-        self.db.raw_iterator_cf(internal_cf)
+        self.db.raw_iterator()
+    }
+
+    pub fn checkpoint<P: AsRef<Path>>(&self, path: P) -> Result<Merk> {
+        Checkpoint::new(&self.db)?.create_checkpoint(&path)?;
+        Merk::open(path)
     }
 
     fn source(&self) -> MerkSource {
@@ -344,11 +348,35 @@ impl Merk {
         self.tree.set(tree);
         res
     }
-}
 
-impl Drop for Merk {
-    fn drop(&mut self) {
-        self.db.flush().unwrap();
+    pub(crate) fn write(&mut self, batch: WriteBatch) -> Result<()> {
+        let mut opts = rocksdb::WriteOptions::default();
+        opts.set_sync(false);
+        // TODO: disable WAL once we can ensure consistency with transactions
+        self.db.write_opt(batch, &opts)?;
+        Ok(())
+    }
+
+    pub(crate) fn set_root_key(&mut self, key: Vec<u8>) -> Result<()> {
+        let internal_cf = self.db.cf_handle(INTERNAL_CF_NAME).unwrap();
+        let mut batch = WriteBatch::default();
+        batch.put_cf(internal_cf, ROOT_KEY_KEY, key);
+        self.write(batch)
+    }
+
+    pub(crate) fn fetch_node(&self, key: &[u8]) -> Result<Option<Tree>> {
+        fetch_node(&self.db, key)
+    }
+
+    pub(crate) fn load_root(&mut self) -> Result<()> {
+        let internal_cf = self.db.cf_handle(INTERNAL_CF_NAME).unwrap();
+        let tree = self
+            .db
+            .get_pinned_cf(internal_cf, ROOT_KEY_KEY)?
+            .map(|root_key| fetch_existing_node(&self.db, &root_key))
+            .transpose()?;
+        self.tree = Cell::new(tree);
+        Ok(())
     }
 }
 
@@ -412,7 +440,7 @@ fn fetch_existing_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
 
 #[cfg(test)]
 mod test {
-    use super::Merk;
+    use super::{RefWalker, Merk, MerkSource};
     use crate::test_utils::*;
     use crate::Op;
     use std::thread;
@@ -549,5 +577,149 @@ mod test {
         )
         .unwrap();
         assert!(merk.get(&[3, 3, 3]).unwrap().is_none());
+    }
+
+    #[test]
+    fn reopen() {
+        fn collect(mut node: RefWalker<MerkSource>, nodes: &mut Vec<Vec<u8>>) {
+            nodes.push(node.tree().encode());
+            node.walk(true).unwrap().map(|c| collect(c, nodes));
+            node.walk(false).unwrap().map(|c| collect(c, nodes));
+        }
+
+        let time = std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = format!("merk_reopen_{}.db", time);
+
+        let original_nodes = {
+            let mut merk = Merk::open(&path).unwrap();
+            let batch = make_batch_seq(1..10_000);
+            merk.apply(batch.as_slice(), &[]).unwrap();
+            let mut tree = merk.tree.take().unwrap();
+            let walker = RefWalker::new(&mut tree, merk.source());
+
+            let mut nodes = vec![];
+            collect(walker, &mut nodes);
+            nodes
+        };
+        
+        let merk = TempMerk::open(&path).unwrap();
+        let mut tree = merk.tree.take().unwrap();
+        let walker = RefWalker::new(&mut tree, merk.source());
+
+        let mut reopen_nodes = vec![];
+        collect(walker, &mut reopen_nodes);
+        
+        assert_eq!(reopen_nodes, original_nodes);
+    }
+
+    #[test]
+    fn reopen_iter() {
+        fn collect(iter: &mut rocksdb::DBRawIterator, nodes: &mut Vec<(Vec<u8>, Vec<u8>)>) {
+            while iter.valid() {
+                nodes.push((
+                    iter.key().unwrap().to_vec(),
+                    iter.value().unwrap().to_vec()
+                ));
+                iter.next();
+            }
+        }
+
+        let time = std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = format!("merk_reopen_{}.db", time);
+
+        let original_nodes = {
+            let mut merk = Merk::open(&path).unwrap();
+            let batch = make_batch_seq(1..10_000);
+            merk.apply(batch.as_slice(), &[]).unwrap();
+
+            let mut nodes = vec![];
+            collect(&mut merk.raw_iter(), &mut nodes);
+            nodes
+        };
+        
+        let merk = TempMerk::open(&path).unwrap();
+
+        let mut reopen_nodes = vec![];
+        collect(&mut merk.raw_iter(), &mut reopen_nodes);
+        
+        assert_eq!(reopen_nodes, original_nodes);
+    }
+
+    #[test]
+    fn checkpoint() {
+        let path = thread::current().name().unwrap().to_owned();
+        let mut merk = TempMerk::open(&path).expect("failed to open merk");
+
+        merk.apply(&[(vec![1], Op::Put(vec![0]))], &[])
+            .expect("apply failed");
+
+        let mut checkpoint = merk.checkpoint(path + ".checkpoint").unwrap();
+
+        assert_eq!(merk.get(&[1]).unwrap(), Some(vec![0]));
+        assert_eq!(checkpoint.get(&[1]).unwrap(), Some(vec![0]));
+
+        merk.apply(
+            &[(vec![1], Op::Put(vec![1])), (vec![2], Op::Put(vec![0]))],
+            &[],
+        )
+        .expect("apply failed");
+
+        assert_eq!(merk.get(&[1]).unwrap(), Some(vec![1]));
+        assert_eq!(merk.get(&[2]).unwrap(), Some(vec![0]));
+        assert_eq!(checkpoint.get(&[1]).unwrap(), Some(vec![0]));
+        assert_eq!(checkpoint.get(&[2]).unwrap(), None);
+
+        checkpoint
+            .apply(&[(vec![2], Op::Put(vec![123]))], &[])
+            .expect("apply failed");
+
+        assert_eq!(merk.get(&[1]).unwrap(), Some(vec![1]));
+        assert_eq!(merk.get(&[2]).unwrap(), Some(vec![0]));
+        assert_eq!(checkpoint.get(&[1]).unwrap(), Some(vec![0]));
+        assert_eq!(checkpoint.get(&[2]).unwrap(), Some(vec![123]));
+
+        checkpoint.destroy().unwrap();
+
+        assert_eq!(merk.get(&[1]).unwrap(), Some(vec![1]));
+        assert_eq!(merk.get(&[2]).unwrap(), Some(vec![0]));
+    }
+
+    #[test]
+    fn checkpoint_iterator() {
+        let path = thread::current().name().unwrap().to_owned();
+        let mut merk = TempMerk::open(&path).expect("failed to open merk");
+
+        merk.apply(&make_batch_seq(1..100), &[])
+            .expect("apply failed");
+
+        let path: std::path::PathBuf = (path + ".checkpoint").into();
+        if path.exists() {
+            std::fs::remove_dir_all(&path).unwrap();
+        }
+        let checkpoint = merk.checkpoint(&path).unwrap();
+
+        let mut merk_iter = merk.raw_iter();
+        let mut checkpoint_iter = checkpoint.raw_iter();
+
+        loop {
+            assert_eq!(merk_iter.valid(), checkpoint_iter.valid());
+            if !merk_iter.valid() {
+                break
+            }
+
+            assert_eq!(merk_iter.key(), checkpoint_iter.key());
+            assert_eq!(merk_iter.value(), checkpoint_iter.value());
+            
+            merk_iter.next();
+            checkpoint_iter.next();
+        }
+
+        std::fs::remove_dir_all(&path).unwrap();
     }
 }

@@ -1,6 +1,6 @@
-use std::fmt::{Debug, Formatter, Result};
+use super::{Link, Tree};
 use colored::Colorize;
-use super::{Tree, Link};
+use std::fmt::{Debug, Formatter, Result};
 
 impl Debug for Tree {
     // TODO: unwraps should be results that bubble up
@@ -9,7 +9,7 @@ impl Debug for Tree {
             f: &mut Formatter,
             cursor: &Tree,
             stack: &mut Vec<(Vec<u8>, Vec<u8>)>,
-            left: bool
+            left: bool,
         ) {
             if let Some(child_link) = cursor.link(true) {
                 stack.push((child_link.key().to_vec(), cursor.key().to_vec()));
@@ -25,13 +25,9 @@ impl Debug for Tree {
 
             if depth > 0 {
                 // draw ancestor's vertical lines
-                for (low, high) in stack.iter().take(depth-1) {
+                for (low, high) in stack.iter().take(depth - 1) {
                     let draw_line = cursor.key() > low && cursor.key() < high;
-                    write!(
-                        f,
-                        "{}",
-                        if draw_line { " │  " } else { "    " }.dimmed()
-                    ).unwrap();
+                    write!(f, "{}", if draw_line { " │  " } else { "    " }.dimmed()).unwrap();
                 }
             }
 
@@ -43,11 +39,12 @@ impl Debug for Tree {
                 " └-"
             };
             writeln!(
-                    f,
-                    "{}{}",
-                    prefix.dimmed(),
-                    format!("{:?}", cursor.key()).on_bright_black()
-            ).unwrap();
+                f,
+                "{}{}",
+                prefix.dimmed(),
+                format!("{:?}", cursor.key()).on_bright_black()
+            )
+            .unwrap();
 
             if let Some(child_link) = cursor.link(false) {
                 stack.push((cursor.key().to_vec(), child_link.key().to_vec()));
@@ -58,25 +55,21 @@ impl Debug for Tree {
                 }
                 stack.pop();
             }
-        };
+        }
 
         fn traverse_pruned(
             f: &mut Formatter,
             link: &Link,
             stack: &mut Vec<(Vec<u8>, Vec<u8>)>,
-            left: bool
+            left: bool,
         ) {
             let depth = stack.len();
 
             if depth > 0 {
                 // draw ancestor's vertical lines
-                for (low, high) in stack.iter().take(depth-1) {
+                for (low, high) in stack.iter().take(depth - 1) {
                     let draw_line = link.key() > low && link.key() < high;
-                    write!(
-                        f,
-                        "{}",
-                        if draw_line { " │  " } else { "    " }.dimmed()
-                    ).unwrap();
+                    write!(f, "{}", if draw_line { " │  " } else { "    " }.dimmed()).unwrap();
                 }
             }
 
@@ -87,8 +80,14 @@ impl Debug for Tree {
             } else {
                 " └-"
             };
-            writeln!(f, "{}{}", prefix.dimmed(), format!("{:?}", link.key()).blue()).unwrap();
-        };
+            writeln!(
+                f,
+                "{}{}",
+                prefix.dimmed(),
+                format!("{:?}", link.key()).blue()
+            )
+            .unwrap();
+        }
 
         let mut stack = vec![];
         traverse(f, self, &mut stack, false);
