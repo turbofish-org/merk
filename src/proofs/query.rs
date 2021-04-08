@@ -18,6 +18,14 @@ impl Query {
         Default::default()
     }
 
+    pub(crate) fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &QueryItem> {
+        self.items.iter()
+    }
+
     /// Adds an individual key to the query, so that its value (or its absence)
     /// in the tree will be included in the resulting proof.
     ///
@@ -84,20 +92,27 @@ pub(crate) enum QueryItem {
 }
 
 impl QueryItem {
-    fn lower_bound(&self) -> Vec<u8> {
+    pub fn lower_bound(&self) -> &[u8] {
         match self {
-            QueryItem::Key(key) => key.clone(),
-            QueryItem::Range(range) => range.start.clone(),
-            QueryItem::RangeInclusive(range) => range.start().clone()
+            QueryItem::Key(key) => key.as_slice(),
+            QueryItem::Range(range) => range.start.as_ref(),
+            QueryItem::RangeInclusive(range) => range.start().as_ref()
         }
     }
 
-    fn upper_bound(&self) -> (Vec<u8>, bool) {
+    pub fn upper_bound(&self) -> (&[u8], bool) {
         match self {
-            QueryItem::Key(key) => (key.clone(), true),
-            QueryItem::Range(range) => (range.end.clone(), false),
-            QueryItem::RangeInclusive(range) => (range.end().clone(), true)
+            QueryItem::Key(key) => (key.as_slice(), true),
+            QueryItem::Range(range) => (range.end.as_ref(), false),
+            QueryItem::RangeInclusive(range) => (range.end().as_ref(), true)
         }
+    }
+
+    pub fn contains(&self, key: &[u8]) -> bool {
+        let (bound, inclusive) = self.upper_bound();
+        return key >= self.lower_bound()
+            && (key < bound
+            || (key == bound && inclusive));
     }
 
     fn merge(self, other: QueryItem) -> QueryItem {
@@ -209,7 +224,7 @@ where
 
                 // if range starts before this node's key, include it in left
                 // child's query
-                let left_query = if left_bound.as_slice() < self.tree().key() {
+                let left_query = if left_bound < self.tree().key() {
                     &query[..=index]
                 } else {
                     &query[..index]
@@ -217,7 +232,7 @@ where
 
                 // if range ends after this node's key, include it in right
                 // child's query
-                let right_query = if right_bound.as_slice() > self.tree().key() {
+                let right_query = if right_bound > self.tree().key() {
                     &query[index..]
                 } else {
                     &query[index + 1..]
