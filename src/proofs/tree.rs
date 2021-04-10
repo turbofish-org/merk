@@ -1,5 +1,4 @@
-use super::{Decoder, Node, Op, Query};
-use super::query::QueryItem;
+use super::{Node, Op};
 use crate::error::Result;
 use crate::tree::{kv_hash, node_hash, Hash, NULL_HASH};
 use failure::bail;
@@ -285,21 +284,11 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::super::query::*;
     use super::super::*;
     use super::*;
-    use crate::tree;
-    use crate::tree::{NoopCommit, PanicSource, RefWalker};
+    use super::Tree as ProofTree;
 
-    fn make_3_node_tree() -> tree::Tree {
-        let mut tree = tree::Tree::new(vec![5], vec![5])
-            .attach(true, Some(tree::Tree::new(vec![3], vec![3])))
-            .attach(false, Some(tree::Tree::new(vec![7], vec![7])));
-        tree.commit(&mut NoopCommit {}).expect("commit failed");
-        tree
-    }
-
-    fn make_7_node_prooftree() -> Tree {
+    fn make_7_node_prooftree() -> ProofTree {
         let make_node = |i| -> super::super::tree::Tree { Node::KV(vec![i], vec![]).into() };
 
         let mut tree = make_node(3);
