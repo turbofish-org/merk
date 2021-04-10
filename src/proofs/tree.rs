@@ -1,5 +1,4 @@
-use super::{Decoder, Node, Op, Query};
-use super::query::QueryItem;
+use super::{Node, Op};
 use crate::error::Result;
 use crate::tree::{kv_hash, node_hash, Hash, NULL_HASH};
 use failure::bail;
@@ -103,7 +102,7 @@ impl Tree {
     }
 
     /// Returns a mutable reference to the child on the given side, if any.
-    fn child_mut(&mut self, left: bool) -> &mut Option<Child> {
+    pub(crate) fn child_mut(&mut self, left: bool) -> &mut Option<Child> {
         if left {
             &mut self.left
         } else {
@@ -113,7 +112,7 @@ impl Tree {
 
     /// Attaches the child to the `Tree`'s given side. Panics if there is
     /// already a child attached to this side.
-    fn attach(&mut self, left: bool, child: Tree) -> Result<()> {
+    pub(crate) fn attach(&mut self, left: bool, child: Tree) -> Result<()> {
         if self.child(left).is_some() {
             bail!("Tried to attach to left child, but it is already Some");
         }
@@ -283,145 +282,14 @@ where
     Ok(stack.pop().unwrap())
 }
 
-/// Verifies the encoded proof with the given query and expected hash.
-///
-/// Every key in `keys` is checked to either have a key/value pair in the proof,
-/// or to have its absence in the tree proven.
-///
-/// Returns `Err` if the proof is invalid, or a list of proven values associated
-/// with `keys`. For example, if `keys` contains keys `A` and `B`, the returned
-/// list will contain 2 elements, the value of `A` and the value of `B`. Keys
-/// proven to be absent in the tree will have an entry of `None`, keys that have
-/// a proven value will have an entry of `Some(value)`.
-pub fn verify_query(
-    bytes: &[u8],
-    query: &Query,
-    expected_hash: Hash,
-) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
-    let mut output = Vec::with_capacity(query.len());
-    let mut last_push = None;
-    let mut query = query.iter().peekable();
-    let mut in_range = false;
-
-    let ops = Decoder::new(bytes);
-
-    let root = execute(ops, true, |node| {
-        if let Node::KV(key, value) = node {
-            let key_item = QueryItem::Key(key.clone());
-
-            loop {
-                // get next item in query
-                let query_item = match query.peek() {
-                    Some(item) => *item,
-                    None => break, // no items left in query
-                };
-                
-                // we have not reached next queried part of tree
-                if key_item < *query_item {
-                    // continue to next push
-                    break;
-                }
-
-                if !in_range {
-                    // this is the first data we have encountered for this query
-                    // item. ensure lower bound of query item is proven
-                    match last_push {
-                        // lower bound is proven - we have an exact match
-                        _ if key == query_item.lower_bound() => {}
-
-                        // lower bound is proven - this is the leftmost node
-                        // in the tree
-                        None => {}
-
-                        // lower bound is proven - the preceding tree node
-                        // is lower than the bound
-                        Some(Node::KV(_, _)) => {}
-
-                        // cannot verify lower bound - we have an abridged
-                        // tree so we cannot tell what the preceding key was
-                        Some(_) => {
-                            bail!("Cannot verify lower bound of queried range");
-                        }
-                    }
-                }
-
-                if key.as_slice() >= query_item.upper_bound().0 {
-                    // at or past upper bound of range (or this was an exact
-                    // match on a single-key queryitem), advance to next query
-                    // item
-                    query.next();
-                    in_range = false;
-                } else {
-                    // have not reached upper bound, we expect more values
-                    // to be proven in the range (and all pushes should be
-                    // unabridged until we reach end of range)
-                    in_range = true;
-                }
-
-                // this push matches the queried item
-                if query_item.contains(key) {
-                    // add data to output
-                    output.push((key.clone(), value.clone()));
-
-                    // continue to next push
-                    break;
-                }
-
-                // continue to next queried item
-            }
-        } else if in_range {
-            // we encountered a queried range but the proof was abridged (saw a
-            // non-KV push), we are missing some part of the range
-            bail!("Proof is missing data for query");
-        }
-
-        last_push = Some(node.clone());
-
-        Ok(())
-    })?;
-
-    // we have remaining query items, check absence proof against of right edge
-    // of tree
-    if query.peek().is_some() {
-        match last_push {
-            // last node in tree was less than queried item
-            Some(Node::KV(_, _)) => {}
- 
-            // proof contains abridged data so we cannot verify absence of
-            // remaining query items
-            _ => bail!("Proof is missing data for query")
-        }
-    }
-
-    if root.hash() != expected_hash {
-        bail!(
-            "Proof did not match expected hash\n\tExpected: {:?}\n\tActual: {:?}",
-            expected_hash,
-            root.hash()
-        );
-    }
-
-    Ok(output)
-}
-
 #[cfg(test)]
 mod test {
-    use super::super::query::*;
     use super::super::*;
     use super::*;
-    use crate::tree;
-    use crate::tree::{NoopCommit, PanicSource, RefWalker};
+    use super::Tree as ProofTree;
 
-    fn make_3_node_tree() -> tree::Tree {
-        let mut tree = tree::Tree::new(vec![5], vec![5])
-            .attach(true, Some(tree::Tree::new(vec![3], vec![3])))
-            .attach(false, Some(tree::Tree::new(vec![7], vec![7])));
-        tree.commit(&mut NoopCommit {}).expect("commit failed");
-        tree
-    }
-
-    fn make_7_node_prooftree() -> super::Tree {
-        let make_node = |i| -> super::Tree { Node::KV(vec![i], vec![]).into() };
+    fn make_7_node_prooftree() -> ProofTree {
+        let make_node = |i| -> super::super::tree::Tree { Node::KV(vec![i], vec![]).into() };
 
         let mut tree = make_node(3);
         let mut left = make_node(1);
@@ -434,93 +302,6 @@ mod test {
         tree.attach(false, right).unwrap();
 
         tree
-    }
-
-    fn verify_keys_test(keys: Vec<Vec<u8>>, expected_result: Vec<Option<Vec<u8>>>) {
-        let mut tree = make_3_node_tree();
-        let mut walker = RefWalker::new(&mut tree, PanicSource {});
-
-        let (proof, _) = walker
-            .create_proof(
-                keys.clone()
-                    .into_iter()
-                    .map(QueryItem::Key)
-                    .collect::<Vec<_>>()
-                    .as_slice(),
-            )
-            .expect("failed to create proof");
-        let mut bytes = vec![];
-        encode_into(proof.iter(), &mut bytes);
-
-        let expected_hash = [
-            152, 49, 143, 253, 103, 178, 190, 32, 220, 107, 195, 90, 13, 69, 91, 129, 200, 90, 83,
-            174, 124, 122, 64, 230, 201, 226, 250, 125, 102, 139, 137, 124,
-        ];
-
-        let mut query = Query::new();
-        for key in keys.iter() {
-            query.insert_key(key.clone());
-        }
-
-        let result =
-            verify_query(bytes.as_slice(), &query, expected_hash).expect("verify failed");
-
-        let mut values = std::collections::HashMap::new();
-        for (key, value) in result {
-            assert!(values.insert(key, value).is_none());
-        }
-
-        for (key, expected_value) in keys.iter().zip(expected_result.iter()) {
-            assert_eq!(values.get(key), expected_value.as_ref());
-        }
-    }
-
-    #[test]
-    fn root_verify() {
-        verify_keys_test(vec![vec![5]], vec![Some(vec![5])]);
-    }
-
-    #[test]
-    fn single_verify() {
-        verify_keys_test(vec![vec![3]], vec![Some(vec![3])]);
-    }
-
-    #[test]
-    fn double_verify() {
-        verify_keys_test(vec![vec![3], vec![5]], vec![Some(vec![3]), Some(vec![5])]);
-    }
-
-    #[test]
-    fn double_verify_2() {
-        verify_keys_test(vec![vec![3], vec![7]], vec![Some(vec![3]), Some(vec![7])]);
-    }
-
-    #[test]
-    fn triple_verify() {
-        verify_keys_test(
-            vec![vec![3], vec![5], vec![7]],
-            vec![Some(vec![3]), Some(vec![5]), Some(vec![7])],
-        );
-    }
-
-    #[test]
-    fn left_edge_absence_verify() {
-        verify_keys_test(vec![vec![2]], vec![None]);
-    }
-
-    #[test]
-    fn right_edge_absence_verify() {
-        verify_keys_test(vec![vec![8]], vec![None]);
-    }
-
-    #[test]
-    fn inner_absence_verify() {
-        verify_keys_test(vec![vec![6]], vec![None]);
-    }
-
-    #[test]
-    fn absent_and_present_verify() {
-        verify_keys_test(vec![vec![5], vec![6]], vec![Some(vec![5]), None]);
     }
 
     #[test]
