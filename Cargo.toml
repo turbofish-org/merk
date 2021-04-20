@@ -24,9 +24,10 @@ version = "0.8.3"
 features = ["small_rng"]
 
 [dependencies.rocksdb]
-version = "0.15.0"
-default-features = false
 git = "https://github.com/rust-rocksdb/rust-rocksdb"
+version = "0.16.0"
+rev = "v0.16.0"
+default-features = false
 
 [dependencies.jemallocator]
 version = "0.3.2"
