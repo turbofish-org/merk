@@ -1,3 +1,5 @@
+mod map;
+
 use super::tree::execute;
 use super::{Decoder, Node, Op};
 use crate::error::Result;
@@ -6,6 +8,8 @@ use failure::bail;
 use std::cmp::{max, min, Ordering};
 use std::collections::{BTreeSet, LinkedList};
 use std::ops::{Range, RangeInclusive};
+
+pub use map::*;
 
 /// `Query` represents one or more keys or ranges of keys, which can be used to
 /// resolve a proof which will include all of the requested values.
@@ -310,6 +314,23 @@ where
     }
 }
 
+pub fn verify(bytes: &[u8], expected_hash: Hash) -> Result<Map> {
+    let ops = Decoder::new(bytes);
+    let mut map_builder = MapBuilder::new();
+
+    let root = execute(ops, true, |node| map_builder.insert(node))?;
+
+    if root.hash() != expected_hash {
+        bail!(
+            "Proof did not match expected hash\n\tExpected: {:?}\n\tActual: {:?}",
+            expected_hash,
+            root.hash()
+        );
+    }
+
+    Ok(map_builder.build()) 
+}
+
 /// Verifies the encoded proof with the given query and expected hash.
 ///
 /// Every key in `keys` is checked to either have a key/value pair in the proof,
@@ -320,6 +341,7 @@ where
 /// list will contain 2 elements, the value of `A` and the value of `B`. Keys
 /// proven to be absent in the tree will have an entry of `None`, keys that have
 /// a proven value will have an entry of `Some(value)`.
+#[deprecated]
 pub fn verify_query(
     bytes: &[u8],
     query: &Query,
@@ -471,8 +493,7 @@ mod test {
             query.insert_key(key.clone());
         }
 
-        let result = verify_query(bytes.as_slice(), &query, expected_hash)
-            .expect("verify failed");
+        let result = verify_query(bytes.as_slice(), &query, expected_hash).expect("verify failed");
 
         let mut values = std::collections::HashMap::new();
         for (key, value) in result {
@@ -612,7 +633,7 @@ mod test {
             query.insert_item(item);
         }
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
-        assert_eq!(res, vec![ (vec![5], vec![5]) ]);
+        assert_eq!(res, vec![(vec![5], vec![5])]);
     }
 
     #[test]
@@ -653,7 +674,7 @@ mod test {
             query.insert_item(item);
         }
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
-        assert_eq!(res, vec![ (vec![3], vec![3]) ]);
+        assert_eq!(res, vec![(vec![3], vec![3])]);
     }
 
     #[test]
@@ -688,10 +709,7 @@ mod test {
             query.insert_item(item);
         }
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
-        assert_eq!(res, vec![
-            (vec![3], vec![3]),
-            (vec![7], vec![7]),
-        ]);
+        assert_eq!(res, vec![(vec![3], vec![3]), (vec![7], vec![7]),]);
     }
 
     #[test]
@@ -724,11 +742,10 @@ mod test {
             query.insert_item(item);
         }
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
-        assert_eq!(res, vec![
-            (vec![3], vec![3]),
-            (vec![5], vec![5]),
-            (vec![7], vec![7]),
-        ]);
+        assert_eq!(
+            res,
+            vec![(vec![3], vec![3]), (vec![5], vec![5]), (vec![7], vec![7]),]
+        );
     }
 
     #[test]
@@ -906,12 +923,15 @@ mod test {
             query.insert_item(item);
         }
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
-        assert_eq!(res, vec![
-            (vec![1], vec![1]),
-            (vec![2], vec![2]),
-            (vec![3], vec![3]),
-            (vec![4], vec![4]),
-        ]);
+        assert_eq!(
+            res,
+            vec![
+                (vec![1], vec![1]),
+                (vec![2], vec![2]),
+                (vec![3], vec![3]),
+                (vec![4], vec![4]),
+            ]
+        );
     }
 
     #[test]
@@ -1057,10 +1077,13 @@ mod test {
             query.insert_item(item);
         }
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
-        assert_eq!(res, vec![
-            (vec![0,0,0,0,0,0,0,5], vec![123; 60]),
-            (vec![0,0,0,0,0,0,0,6], vec![123; 60]),
-        ]);
+        assert_eq!(
+            res,
+            vec![
+                (vec![0, 0, 0, 0, 0, 0, 0, 5], vec![123; 60]),
+                (vec![0, 0, 0, 0, 0, 0, 0, 6], vec![123; 60]),
+            ]
+        );
     }
 
     #[test]
@@ -1141,11 +1164,14 @@ mod test {
             query.insert_item(item);
         }
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
-        assert_eq!(res, vec![
-            (vec![0,0,0,0,0,0,0,5], vec![123; 60]),
-            (vec![0,0,0,0,0,0,0,6], vec![123; 60]),
-            (vec![0,0,0,0,0,0,0,7], vec![123; 60]),
-        ]);
+        assert_eq!(
+            res,
+            vec![
+                (vec![0, 0, 0, 0, 0, 0, 0, 5], vec![123; 60]),
+                (vec![0, 0, 0, 0, 0, 0, 0, 6], vec![123; 60]),
+                (vec![0, 0, 0, 0, 0, 0, 0, 7], vec![123; 60]),
+            ]
+        );
     }
 
     #[test]
@@ -1226,10 +1252,13 @@ mod test {
             query.insert_item(item);
         }
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
-        assert_eq!(res, vec![
-            (vec![0,0,0,0,0,0,0,5], vec![123; 60]),
-            (vec![0,0,0,0,0,0,0,6], vec![123; 60]),
-        ]);
+        assert_eq!(
+            res,
+            vec![
+                (vec![0, 0, 0, 0, 0, 0, 0, 5], vec![123; 60]),
+                (vec![0, 0, 0, 0, 0, 0, 0, 6], vec![123; 60]),
+            ]
+        );
     }
 
     #[test]
@@ -1311,8 +1340,6 @@ mod test {
             query.insert_item(item);
         }
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
-        assert_eq!(res, vec![
-            (vec![0,0,0,0,0,0,0,6], vec![123; 60]),
-        ]);
+        assert_eq!(res, vec![(vec![0, 0, 0, 0, 0, 0, 0, 6], vec![123; 60]),]);
     }
 }

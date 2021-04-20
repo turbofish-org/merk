@@ -1,3 +1,5 @@
+#![feature(map_first_last)]
+
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
