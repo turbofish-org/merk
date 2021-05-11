@@ -263,4 +263,23 @@ mod tests {
             assert_eq!(producer.chunk(index).unwrap(), chunks[index]);
         }
     }
+
+    #[test]
+    fn random_access_chunks_enter_chunk_else() {
+        let mut merk = TempMerk::new().unwrap();
+        let batch = make_batch_seq(1..513);
+        merk.apply(batch.as_slice(), &[]).unwrap();
+
+        let chunks = merk
+            .chunks()
+            .unwrap()
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+        let mut producer = merk.chunks().unwrap();
+        for i in 0..chunks.len() * 2 {
+            let index = i % chunks.len();
+            assert_eq!(producer.chunk(index).unwrap(), chunks[index]);
+        }
+    }
 }
