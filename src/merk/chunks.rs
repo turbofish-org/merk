@@ -308,12 +308,6 @@ mod tests {
         let batch = make_batch_seq(1..10);
         merk.apply(batch.as_slice(), &[]).unwrap();
 
-        let chunks = merk
-            .chunks()
-            .unwrap()
-            .into_iter()
-            .map(Result::unwrap)
-            .collect::<Vec<_>>();
         let mut producer = merk.chunks().unwrap();
         let _temp_chunk = producer.next_chunk();
         let _over_chunk = producer.next_chunk();
