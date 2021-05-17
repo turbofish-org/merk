@@ -19,6 +19,7 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
           toolchain: nightly
+          override: true
     - name: Build
       uses: actions-rs/cargo@v1
       with:
@@ -34,6 +35,7 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
           toolchain: nightly
+          override: true
     - name: Test
       uses: actions-rs/cargo@v1
       with:
@@ -49,6 +51,7 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
           toolchain: nightly
+          override: true
     - name: Install Coverage Tooling
       uses: actions-rs/cargo@v1
       with:
