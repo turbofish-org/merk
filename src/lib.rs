@@ -23,3 +23,5 @@ pub use crate::merk::{chunks, restore, Merk};
 
 pub use error::{Error, Result};
 pub use tree::{Batch, BatchEntry, Hash, Op, PanicSource, HASH_LENGTH};
+
+pub use proofs::query::verify_query;

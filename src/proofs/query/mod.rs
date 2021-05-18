@@ -5,7 +5,7 @@ use super::{Decoder, Node, Op};
 use crate::error::Result;
 use crate::tree::{Fetch, Hash, Link, RefWalker};
 use failure::bail;
-use std::cmp::{max, min, Ordering};
+use std::{cmp::{max, min, Ordering}};
 use std::collections::{BTreeSet, LinkedList};
 use std::ops::{Range, RangeInclusive};
 
@@ -71,7 +71,7 @@ impl Query {
     /// then merged together so that the query includes the minimum number of
     /// items (with no items covering any duplicate parts of keyspace) while
     /// still including every key or range that has been added to the query.
-    pub(crate) fn insert_item(&mut self, mut item: QueryItem) {
+    pub fn insert_item(&mut self, mut item: QueryItem) {
         // since `QueryItem::eq` considers items equal if they collide at all
         // (including keys within ranges or ranges which partially overlap),
         // `items.take` will remove the first item which collides
@@ -83,15 +83,31 @@ impl Query {
     }
 }
 
+impl<Q: Into<QueryItem>> From<Vec<Q>> for Query {
+    fn from(other: Vec<Q>) -> Self {
+        let items = other.into_iter().map(Into::into).collect();
+        Query { items }
+    }
+}
+
 impl Into<Vec<QueryItem>> for Query {
     fn into(self) -> Vec<QueryItem> {
-        self.items.into_iter().collect()
+        self.into_iter().collect()
+    }
+}
+
+impl IntoIterator for Query {
+    type Item = QueryItem;
+    type IntoIter = <BTreeSet<QueryItem> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.into_iter()
     }
 }
 
 /// A `QueryItem` represents a key or range of keys to be included in a proof.
 #[derive(Clone, Debug)]
-pub(crate) enum QueryItem {
+pub enum QueryItem {
     Key(Vec<u8>),
     Range(Range<Vec<u8>>),
     RangeInclusive(RangeInclusive<Vec<u8>>),
@@ -187,6 +203,13 @@ impl PartialOrd<&[u8]> for QueryItem {
         Some(self.cmp(&other))
     }
 }
+
+impl From<Vec<u8>> for QueryItem {
+    fn from(key: Vec<u8>) -> Self {
+        QueryItem::Key(key)
+    }
+}
+
 
 impl Link {
     /// Creates a `Node::Hash` from this link. Panics if the link is of variant
