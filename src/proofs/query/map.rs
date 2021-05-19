@@ -5,21 +5,22 @@ use failure::{format_err, bail, ensure};
 use super::super::Node;
 use crate::Result;
 
-struct MapInner {
-    entries: BTreeMap<Vec<u8>, (bool, Vec<u8>)>,
-    right_edge: bool,
-}
-
-pub(crate) struct MapBuilder(MapInner);
+/// `MapBuilder` allows a consumer to construct a `Map` by inserting the nodes
+/// contained in a proof, in key-order.
+pub(crate) struct MapBuilder(Map);
 
 impl MapBuilder {
+    /// Creates a new `MapBuilder` with an empty internal `Map`.
     pub fn new() -> Self {
-        MapBuilder(MapInner {
+        MapBuilder(Map {
             entries: Default::default(),
             right_edge: true
         })
     }
 
+    /// Adds the node's data to the uncerlying `Map` (if node is type `KV`), or
+    /// makes a note of non-contiguous data (if node is type `KVHash` or
+    /// `Hash`).
     pub fn insert(&mut self, node: &Node) -> Result<()> {
         match node {
             Node::KV(key, value) => {
@@ -40,17 +41,29 @@ impl MapBuilder {
         Ok(())
     }
 
+    /// Consumes the `MapBuilder` and returns its internal `Map`.
     pub fn build(self) -> Map {
-        Map(self.0)
+        self.0
     }
 }
 
-pub struct Map(MapInner);
+/// `Map` stores data extracted from a proof (which has already been verified
+/// against a known root hash), and allows a consumer to access the data by
+/// looking up individual keys using the `get` method, or iterating over ranges
+/// using the `range` method.
+pub struct Map {
+    entries: BTreeMap<Vec<u8>, (bool, Vec<u8>)>,
+    right_edge: bool,
+}
 
 impl Map {
+    /// Gets the value for a single key, or `None` if the key was proven to not
+    /// exist in the tree. If the proof does not include the data and also does
+    /// not prove that the key is absent in the tree (meaning the proof is not
+    /// valid), an error will be returned.
     pub fn get<'a>(&'a self, key: &'a [u8]) -> Result<Option<&'a [u8]>> {
         // if key is in proof just get from entries
-        if let Some((_, value)) = self.0.entries.get(key) {
+        if let Some((_, value)) = self.entries.get(key) {
             return Ok(Some(value.as_slice()));
         }
 
@@ -64,6 +77,10 @@ impl Map {
         Ok(entry)
     }
 
+    /// Returns an iterator over all (key, value) entries in the requested range
+    /// of keys. If during iteration we encounter a gap in the data (e.g. the
+    /// proof did not include all nodes within the range), the iterator will
+    /// yield an error.
     pub fn range<'a, R: RangeBounds<[u8]> + 'a>(&'a self, bounds: R) -> Range {
         let start_key = to_inner(bounds.start_bound()).map(Into::into);
         let end_key = to_inner(bounds.start_bound()).map(Into::into);
@@ -72,11 +89,13 @@ impl Map {
             map: self,
             start_key,
             end_key,
-            iter: self.0.entries.range(bounds)
+            iter: self.entries.range(bounds)
         }
     }
 }
 
+/// Returns `None` for `Bound::Unbounded`, or the inner key value for
+/// `Bound::Included` and `Bound::Excluded`.
 fn to_inner<T>(bound: Bound<T>) -> Option<T> {
     match bound {
         Bound::Unbounded => None,
@@ -84,6 +103,9 @@ fn to_inner<T>(bound: Bound<T>) -> Option<T> {
     }
 }
 
+/// An iterator over (key, value) entries as extracted from a verified proof. If
+/// during iteration we encounter a gap in the data (e.g. the proof did not
+/// include all nodes within the range), the iterator will yield an error.
 pub struct Range<'a> {
     map: &'a Map,
     start_key: Option<Vec<u8>>,
@@ -92,11 +114,13 @@ pub struct Range<'a> {
 }
 
 impl<'a> Range<'a> {
+    /// Returns an error if the proof does not properly prove the end of the
+    /// range.
     fn check_end_bound(&self) -> Result<()> {
         let excluded_data = match self.end_key {
             // unbounded end, ensure proof has not excluded data at global right
             // edge of tree
-            None => !self.map.0.right_edge,
+            None => !self.map.right_edge,
 
             // bounded end (inclusive or exclusive), ensure we had an exact
             // match or next node is contiguous
@@ -106,11 +130,11 @@ impl<'a> Range<'a> {
                     Bound::Included(key.to_vec()),
                     Bound::<Vec<u8>>::Unbounded
                 );
-                let maybe_end_node = self.map.0.entries.range(range).next();
+                let maybe_end_node = self.map.entries.range(range).next();
 
                 match maybe_end_node {
                     // reached global right edge of tree
-                    None => !self.map.0.right_edge,
+                    None => !self.map.right_edge,
 
                     // got end node, must be exact match for end bound, or be
                     // greater than end bound and contiguous
