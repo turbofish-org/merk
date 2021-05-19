@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use std::collections::btree_map;
 use std::ops::{RangeBounds, Bound};
-use std::rc::Rc;
 use failure::{format_err, bail, ensure};
 use super::super::Node;
 use crate::Result;
@@ -42,11 +41,11 @@ impl MapBuilder {
     }
 
     pub fn build(self) -> Map {
-        Map(Rc::new(self.0))
+        Map(self.0)
     }
 }
 
-pub struct Map(Rc<MapInner>);
+pub struct Map(MapInner);
 
 impl Map {
     pub fn get<'a>(&'a self, key: &'a [u8]) -> Result<Option<&'a [u8]>> {
