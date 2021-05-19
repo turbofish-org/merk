@@ -312,4 +312,14 @@ mod tests {
         let _temp_chunk = producer.next_chunk();
         let _over_chunk = producer.next_chunk();
     }
+
+    #[test]
+    fn empty_tree_chunk_producer() {
+        let merk = TempMerk::new().unwrap();
+        let producer = merk.chunks().unwrap();
+        let expected_chunk_boundaries: Vec<Vec<u8>> = Vec::new();
+        assert_eq!(producer.trunk, vec![]);
+        assert_eq!(producer.index, 0);
+        assert_eq!(producer.chunk_boundaries, expected_chunk_boundaries);
+    }
 }
