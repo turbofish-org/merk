@@ -1,0 +1,45 @@
+name: Lint
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout 
+      uses: actions/checkout@v2
+    - name: Use Nightly
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+          components: rustfmt
+          override: true
+    - name: Check
+      uses: actions-rs/cargo@v1
+      with:
+          command: fmt
+          args: --all -- --check
+
+  clippy:
+    runs-on: ubuntu-latest 
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Use Nightly
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+          components: clippy
+          override: true
+    - name: Check 
+      uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        args: --all-features
