@@ -81,9 +81,10 @@ impl Map {
     /// of keys. If during iteration we encounter a gap in the data (e.g. the
     /// proof did not include all nodes within the range), the iterator will
     /// yield an error.
-    pub fn range<'a, R: RangeBounds<[u8]> + 'a>(&'a self, bounds: R) -> Range {
-        let start_key = to_inner(bounds.start_bound()).map(Into::into);
-        let end_key = to_inner(bounds.start_bound()).map(Into::into);
+    pub fn range<'a, R: RangeBounds<&'a [u8]>>(&'a self, bounds: R) -> Range {
+        let start_key = bound_to_inner(bounds.start_bound()).map(|x| (*x).into());
+        let end_key = bound_to_inner(bounds.end_bound()).map(|x| (*x).into());
+        let bounds = bounds_to_vec(bounds);
 
         Range {
             map: self,
@@ -96,11 +97,26 @@ impl Map {
 
 /// Returns `None` for `Bound::Unbounded`, or the inner key value for
 /// `Bound::Included` and `Bound::Excluded`.
-fn to_inner<T>(bound: Bound<T>) -> Option<T> {
+fn bound_to_inner<T>(bound: Bound<T>) -> Option<T> {
     match bound {
         Bound::Unbounded => None,
         Bound::Included(key) | Bound::Excluded(key) => Some(key),
     }
+}
+
+fn bound_to_vec(bound: Bound<&&[u8]>) -> Bound<Vec<u8>> {
+    match bound {
+        Bound::Unbounded => Bound::Unbounded,
+        Bound::Excluded(k) => Bound::Excluded(k.to_vec()),
+        Bound::Included(k) => Bound::Included(k.to_vec()),
+    }
+}
+
+fn bounds_to_vec<'a, R: RangeBounds<&'a [u8]>>(bounds: R) -> impl RangeBounds<Vec<u8>> {
+    (
+        bound_to_vec(bounds.start_bound()),
+        bound_to_vec(bounds.end_bound()),
+    )
 }
 
 /// An iterator over (key, value) entries as extracted from a verified proof. If
@@ -187,4 +203,128 @@ impl<'a> Iterator for Range<'a> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
 
+    #[test]
+    #[should_panic(expected = "Expected nodes to be in increasing key order")]
+    fn mapbuilder_insert_out_of_order() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 2], vec![])).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "Expected nodes to be in increasing key order")]
+    fn mapbuilder_insert_dupe() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![])).unwrap();
+    }
+
+    #[test]
+    fn mapbuilder_insert_including_edge() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::Hash([0; 20])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 4], vec![])).unwrap();
+
+        assert!(builder.0.right_edge);
+    }
+
+    #[test]
+    fn mapbuilder_insert_abridged_edge() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![])).unwrap();
+        builder.insert(&Node::Hash([0; 20])).unwrap();
+
+        assert!(!builder.0.right_edge);
+    }
+
+    #[test]
+    fn mapbuilder_build() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
+        builder.insert(&Node::Hash([0; 20])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
+
+        let map = builder.build();
+        let mut entries = map.entries.iter();
+        assert_eq!(entries.next(), Some((&vec![1, 2, 3], &(true, vec![1]))));
+        assert_eq!(entries.next(), Some((&vec![1, 2, 4], &(false, vec![2]))));
+        assert_eq!(entries.next(), None);
+        assert!(map.right_edge);
+    }
+
+    #[test]
+    fn map_get_included() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
+        builder.insert(&Node::Hash([0; 20])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
+
+        let map = builder.build();
+        assert_eq!(
+            map.get(&[1, 2, 3]).unwrap().unwrap(),
+            vec![1],
+        );
+        assert_eq!(
+            map.get(&[1, 2, 4]).unwrap().unwrap(),
+            vec![2],
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Proof is missing data for query")]
+    fn map_get_missing_absence_proof() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
+        builder.insert(&Node::Hash([0; 20])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
+
+        let map = builder.build();
+        map.get(&[1, 2, 3, 4]).unwrap();
+    }
+
+    #[test]
+    fn map_get_valid_absence_proof() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
+
+        let map = builder.build();
+        assert!(map.get(&[1, 2, 3, 4]).unwrap().is_none());
+    }
+
+    #[test]
+    #[should_panic(expected = "Proof is missing data for query")]
+    fn range_abridged() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
+        builder.insert(&Node::Hash([0; 20])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
+
+        let map = builder.build();
+        let mut range = map.range(
+            &[1u8, 2, 3][..]..&[1u8, 2, 4][..]
+        );
+        assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 3][..], &[1][..]));
+        range.next().unwrap().unwrap();
+    }
+
+    #[test]
+    fn range_ok() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 5], vec![3])).unwrap();
+
+        let map = builder.build();
+        let mut range = map.range(
+            &[1u8, 2, 3][..]..&[1u8, 2, 5][..]
+        );
+        assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 3][..], &[1][..]));
+        assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 4][..], &[2][..]));
+        assert!(range.next().is_none());
+    }
+}
