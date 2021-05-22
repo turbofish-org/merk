@@ -90,7 +90,8 @@ impl Map {
             map: self,
             start_key,
             end_key,
-            iter: self.entries.range(bounds)
+            iter: self.entries.range(bounds),
+            prev_key: None,
         }
     }
 }
@@ -127,13 +128,14 @@ pub struct Range<'a> {
     start_key: Option<Vec<u8>>,
     end_key: Option<Vec<u8>>,
     iter: btree_map::Range<'a, Vec<u8>, (bool, Vec<u8>)>,
+    prev_key: Option<Vec<u8>>,
 }
 
 impl<'a> Range<'a> {
     /// Returns an error if the proof does not properly prove the end of the
     /// range.
     fn check_end_bound(&self) -> Result<()> {
-        let excluded_data = match self.end_key {
+        let excluded_data = match self.prev_key {
             // unbounded end, ensure proof has not excluded data at global right
             // edge of tree
             None => !self.map.right_edge,
@@ -143,8 +145,8 @@ impl<'a> Range<'a> {
             Some(ref key) => {
                 // get neighboring node to the right (if any)
                 let range = (
-                    Bound::Included(key.to_vec()),
-                    Bound::<Vec<u8>>::Unbounded
+                    Bound::Excluded(key.to_vec()),
+                    Bound::<Vec<u8>>::Unbounded,
                 );
                 let maybe_end_node = self.map.entries.range(range).next();
 
@@ -152,11 +154,8 @@ impl<'a> Range<'a> {
                     // reached global right edge of tree
                     None => !self.map.right_edge,
 
-                    // got end node, must be exact match for end bound, or be
-                    // greater than end bound and contiguous
-                    Some((next_key, (contiguous, _))) => {
-                       next_key != key && !contiguous
-                    }
+                    // got end node, must be contiguous
+                    Some((_, (contiguous, _))) => !contiguous,
                 }
             }
         };
@@ -184,8 +183,10 @@ impl<'a> Iterator for Range<'a> {
             Some((key, (contiguous, value))) => (key, (contiguous, value)),
         };
 
-        // don't checking for contiguous nodes if we have an exact match for
-        // lower bound
+        self.prev_key = Some(key.clone());
+
+        // don't check for contiguous nodes if we have an exact match for lower
+        // bound
         let skip_exclusion_check = if let Some(ref start_key) = self.start_key {
             start_key == key
         } else {
