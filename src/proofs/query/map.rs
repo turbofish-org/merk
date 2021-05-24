@@ -88,10 +88,10 @@ impl Map {
 
         Range {
             map: self,
+            prev_key: start_key.as_ref().map(|k: &Vec<u8>| k.clone()),
             start_key,
             end_key,
             iter: self.entries.range(bounds),
-            prev_key: None,
         }
     }
 }
