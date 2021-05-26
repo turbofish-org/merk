@@ -249,10 +249,10 @@ impl Encode for Link {
         debug_assert!(self.key().len() < 256, "Key length must be less than 256");
 
         Ok(match self {
-            Link::Reference { key, .. } => 1 + key.len() + 20 + 2,
+            Link::Reference { key, .. } => 1 + key.len() + 32 + 2,
             Link::Modified { .. } => panic!("No encoding for Link::Modified"),
-            Link::Uncommitted { tree, .. } => 1 + tree.key().len() + 20 + 2,
-            Link::Loaded { tree, .. } => 1 + tree.key().len() + 20 + 2,
+            Link::Uncommitted { tree, .. } => 1 + tree.key().len() + 32 + 2,
+            Link::Loaded { tree, .. } => 1 + tree.key().len() + 32 + 2,
         })
     }
 }
@@ -380,7 +380,7 @@ mod test {
         assert!(!reference.is_uncommitted());
         assert!(!reference.is_stored());
         assert!(reference.tree().is_none());
-        assert_eq!(reference.hash(), &[0; 20]);
+        assert_eq!(reference.hash(), &[0; 32]);
         assert_eq!(reference.height(), 1);
         assert!(reference.into_reference().is_reference());
 
@@ -396,7 +396,7 @@ mod test {
         assert!(uncommitted.is_uncommitted());
         assert!(!uncommitted.is_stored());
         assert!(uncommitted.tree().is_some());
-        assert_eq!(uncommitted.hash(), &[0; 20]);
+        assert_eq!(uncommitted.hash(), &[0; 32]);
         assert_eq!(uncommitted.height(), 1);
 
         assert!(!loaded.is_reference());
@@ -404,7 +404,7 @@ mod test {
         assert!(!loaded.is_uncommitted());
         assert!(loaded.is_stored());
         assert!(loaded.tree().is_some());
-        assert_eq!(loaded.hash(), &[0; 20]);
+        assert_eq!(loaded.hash(), &[0; 32]);
         assert_eq!(loaded.height(), 1);
         assert!(loaded.into_reference().is_reference());
     }
@@ -435,7 +435,7 @@ mod test {
     #[should_panic]
     fn uncommitted_into_reference() {
         Link::Uncommitted {
-            hash: [1; 20],
+            hash: [1; 32],
             child_heights: (1, 1),
             tree: Tree::new(vec![0], vec![1]),
         }
@@ -447,7 +447,7 @@ mod test {
         let link = Link::Reference {
             key: vec![1, 2, 3],
             child_heights: (123, 124),
-            hash: [55; 20],
+            hash: [55; 32],
         };
         assert_eq!(link.encoding_length().unwrap(), 26);
 
@@ -468,7 +468,7 @@ mod test {
         let link = Link::Reference {
             key: vec![123; 300],
             child_heights: (123, 124),
-            hash: [55; 20],
+            hash: [55; 32],
         };
         let mut bytes = vec![];
         link.encode_into(&mut bytes).unwrap();
