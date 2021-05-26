@@ -43,7 +43,7 @@ mod tests {
 
     #[test]
     fn encode_leaf_tree() {
-        let tree = Tree::from_fields(vec![0], vec![1], [55; 20], None, None);
+        let tree = Tree::from_fields(vec![0], vec![1], [55; 32], None, None);
         assert_eq!(tree.encoding_length(), 23);
         assert_eq!(
             tree.encode(),
@@ -60,7 +60,7 @@ mod tests {
         let tree = Tree::from_fields(
             vec![0],
             vec![1],
-            [55; 20],
+            [55; 32],
             Some(Link::Modified {
                 pending_writes: 1,
                 child_heights: (123, 124),
@@ -76,9 +76,9 @@ mod tests {
         let tree = Tree::from_fields(
             vec![0],
             vec![1],
-            [55; 20],
+            [55; 32],
             Some(Link::Loaded {
-                hash: [66; 20],
+                hash: [66; 32],
                 child_heights: (123, 124),
                 tree: Tree::new(vec![2], vec![3]),
             }),
@@ -99,9 +99,9 @@ mod tests {
         let tree = Tree::from_fields(
             vec![0],
             vec![1],
-            [55; 20],
+            [55; 32],
             Some(Link::Uncommitted {
-                hash: [66; 20],
+                hash: [66; 32],
                 child_heights: (123, 124),
                 tree: Tree::new(vec![2], vec![3]),
             }),
@@ -122,9 +122,9 @@ mod tests {
         let tree = Tree::from_fields(
             vec![0],
             vec![1],
-            [55; 20],
+            [55; 32],
             Some(Link::Reference {
-                hash: [66; 20],
+                hash: [66; 32],
                 child_heights: (123, 124),
                 key: vec![2],
             }),
@@ -169,7 +169,7 @@ mod tests {
         {
             assert_eq!(*key, [2]);
             assert_eq!(*child_heights, (123 as u8, 124 as u8));
-            assert_eq!(*hash, [66 as u8; 20]);
+            assert_eq!(*hash, [66 as u8; 32]);
         } else {
             panic!("Expected Link::Reference");
         }
