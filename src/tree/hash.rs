@@ -27,9 +27,9 @@ pub fn kv_hash(key: &[u8], value: &[u8]) -> Hash {
     hasher.update(&val_length.to_be_bytes());
     hasher.update(&value);
 
-    let mut hash = [0; HASH_LENGTH];
-    let mut output_reader = hasher.finalize_xof();
-    output_reader.fill(&mut hash);
+    let res = hasher.finalize();
+    let mut hash: Hash = Default::default();
+    hash.copy_from_slice(res.as_bytes());
     hash
 }
 
@@ -42,8 +42,8 @@ pub fn node_hash(kv: &Hash, left: &Hash, right: &Hash) -> Hash {
     hasher.update(left);
     hasher.update(right);
 
-    let mut hash = [0; HASH_LENGTH];
-    let mut output_reader = hasher.finalize_xof();
-    output_reader.fill(&mut hash);
+    let res = hasher.finalize();
+    let mut hash: Hash = Default::default();
+    hash.copy_from_slice(res.as_bytes());
     hash
 }
