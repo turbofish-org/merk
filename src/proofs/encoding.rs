@@ -211,7 +211,7 @@ mod test {
     fn decode_push_hash() {
         let bytes = [
             0x01, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123,
-            123, 123, 123, 123,
+            123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123
         ];
         let op = Op::decode(&bytes[..]).expect("decode failed");
         assert_eq!(op, Op::Push(Node::Hash([123; HASH_LENGTH])));
