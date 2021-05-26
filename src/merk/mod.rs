@@ -440,7 +440,7 @@ fn fetch_existing_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
 
 #[cfg(test)]
 mod test {
-    use super::{RefWalker, Merk, MerkSource};
+    use super::{Merk, MerkSource, RefWalker};
     use crate::test_utils::*;
     use crate::Op;
     use std::thread;
@@ -468,7 +468,8 @@ mod test {
         assert_eq!(
             merk.root_hash(),
             [
-                160, 106, 144, 100, 38, 244, 11, 250, 34, 200, 124, 182, 198, 193, 206, 55, 88, 29, 158, 40
+                99, 81, 104, 29, 169, 195, 53, 48, 134, 74, 250, 47, 77, 121, 157, 227, 139, 241,
+                250, 216, 78, 87, 152, 116, 252, 116, 132, 16, 150, 163, 107, 30
             ]
         );
     }
@@ -603,14 +604,14 @@ mod test {
             collect(walker, &mut nodes);
             nodes
         };
-        
+
         let merk = TempMerk::open(&path).unwrap();
         let mut tree = merk.tree.take().unwrap();
         let walker = RefWalker::new(&mut tree, merk.source());
 
         let mut reopen_nodes = vec![];
         collect(walker, &mut reopen_nodes);
-        
+
         assert_eq!(reopen_nodes, original_nodes);
     }
 
@@ -618,10 +619,7 @@ mod test {
     fn reopen_iter() {
         fn collect(iter: &mut rocksdb::DBRawIterator, nodes: &mut Vec<(Vec<u8>, Vec<u8>)>) {
             while iter.valid() {
-                nodes.push((
-                    iter.key().unwrap().to_vec(),
-                    iter.value().unwrap().to_vec()
-                ));
+                nodes.push((iter.key().unwrap().to_vec(), iter.value().unwrap().to_vec()));
                 iter.next();
             }
         }
@@ -641,12 +639,12 @@ mod test {
             collect(&mut merk.raw_iter(), &mut nodes);
             nodes
         };
-        
+
         let merk = TempMerk::open(&path).unwrap();
 
         let mut reopen_nodes = vec![];
         collect(&mut merk.raw_iter(), &mut reopen_nodes);
-        
+
         assert_eq!(reopen_nodes, original_nodes);
     }
 
@@ -709,12 +707,12 @@ mod test {
         loop {
             assert_eq!(merk_iter.valid(), checkpoint_iter.valid());
             if !merk_iter.valid() {
-                break
+                break;
             }
 
             assert_eq!(merk_iter.key(), checkpoint_iter.key());
             assert_eq!(merk_iter.value(), checkpoint_iter.value());
-            
+
             merk_iter.next();
             checkpoint_iter.next();
         }
