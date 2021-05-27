@@ -44,12 +44,12 @@ mod tests {
     #[test]
     fn encode_leaf_tree() {
         let tree = Tree::from_fields(vec![0], vec![1], [55; 32], None, None);
-        assert_eq!(tree.encoding_length(), 23);
+        assert_eq!(tree.encoding_length(), 35);
         assert_eq!(
             tree.encode(),
             vec![
                 0, 0, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55,
-                55, 1,
+                55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 1,
             ]
         );
     }
