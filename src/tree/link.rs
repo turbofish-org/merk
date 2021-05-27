@@ -449,15 +449,14 @@ mod test {
             child_heights: (123, 124),
             hash: [55; 32],
         };
-        assert_eq!(link.encoding_length().unwrap(), 26);
+        assert_eq!(link.encoding_length().unwrap(), 38);
 
         let mut bytes = vec![];
         link.encode_into(&mut bytes).unwrap();
         assert_eq!(
             bytes,
             vec![
-                3, 1, 2, 3, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55,
-                55, 55, 123, 124
+            3, 1, 2, 3, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 123, 124
             ]
         );
     }
