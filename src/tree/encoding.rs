@@ -130,7 +130,7 @@ mod tests {
             }),
             None,
         );
-        assert_eq!(tree.encoding_length(), 47);
+        assert_eq!(tree.encoding_length(), 71);
         assert_eq!(
             tree.encode(),
             vec![
