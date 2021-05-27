@@ -337,7 +337,7 @@ impl Child {
 mod tests {
     use super::*;
     use crate::test_utils::*;
-    use crate::tree::{Op, Batch};
+    use crate::tree::{Batch, Op};
     use std::path::PathBuf;
 
     fn restore_test(batches: &[&Batch], expected_nodes: usize) {
@@ -372,7 +372,7 @@ mod tests {
         let restored = restorer.finalize().unwrap();
         assert_eq!(restored.root_hash(), original.root_hash());
         assert_raw_db_entries_eq(&restored, &original, expected_nodes);
-       
+
         std::fs::remove_dir_all(&path).unwrap();
     }
 
@@ -388,18 +388,18 @@ mod tests {
 
     #[test]
     fn restore_2_left_heavy() {
-        restore_test(&[
-            &[(vec![0], Op::Put(vec![]))],
-            &[(vec![1], Op::Put(vec![]))],
-        ], 2);
+        restore_test(
+            &[&[(vec![0], Op::Put(vec![]))], &[(vec![1], Op::Put(vec![]))]],
+            2,
+        );
     }
 
     #[test]
     fn restore_2_right_heavy() {
-        restore_test(&[
-            &[(vec![1], Op::Put(vec![]))],
-            &[(vec![0], Op::Put(vec![]))],
-        ], 2);
+        restore_test(
+            &[&[(vec![1], Op::Put(vec![]))], &[(vec![0], Op::Put(vec![]))]],
+            2,
+        );
     }
 
     #[test]

@@ -400,7 +400,8 @@ mod test {
         encode_into(proof.iter(), &mut bytes);
 
         let expected_hash = [
-            199, 13, 59, 231, 209, 228, 93, 54, 191, 211, 216, 213, 120, 112, 104, 52, 201, 63, 54, 46
+            152, 49, 143, 253, 103, 178, 190, 32, 220, 107, 195, 90, 13, 69, 91, 129, 200, 90, 83,
+            174, 124, 122, 64, 230, 201, 226, 250, 125, 102, 139, 137, 124,
         ];
         let result =
             verify_query(bytes.as_slice(), keys.as_slice(), expected_hash).expect("verify failed");

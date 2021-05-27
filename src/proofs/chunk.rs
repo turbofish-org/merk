@@ -263,7 +263,7 @@ mod tests {
     use super::super::verify::Tree;
     use super::*;
     use crate::test_utils::*;
-    use crate::tree::{PanicSource, Tree as BaseTree, NoopCommit};
+    use crate::tree::{NoopCommit, PanicSource, Tree as BaseTree};
 
     #[derive(Default)]
     struct NodeCounts {
@@ -314,7 +314,10 @@ mod tests {
 
         let counts = count_node_types(trunk);
         // are these formulas correct for all values of `MIN_TRUNK_HEIGHT`? 🤔
-        assert_eq!(counts.hash, 2usize.pow(MIN_TRUNK_HEIGHT as u32) + MIN_TRUNK_HEIGHT - 1);
+        assert_eq!(
+            counts.hash,
+            2usize.pow(MIN_TRUNK_HEIGHT as u32) + MIN_TRUNK_HEIGHT - 1
+        );
         assert_eq!(counts.kv, 2usize.pow(MIN_TRUNK_HEIGHT as u32) - 1);
         assert_eq!(counts.kvhash, MIN_TRUNK_HEIGHT + 1);
     }
@@ -340,8 +343,8 @@ mod tests {
         // 0
         //  \
         //   1
-        let mut tree = BaseTree::new(vec![0], vec![])
-            .attach(false, Some(BaseTree::new(vec![1], vec![])));
+        let mut tree =
+            BaseTree::new(vec![0], vec![]).attach(false, Some(BaseTree::new(vec![1], vec![])));
         tree.commit(&mut NoopCommit {}).unwrap();
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
         let (proof, has_more) = walker.create_trunk_proof().unwrap();
@@ -359,8 +362,8 @@ mod tests {
         //   1
         //  /
         // 0
-        let mut tree = BaseTree::new(vec![1], vec![])
-            .attach(true, Some(BaseTree::new(vec![0], vec![])));
+        let mut tree =
+            BaseTree::new(vec![1], vec![]).attach(true, Some(BaseTree::new(vec![0], vec![])));
         tree.commit(&mut NoopCommit {}).unwrap();
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
         let (proof, has_more) = walker.create_trunk_proof().unwrap();
@@ -425,7 +428,8 @@ mod tests {
         let chunk = verify_leaf(
             ops,
             [
-                160, 174, 28, 83, 148, 189, 194, 23, 208, 58, 48, 80, 145, 45, 58, 1, 224, 44, 77, 180
+                34, 133, 104, 181, 253, 249, 189, 168, 15, 209, 70, 164, 224, 192, 18, 36, 1, 74,
+                79, 9, 158, 188, 98, 47, 53, 32, 109, 14, 151, 13, 49, 74,
             ],
         )
         .unwrap();
@@ -440,7 +444,8 @@ mod tests {
         let chunk = verify_leaf(
             ops,
             [
-                17, 159, 159, 103, 178, 147, 57, 123, 20, 200, 129, 172, 63, 125, 41, 70, 238, 98, 96, 118
+                164, 29, 123, 213, 6, 25, 247, 238, 127, 53, 5, 70, 255, 87, 87, 204, 188, 169,
+                181, 4, 185, 180, 74, 52, 244, 134, 75, 47, 105, 129, 209, 112,
             ],
         )
         .unwrap();

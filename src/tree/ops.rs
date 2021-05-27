@@ -323,10 +323,10 @@ mod test {
         let tree = Tree::from_fields(
             b"foo".to_vec(),
             b"bar".to_vec(),
-            [123; 20],
+            [123; 32],
             None,
             Some(Link::Loaded {
-                hash: [123; 20],
+                hash: [123; 32],
                 child_heights: (0, 0),
                 tree: Tree::new(b"foo2".to_vec(), b"bar2".to_vec()),
             }),
