@@ -2,7 +2,7 @@
 
 *High-performance Merkle key/value store*
 
-[![Build Status](https://travis-ci.org/nomic-io/merk.svg?branch=master)](https://travis-ci.org/nomic-io/merk)
+![CI](https://github.com/nomic-io/merk/actions/workflows/ci.yml/badge.svg)
 [![codecov](https://codecov.io/gh/nomic-io/merk/branch/develop/graph/badge.svg?token=TTUTSt2iLz)](https://codecov.io/gh/nomic-io/merk)
 [![Crate](https://img.shields.io/crates/v/merk.svg)](https://crates.io/crates/merk)
 [![API](https://docs.rs/merk/badge.svg)](https://docs.rs/merk)

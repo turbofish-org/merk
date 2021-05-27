@@ -4,7 +4,7 @@ on:
   push:
     branches: [ develop ]
   pull_request:
-    branches: [ develop ]
+    branches: [ develop ] 
 
 env:
   CARGO_TERM_COLOR: always
@@ -43,8 +43,7 @@ jobs:
           args: --verbose
       
   Coverage:
-    runs-on: ubuntu-latest
-    steps:
+    runs-on: ubuntu-latest steps:
     - name: Checkout
       uses: actions/checkout@v2
     - name: Use Nightly
@@ -66,4 +65,54 @@ jobs:
       uses: codecov/codecov-action@v1
       with:
           fail_ci_if_error: true
+
+  Format:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout 
+      uses: actions/checkout@v2
+    - name: Use Nightly
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+          components: rustfmt
+          override: true
+    - name: Check
+      uses: actions-rs/cargo@v1
+      with:
+          command: fmt
+          args: --all -- --check
+
+  Clippy:
+    runs-on: ubuntu-latest 
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Use Nightly
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+          components: clippy
+          override: true
+    - name: Check 
+      uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        args: --all-features
+
+  Benches:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Use Nightly
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+          components: clippy
+          override: true
+    - name: Run Benches
+      uses: actions-rs/cargo@v1
+      with:
+          command: bench
 
