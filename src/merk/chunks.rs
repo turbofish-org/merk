@@ -211,9 +211,14 @@ mod tests {
             let batch = make_batch_seq(1..10);
             merk.apply(batch.as_slice(), &[]).unwrap();
 
-            merk.chunks().unwrap().into_iter().map(Result::unwrap).collect::<Vec<_>>().into_iter()
+            merk.chunks()
+                .unwrap()
+                .into_iter()
+                .map(Result::unwrap)
+                .collect::<Vec<_>>()
+                .into_iter()
         };
-        
+
         let merk = TempMerk::open(path).unwrap();
         let reopen_chunks = merk.chunks().unwrap().into_iter().map(Result::unwrap);
 
