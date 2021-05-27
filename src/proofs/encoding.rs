@@ -221,7 +221,7 @@ mod test {
     fn decode_push_kvhash() {
         let bytes = [
             0x02, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123,
-            123, 123, 123, 123,
+            123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123
         ];
         let op = Op::decode(&bytes[..]).expect("decode failed");
         assert_eq!(op, Op::Push(Node::KVHash([123; HASH_LENGTH])));
