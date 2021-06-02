@@ -200,7 +200,9 @@ fn build_trunk_chunk_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
         unsafe { merk.apply_unchecked(&batch, &[]).expect("apply failed") };
     }
 
+   
     let mut bytes = vec![];
+
     c.bench_function(
         "build_trunk_chunk_1m_1_rand_rocksdb_noprune",
         |b| b.iter(|| {
@@ -249,7 +251,7 @@ fn chunkproducer_rand_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
             i += 1;
         })
     );
-    //criterion support for throughput in reports
+    
     //b.bytes = (total_bytes / i) as u64;
 }
 
@@ -285,7 +287,6 @@ fn chunk_iter_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
         })
     );
     
-    //need support for this in criterion
     //b.bytes = (total_bytes / i) as u64;
 }
 
@@ -338,7 +339,6 @@ fn restore_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
 
     std::fs::remove_dir_all(&path).unwrap();
 
-    //need criterion support for this
     //b.bytes = (total_bytes / i) as u64;
 }
 
@@ -364,20 +364,21 @@ fn checkpoint_create_destroy_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
     );
 }
 
-criterion_group!(
-    benches, 
-    get_1m_rocksdb, 
-    insert_1m_2k_seq_rocksdb_noprune,
-    insert_1m_2k_rand_rocksdb_noprune,
-    update_1m_2k_seq_rocksdb_noprune,
-    update_1m_2k_rand_rocksdb_noprune,
-    delete_1m_2k_rand_rocksdb_noprune,
-    prove_1m_1_rand_rocksdb_noprune,
-    build_trunk_chunk_1m_1_rand_rocksdb_noprune,
-    chunkproducer_rand_1m_1_rand_rocksdb_noprune,
-    chunk_iter_1m_1_rand_rocksdb_noprune,
-    restore_1m_1_rand_rocksdb_noprune,
-    checkpoint_create_destroy_1m_1_rand_rocksdb_noprune,
-);
+criterion_group!{
+    name = benches;
+    config = Criterion::default();
+    targets = get_1m_rocksdb, 
+        insert_1m_2k_seq_rocksdb_noprune,
+        insert_1m_2k_rand_rocksdb_noprune,
+        update_1m_2k_seq_rocksdb_noprune,
+        update_1m_2k_rand_rocksdb_noprune,
+        delete_1m_2k_rand_rocksdb_noprune,
+        prove_1m_1_rand_rocksdb_noprune,
+        build_trunk_chunk_1m_1_rand_rocksdb_noprune,
+        chunkproducer_rand_1m_1_rand_rocksdb_noprune,
+        chunk_iter_1m_1_rand_rocksdb_noprune,
+        restore_1m_1_rand_rocksdb_noprune,
+        checkpoint_create_destroy_1m_1_rand_rocksdb_noprune
+}
 
 criterion_main!(benches);
