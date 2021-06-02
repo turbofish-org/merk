@@ -36,3 +36,7 @@ criterion = "0.3"
 [[bench]]
 name = "merk"
 harness = false
+
+[[bench]]
+name = "ops"
+harness = false
