@@ -365,7 +365,7 @@ fn checkpoint_create_destroy_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
 }
 
 criterion_group!{
-    name = benches;
+    name = merk;
     config = Criterion::default();
     targets = get_1m_rocksdb, 
         insert_1m_2k_seq_rocksdb_noprune,
@@ -381,4 +381,4 @@ criterion_group!{
         checkpoint_create_destroy_1m_1_rand_rocksdb_noprune
 }
 
-criterion_main!(benches);
+criterion_main!(merk);
