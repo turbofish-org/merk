@@ -283,7 +283,8 @@ where
     Ok(stack.pop().unwrap())
 }
 
-/// Verifies the encoded proof with the given query and expected hash.
+/// Returns for an encoded proof and set of keys the hash of root of the tree
+/// and the values of the keys.
 ///
 /// Every key in `keys` is checked to either have a key/value pair in the proof,
 /// or to have its absence in the tree proven.
@@ -293,11 +294,10 @@ where
 /// list will contain 2 elements, the value of `A` and the value of `B`. Keys
 /// proven to be absent in the tree will have an entry of `None`, keys that have
 /// a proven value will have an entry of `Some(value)`.
-pub fn verify_query(
+pub fn query_proof_root(
     bytes: &[u8],
     keys: &[Vec<u8>],
-    expected_hash: Hash,
-) -> Result<Vec<Option<Vec<u8>>>> {
+) -> Result<(Hash,Vec<Option<Vec<u8>>>)> {
     let mut key_index = 0;
     let mut last_push = None;
     let mut output = Vec::with_capacity(keys.len());
@@ -347,11 +347,32 @@ pub fn verify_query(
         debug_assert_eq!(keys.len(), output.len());
     }
 
-    if root.hash() != expected_hash {
+    Ok((root.hash(), output))
+}
+
+/// Verifies the encoded proof with the given query and expected hash.
+///
+/// Every key in `keys` is checked to either have a key/value pair in the proof,
+/// or to have its absence in the tree proven.
+///
+/// Returns `Err` if the proof is invalid, or a list of proven values associated
+/// with `keys`. For example, if `keys` contains keys `A` and `B`, the returned
+/// list will contain 2 elements, the value of `A` and the value of `B`. Keys
+/// proven to be absent in the tree will have an entry of `None`, keys that have
+/// a proven value will have an entry of `Some(value)`.
+pub fn verify_query(
+    bytes: &[u8],
+    keys: &[Vec<u8>],
+    expected_hash: Hash,
+) -> Result<Vec<Option<Vec<u8>>>> {
+
+    let (root_hash,output) = query_proof_root(bytes,keys).unwrap();
+
+    if root_hash != expected_hash {
         bail!(
             "Proof did not match expected hash\n\tExpected: {:?}\n\tActual: {:?}",
             expected_hash,
-            root.hash()
+            root_hash
         );
     }
 
