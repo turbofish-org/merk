@@ -24,9 +24,8 @@ fn get_1m_rocksdb(c: &mut Criterion) {
     }
 
     let mut i = 0;
-    c.bench_function(
-        "get_1m_rocksdb",
-        |b| b.iter(|| {
+    c.bench_function("get_1m_rocksdb", |b| {
+        b.iter(|| {
             let batch_index = (i % num_batches) as usize;
             let key_index = (i / num_batches) as usize;
 
@@ -35,7 +34,7 @@ fn get_1m_rocksdb(c: &mut Criterion) {
 
             i = (i + 1) % initial_size;
         })
-    );
+    });
 }
 
 fn insert_1m_2k_seq_rocksdb_noprune(c: &mut Criterion) {
@@ -51,14 +50,13 @@ fn insert_1m_2k_seq_rocksdb_noprune(c: &mut Criterion) {
     }
 
     let mut i = initial_size / batch_size;
-    c.bench_function(
-        "insert_1m_2k_seq_rocksdb_noprune",
-        |b| b.iter(|| {
+    c.bench_function("insert_1m_2k_seq_rocksdb_noprune", |b| {
+        b.iter(|| {
             let batch = make_batch_seq((i * batch_size)..((i + 1) * batch_size));
             unsafe { merk.apply_unchecked(&batch, &[]).expect("apply failed") };
             i += 1;
         })
-    );
+    });
 }
 
 fn insert_1m_2k_rand_rocksdb_noprune(c: &mut Criterion) {
@@ -74,14 +72,13 @@ fn insert_1m_2k_rand_rocksdb_noprune(c: &mut Criterion) {
     }
 
     let mut i = initial_size / batch_size;
-    c.bench_function(
-        "insert_1m_2k_rand_rocksdb_noprune",
-        |b| b.iter(|| {
+    c.bench_function("insert_1m_2k_rand_rocksdb_noprune", |b| {
+        b.iter(|| {
             let batch = make_batch_rand(batch_size, i);
             unsafe { merk.apply_unchecked(&batch, &[]).expect("apply failed") };
             i += 1;
         })
-    );
+    });
 }
 
 fn update_1m_2k_seq_rocksdb_noprune(c: &mut Criterion) {
@@ -97,14 +94,13 @@ fn update_1m_2k_seq_rocksdb_noprune(c: &mut Criterion) {
     }
 
     let mut i = 0;
-    c.bench_function( 
-        "update_1m_2k_seq_rocksdb_noprune",
-        |b| b.iter(|| {
+    c.bench_function("update_1m_2k_seq_rocksdb_noprune", |b| {
+        b.iter(|| {
             let batch = make_batch_seq((i * batch_size)..((i + 1) * batch_size));
             unsafe { merk.apply_unchecked(&batch, &[]).expect("apply failed") };
             i = (i + 1) % (initial_size / batch_size);
         })
-    );
+    });
 }
 
 fn update_1m_2k_rand_rocksdb_noprune(c: &mut Criterion) {
@@ -120,14 +116,13 @@ fn update_1m_2k_rand_rocksdb_noprune(c: &mut Criterion) {
     }
 
     let mut i = 0;
-    c.bench_function(
-        "update_1m_2k_rand_rocksdb_noprune",
-        |b| b.iter(|| {
+    c.bench_function("update_1m_2k_rand_rocksdb_noprune", |b| {
+        b.iter(|| {
             let batch = make_batch_rand(batch_size, i);
             unsafe { merk.apply_unchecked(&batch, &[]).expect("apply failed") };
             i = (i + 1) % (initial_size / batch_size);
         })
-    );
+    });
 }
 
 fn delete_1m_2k_rand_rocksdb_noprune(c: &mut Criterion) {
@@ -143,9 +138,8 @@ fn delete_1m_2k_rand_rocksdb_noprune(c: &mut Criterion) {
     }
 
     let mut i = 0;
-    c.bench_function(
-        "delete_1m_2k_rand_rocksdb_noprune",
-        |b| b.iter(|| {
+    c.bench_function("delete_1m_2k_rand_rocksdb_noprune", |b| {
+        b.iter(|| {
             if i >= (initial_size / batch_size) {
                 println!("WARNING: too many bench iterations, whole tree deleted");
                 return;
@@ -154,7 +148,7 @@ fn delete_1m_2k_rand_rocksdb_noprune(c: &mut Criterion) {
             unsafe { merk.apply_unchecked(&batch, &[]).expect("apply failed") };
             i = (i + 1) % (initial_size / batch_size);
         })
-    );
+    });
 }
 
 fn prove_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
@@ -171,9 +165,8 @@ fn prove_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
     }
 
     let mut i = 0;
-    c.bench_function(
-        "prove_1m_1_rand_rocksdb_noprune",
-        |b| b.iter(|| {
+    c.bench_function("prove_1m_1_rand_rocksdb_noprune", |b| {
+        b.iter(|| {
             let batch = make_batch_rand(proof_size, i);
             let mut keys = Vec::with_capacity(batch.len());
             for (key, _) in batch {
@@ -185,7 +178,7 @@ fn prove_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
             merk.commit(std::collections::LinkedList::new(), &[])
                 .unwrap();
         })
-    );
+    });
 }
 
 fn build_trunk_chunk_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
@@ -200,12 +193,10 @@ fn build_trunk_chunk_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
         unsafe { merk.apply_unchecked(&batch, &[]).expect("apply failed") };
     }
 
-   
     let mut bytes = vec![];
 
-    c.bench_function(
-        "build_trunk_chunk_1m_1_rand_rocksdb_noprune",
-        |b| b.iter(|| {
+    c.bench_function("build_trunk_chunk_1m_1_rand_rocksdb_noprune", |b| {
+        b.iter(|| {
             bytes.clear();
 
             let (ops, _) = merk.walk(|walker| walker.unwrap().create_trunk_proof().unwrap());
@@ -214,7 +205,7 @@ fn build_trunk_chunk_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
             merk.commit(std::collections::LinkedList::new(), &[])
                 .unwrap();
         })
-    );
+    });
 
     //Need to figure out how to support this in criterion
     //This is to show throughput
@@ -243,15 +234,14 @@ fn chunkproducer_rand_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
         let index = rng.gen::<usize>() % chunks.len();
         chunks.chunk(index).unwrap()
     };
-    c.bench_function(
-        "chunkproducer_rand_1m_1_rand_rocksdb_noprune",
-        |b| b.iter(|| {
+    c.bench_function("chunkproducer_rand_1m_1_rand_rocksdb_noprune", |b| {
+        b.iter(|| {
             let chunk = next();
             total_bytes += chunk.len();
             i += 1;
         })
-    );
-    
+    });
+
     //b.bytes = (total_bytes / i) as u64;
 }
 
@@ -278,15 +268,14 @@ fn chunk_iter_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
             chunks.next().unwrap()
         }
     };
-    c.bench_function(
-        "chunk_iter_1m_1_rand_rocksdb_noprune",
-        |b| b.iter(|| {
+    c.bench_function("chunk_iter_1m_1_rand_rocksdb_noprune", |b| {
+        b.iter(|| {
             let chunk = next();
             total_bytes += chunk.unwrap().len();
             i += 1;
         })
-    );
-    
+    });
+
     //b.bytes = (total_bytes / i) as u64;
 }
 
@@ -314,10 +303,9 @@ fn restore_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
 
     let mut total_bytes = 0;
     let mut i = 0;
-    
-    c.bench_function(
-        "restore_1m_1_rand_rocksdb_noprune",
-        |b| b.iter(|| {
+
+    c.bench_function("restore_1m_1_rand_rocksdb_noprune", |b| {
+        b.iter(|| {
             if i % chunks.len() == 0 {
                 if i != 0 {
                     let restorer_merk = restorer.take().unwrap().finalize();
@@ -335,7 +323,7 @@ fn restore_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
             total_bytes += chunk.len();
             i += 1;
         })
-    );
+    });
 
     std::fs::remove_dir_all(&path).unwrap();
 
@@ -355,19 +343,18 @@ fn checkpoint_create_destroy_1m_1_rand_rocksdb_noprune(c: &mut Criterion) {
     }
 
     let path = path + ".checkpoint";
-    c.bench_function(
-        "checkpoint_create_destroy_1m_1_rand_rocksdb_noprune",
-        |b| b.iter(|| {
+    c.bench_function("checkpoint_create_destroy_1m_1_rand_rocksdb_noprune", |b| {
+        b.iter(|| {
             let checkpoint = merk.checkpoint(&path).unwrap();
             checkpoint.destroy().unwrap();
         })
-    );
+    });
 }
 
-criterion_group!{
+criterion_group! {
     name = merk;
     config = Criterion::default();
-    targets = get_1m_rocksdb, 
+    targets = get_1m_rocksdb,
         insert_1m_2k_seq_rocksdb_noprune,
         insert_1m_2k_rand_rocksdb_noprune,
         update_1m_2k_seq_rocksdb_noprune,
