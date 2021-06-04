@@ -284,20 +284,4 @@ mod tests {
             .map(Result::unwrap)
             .collect::<Vec<_>>();
     }
-
-    #[test]
-    #[should_panic(expected = "Attempted to fetch chunk on empty tree")]
-    fn test_next_chunk_empty_tree() {
-        let mut merk = TempMerk::new().unwrap();
-
-        let chunks = merk
-            .chunks()
-            .unwrap()
-            .into_iter()
-            .map(Result::unwrap)
-            .collect::<Vec<_>>();
-
-        let mut producer = merk.chunks().unwrap();
-        let c1 = producer.next_chunk();
-    }
 }
