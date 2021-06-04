@@ -52,7 +52,7 @@ impl<'a> ChunkProducer<'a> {
     }
 
     /// Gets the chunk with the given index. Errors if the index is out of
-    /// bounds - the number of chunks can be checked by calling
+    /// bounds or the tree is empty - the number of chunks can be checked by calling
     /// `producer.len()`.
     pub fn chunk(&mut self, index: usize) -> Result<Vec<u8>> {
         if index >= self.len() {
@@ -87,6 +87,9 @@ impl<'a> ChunkProducer<'a> {
     /// optimizing throughput compared to random access.
     fn next_chunk(&mut self) -> Result<Vec<u8>> {
         if self.index == 0 {
+            if self.trunk.len() == 0 {
+                bail!("Attempted to fetch chunk on empty tree");
+            }
             self.index += 1;
             return self.trunk.encode();
         }
@@ -270,6 +273,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Attempted to fetch chunk on empty tree")]
     fn test_chunk_empty() {
         let mut merk = TempMerk::new().unwrap();
 
@@ -281,11 +285,10 @@ mod tests {
             .collect::<Vec<_>>();
 
         let mut producer = merk.chunks().unwrap();
-        assert_eq!(producer.trunk, vec![]);
     }
  
     #[test]
-    #[should_panic(expected = "Chunk index out-of-bounds")]
+    #[should_panic(expected = "Attempted to fetch chunk on empty tree")]
     fn test_chunk_index_length_bail() {
         let mut merk = TempMerk::new().unwrap();
 
@@ -298,5 +301,21 @@ mod tests {
 
         let mut producer = merk.chunks().unwrap();
         let result = producer.chunk(42).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "Attempted to fetch chunk on empty tree")]
+    fn test_next_chunk_empty_tree() {
+        let mut merk = TempMerk::new().unwrap();
+
+        let chunks = merk
+            .chunks()
+            .unwrap()
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        let mut producer = merk.chunks().unwrap();
+        let c1 = producer.next_chunk();
     }
 }
