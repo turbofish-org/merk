@@ -268,4 +268,19 @@ mod tests {
             assert_eq!(producer.chunk(index).unwrap(), chunks[index]);
         }
     }
+
+    #[test]
+    fn test_chunk_empty() {
+        let mut merk = TempMerk::new().unwrap();
+
+        let chunks = merk
+            .chunks()
+            .unwrap()
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        let mut producer = merk.chunks().unwrap();
+        assert_eq!(producer.trunk, vec![]);
+    }
 }
