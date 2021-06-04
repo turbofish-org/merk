@@ -283,4 +283,20 @@ mod tests {
         let mut producer = merk.chunks().unwrap();
         assert_eq!(producer.trunk, vec![]);
     }
+ 
+    #[test]
+    #[should_panic(expected = "Chunk index out-of-bounds")]
+    fn test_chunk_index_length_bail() {
+        let mut merk = TempMerk::new().unwrap();
+
+        let chunks = merk
+            .chunks()
+            .unwrap()
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        let mut producer = merk.chunks().unwrap();
+        let result = producer.chunk(42).unwrap();
+    }
 }
