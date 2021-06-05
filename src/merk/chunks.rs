@@ -284,4 +284,16 @@ mod tests {
             .map(Result::unwrap)
             .collect::<Vec<_>>();
     }
+
+    #[test]
+    #[should_panic(expected = "Chunk index out-of-bounds")]
+    fn test_chunk_index_oob() {
+        let mut merk = TempMerk::new().unwrap();
+        let batch = make_batch_seq(1..42);
+        merk.apply(batch.as_slice(), &[]).unwrap();
+
+        let mut producer = merk.chunks().unwrap();
+        let chunk = producer.chunk(50000).unwrap();
+    }
+
 }
