@@ -375,4 +375,16 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    #[should_panic(expected = "Called next_chunk after end")]
+    fn test_next_chunk_index_oob() {
+        let mut merk = TempMerk::new().unwrap();
+        let batch = make_batch_seq(1..42);
+        merk.apply(batch.as_slice(), &[]).unwrap();
+
+        let mut producer = merk.chunks().unwrap();
+        let chunk1 = producer.next_chunk();
+        let chunk2 = producer.next_chunk();
+    }
 }
