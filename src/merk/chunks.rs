@@ -275,9 +275,9 @@ mod tests {
     #[test]
     #[should_panic(expected = "Attempted to fetch chunk on empty tree")]
     fn test_chunk_empty() {
-        let mut merk = TempMerk::new().unwrap();
+        let merk = TempMerk::new().unwrap();
 
-        let chunks = merk
+        let _chunks = merk
             .chunks()
             .unwrap()
             .into_iter()
@@ -293,7 +293,7 @@ mod tests {
         merk.apply(batch.as_slice(), &[]).unwrap();
 
         let mut producer = merk.chunks().unwrap();
-        let chunk = producer.chunk(50000).unwrap();
+        let _chunk = producer.chunk(50000).unwrap();
     }
 
     #[test]
@@ -384,7 +384,7 @@ mod tests {
         merk.apply(batch.as_slice(), &[]).unwrap();
 
         let mut producer = merk.chunks().unwrap();
-        let chunk1 = producer.next_chunk();
-        let chunk2 = producer.next_chunk();
+        let _chunk1 = producer.next_chunk();
+        let _chunk2 = producer.next_chunk();
     }
 }
