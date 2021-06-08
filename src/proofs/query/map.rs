@@ -207,6 +207,7 @@ impl<'a> Iterator for Range<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::HASH_LENGTH;
 
     #[test]
     #[should_panic(expected = "Expected nodes to be in increasing key order")]
@@ -227,7 +228,7 @@ mod tests {
     #[test]
     fn mapbuilder_insert_including_edge() {
         let mut builder = MapBuilder::new();
-        builder.insert(&Node::Hash([0; 20])).unwrap();
+        builder.insert(&Node::Hash([0; HASH_LENGTH])).unwrap();
         builder.insert(&Node::KV(vec![1, 2, 4], vec![])).unwrap();
 
         assert!(builder.0.right_edge);
@@ -237,7 +238,7 @@ mod tests {
     fn mapbuilder_insert_abridged_edge() {
         let mut builder = MapBuilder::new();
         builder.insert(&Node::KV(vec![1, 2, 3], vec![])).unwrap();
-        builder.insert(&Node::Hash([0; 20])).unwrap();
+        builder.insert(&Node::Hash([0; HASH_LENGTH])).unwrap();
 
         assert!(!builder.0.right_edge);
     }
@@ -246,7 +247,7 @@ mod tests {
     fn mapbuilder_build() {
         let mut builder = MapBuilder::new();
         builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
-        builder.insert(&Node::Hash([0; 20])).unwrap();
+        builder.insert(&Node::Hash([0; HASH_LENGTH])).unwrap();
         builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
 
         let map = builder.build();
@@ -261,7 +262,7 @@ mod tests {
     fn map_get_included() {
         let mut builder = MapBuilder::new();
         builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
-        builder.insert(&Node::Hash([0; 20])).unwrap();
+        builder.insert(&Node::Hash([0; HASH_LENGTH])).unwrap();
         builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
 
         let map = builder.build();
@@ -280,7 +281,7 @@ mod tests {
     fn map_get_missing_absence_proof() {
         let mut builder = MapBuilder::new();
         builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
-        builder.insert(&Node::Hash([0; 20])).unwrap();
+        builder.insert(&Node::Hash([0; HASH_LENGTH])).unwrap();
         builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
 
         let map = builder.build();
@@ -302,7 +303,7 @@ mod tests {
     fn range_abridged() {
         let mut builder = MapBuilder::new();
         builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
-        builder.insert(&Node::Hash([0; 20])).unwrap();
+        builder.insert(&Node::Hash([0; HASH_LENGTH])).unwrap();
         builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
 
         let map = builder.build();
@@ -333,7 +334,7 @@ mod tests {
     #[should_panic(expected = "Proof is missing data for query")]
     fn test_range_unbounded_map_non_contiguous() {
         let mut builder = MapBuilder::new();
-        builder.insert(&Node::Hash([1; 20])).unwrap();
+        builder.insert(&Node::Hash([1; HASH_LENGTH])).unwrap();
 
         let map = builder.build();
         let mut range = map.range(..&[1u8, 2, 5][..]);
