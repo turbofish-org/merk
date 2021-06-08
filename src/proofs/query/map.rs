@@ -83,14 +83,12 @@ impl Map {
     /// yield an error.
     pub fn range<'a, R: RangeBounds<&'a [u8]>>(&'a self, bounds: R) -> Range {
         let start_key = bound_to_inner(bounds.start_bound()).map(|x| (*x).into());
-        let end_key = bound_to_inner(bounds.end_bound()).map(|x| (*x).into());
         let bounds = bounds_to_vec(bounds);
 
         Range {
             map: self,
             prev_key: start_key.as_ref().map(|k: &Vec<u8>| k.clone()),
             start_key,
-            end_key,
             iter: self.entries.range(bounds),
         }
     }
@@ -126,7 +124,6 @@ fn bounds_to_vec<'a, R: RangeBounds<&'a [u8]>>(bounds: R) -> impl RangeBounds<Ve
 pub struct Range<'a> {
     map: &'a Map,
     start_key: Option<Vec<u8>>,
-    end_key: Option<Vec<u8>>,
     iter: btree_map::Range<'a, Vec<u8>, (bool, Vec<u8>)>,
     prev_key: Option<Vec<u8>>,
 }
