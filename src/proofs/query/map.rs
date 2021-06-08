@@ -328,4 +328,15 @@ mod tests {
         assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 4][..], &[2][..]));
         assert!(range.next().is_none());
     }
+
+    #[test]
+    #[should_panic(expected = "Proof is missing data for query")]
+    fn test_range_unbounded_map_non_contiguous() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::Hash([1; 20])).unwrap();
+
+        let map = builder.build();
+        let mut range = map.range(..&[1u8, 2, 5][..]);
+        range.next().unwrap().unwrap();
+    }
 }
