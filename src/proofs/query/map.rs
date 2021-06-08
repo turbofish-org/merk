@@ -1,9 +1,9 @@
-use std::collections::BTreeMap;
-use std::collections::btree_map;
-use std::ops::{RangeBounds, Bound};
-use failure::{format_err, bail, ensure};
 use super::super::Node;
 use crate::Result;
+use failure::{bail, ensure, format_err};
+use std::collections::btree_map;
+use std::collections::BTreeMap;
+use std::ops::{Bound, RangeBounds};
 
 /// `MapBuilder` allows a consumer to construct a `Map` by inserting the nodes
 /// contained in a proof, in key-order.
@@ -14,7 +14,7 @@ impl MapBuilder {
     pub fn new() -> Self {
         MapBuilder(Map {
             entries: Default::default(),
-            right_edge: true
+            right_edge: true,
         })
     }
 
@@ -144,10 +144,7 @@ impl<'a> Range<'a> {
             // match or next node is contiguous
             Some(ref key) => {
                 // get neighboring node to the right (if any)
-                let range = (
-                    Bound::Excluded(key.to_vec()),
-                    Bound::<Vec<u8>>::Unbounded,
-                );
+                let range = (Bound::Excluded(key.to_vec()), Bound::<Vec<u8>>::Unbounded);
                 let maybe_end_node = self.map.entries.range(range).next();
 
                 match maybe_end_node {
@@ -174,10 +171,12 @@ impl<'a> Iterator for Range<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let (key, (contiguous, value)) = match self.iter.next() {
             // no more items, ensure no data was excluded at end of range
-            None => return match self.check_end_bound() {
-                Err(err) => Some(Err(err)),
-                Ok(_) => None,
-            },
+            None => {
+                return match self.check_end_bound() {
+                    Err(err) => Some(Err(err)),
+                    Ok(_) => None,
+                }
+            }
 
             // got next item, destructure
             Some((key, (contiguous, value))) => (key, (contiguous, value)),
@@ -266,14 +265,8 @@ mod tests {
         builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
 
         let map = builder.build();
-        assert_eq!(
-            map.get(&[1, 2, 3]).unwrap().unwrap(),
-            vec![1],
-        );
-        assert_eq!(
-            map.get(&[1, 2, 4]).unwrap().unwrap(),
-            vec![2],
-        );
+        assert_eq!(map.get(&[1, 2, 3]).unwrap().unwrap(), vec![1],);
+        assert_eq!(map.get(&[1, 2, 4]).unwrap().unwrap(), vec![2],);
     }
 
     #[test]
@@ -307,9 +300,7 @@ mod tests {
         builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
 
         let map = builder.build();
-        let mut range = map.range(
-            &[1u8, 2, 3][..]..&[1u8, 2, 4][..]
-        );
+        let mut range = map.range(&[1u8, 2, 3][..]..&[1u8, 2, 4][..]);
         assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 3][..], &[1][..]));
         range.next().unwrap().unwrap();
     }
@@ -322,9 +313,7 @@ mod tests {
         builder.insert(&Node::KV(vec![1, 2, 5], vec![3])).unwrap();
 
         let map = builder.build();
-        let mut range = map.range(
-            &[1u8, 2, 3][..]..&[1u8, 2, 5][..]
-        );
+        let mut range = map.range(&[1u8, 2, 3][..]..&[1u8, 2, 5][..]);
         assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 3][..], &[1][..]));
         assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 4][..], &[2][..]));
         assert!(range.next().is_none());

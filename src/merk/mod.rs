@@ -9,7 +9,7 @@ use failure::bail;
 use rocksdb::{checkpoint::Checkpoint, ColumnFamilyDescriptor, WriteBatch};
 
 use crate::error::Result;
-use crate::proofs::{encode_into, Query, query::QueryItem};
+use crate::proofs::{encode_into, query::QueryItem, Query};
 use crate::tree::{Batch, Commit, Fetch, Hash, Link, Op, RefWalker, Tree, Walker, NULL_HASH};
 
 const ROOT_KEY_KEY: &[u8] = b"root";
@@ -229,9 +229,9 @@ impl Merk {
     /// this method which checks to ensure the batch is sorted and unique, see
     /// `prove`.
     pub fn prove_unchecked<Q, I>(&self, query: I) -> Result<Vec<u8>>
-        where
-            Q: Into<QueryItem>,
-            I: IntoIterator<Item = Q>,
+    where
+        Q: Into<QueryItem>,
+        I: IntoIterator<Item = Q>,
     {
         let query: Vec<QueryItem> = query.into_iter().map(Into::into).collect();
 

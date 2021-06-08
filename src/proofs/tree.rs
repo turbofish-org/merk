@@ -285,8 +285,8 @@ where
 #[cfg(test)]
 mod test {
     use super::super::*;
-    use super::*;
     use super::Tree as ProofTree;
+    use super::*;
 
     fn make_7_node_prooftree() -> ProofTree {
         let make_node = |i| -> super::super::tree::Tree { Node::KV(vec![i], vec![]).into() };

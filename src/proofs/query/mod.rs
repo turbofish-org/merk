@@ -5,7 +5,7 @@ use super::{Decoder, Node, Op};
 use crate::error::Result;
 use crate::tree::{Fetch, Hash, Link, RefWalker};
 use failure::bail;
-use std::{cmp::{max, min, Ordering}};
+use std::cmp::{max, min, Ordering};
 use std::collections::{BTreeSet, LinkedList};
 use std::ops::{Range, RangeInclusive};
 
@@ -210,7 +210,6 @@ impl From<Vec<u8>> for QueryItem {
     }
 }
 
-
 impl Link {
     /// Creates a `Node::Hash` from this link. Panics if the link is of variant
     /// `Link::Modified` since its hash has not yet been computed.
@@ -351,7 +350,7 @@ pub fn verify(bytes: &[u8], expected_hash: Hash) -> Result<Map> {
         );
     }
 
-    Ok(map_builder.build()) 
+    Ok(map_builder.build())
 }
 
 /// Verifies the encoded proof with the given query and expected hash.

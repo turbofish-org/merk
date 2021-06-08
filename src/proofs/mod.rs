@@ -5,8 +5,8 @@ pub mod tree;
 
 use crate::tree::Hash;
 
-pub use query::Query;
 pub use encoding::{encode_into, Decoder};
+pub use query::Query;
 pub use tree::Tree;
 
 /// A proof operator, executed to verify the data in a Merkle proof.
