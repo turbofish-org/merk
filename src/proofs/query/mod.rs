@@ -473,6 +473,7 @@ pub fn verify_query(
     Ok(output)
 }
 
+#[allow(deprecated)]
 #[cfg(test)]
 mod test {
     use super::super::encoding::encode_into;
