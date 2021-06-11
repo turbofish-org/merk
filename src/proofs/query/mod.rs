@@ -1387,4 +1387,13 @@ mod test {
         assert_eq!(query_vec.get(0).unwrap().lower_bound(), expected.get(0).unwrap().lower_bound());
         assert_eq!(query_vec.get(0).unwrap().upper_bound(), expected.get(0).unwrap().upper_bound());
     }
+
+    #[test]
+    fn query_item_from_vec_u8(){
+        let queryitems: Vec<u8> = vec![42];
+        let query = QueryItem::from(queryitems);
+
+        let expected = QueryItem::Key(vec![42]);
+        assert_eq!(query, expected);
+    }
 }
