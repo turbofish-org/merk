@@ -1367,29 +1367,41 @@ mod test {
     }
 
     #[test]
-    fn query_from_vec(){
-        let queryitems = vec![
-            QueryItem::Range(vec![0, 0, 0, 0, 0, 0, 0, 5, 5]..vec![0, 0, 0, 0, 0, 0, 0, 7]),
-        ];
+    fn query_from_vec() {
+        let queryitems = vec![QueryItem::Range(
+            vec![0, 0, 0, 0, 0, 0, 0, 5, 5]..vec![0, 0, 0, 0, 0, 0, 0, 7],
+        )];
         let query = Query::from(queryitems);
 
         let mut expected = BTreeSet::new();
-        expected.insert(QueryItem::Range(vec![0, 0, 0, 0, 0, 0, 0, 5, 5]..vec![0, 0, 0, 0, 0, 0, 0, 7]));
+        expected.insert(QueryItem::Range(
+            vec![0, 0, 0, 0, 0, 0, 0, 5, 5]..vec![0, 0, 0, 0, 0, 0, 0, 7],
+        ));
         assert_eq!(query.items, expected);
     }
 
     #[test]
-    fn query_into_vec(){
+    fn query_into_vec() {
         let mut query = Query::new();
-        query.insert_item(QueryItem::Range(vec![0, 0, 0, 0, 0, 0, 5, 5]..vec![0, 0, 0, 0, 0, 0, 0, 7]));
+        query.insert_item(QueryItem::Range(
+            vec![0, 0, 0, 0, 0, 0, 5, 5]..vec![0, 0, 0, 0, 0, 0, 0, 7],
+        ));
         let query_vec: Vec<QueryItem> = query.into();
-        let expected = vec![QueryItem::Range(vec![0, 0, 0, 0, 0, 0, 5, 5]..vec![0, 0, 0, 0, 0, 0, 0, 7])];
-        assert_eq!(query_vec.get(0).unwrap().lower_bound(), expected.get(0).unwrap().lower_bound());
-        assert_eq!(query_vec.get(0).unwrap().upper_bound(), expected.get(0).unwrap().upper_bound());
+        let expected = vec![QueryItem::Range(
+            vec![0, 0, 0, 0, 0, 0, 5, 5]..vec![0, 0, 0, 0, 0, 0, 0, 7],
+        )];
+        assert_eq!(
+            query_vec.get(0).unwrap().lower_bound(),
+            expected.get(0).unwrap().lower_bound()
+        );
+        assert_eq!(
+            query_vec.get(0).unwrap().upper_bound(),
+            expected.get(0).unwrap().upper_bound()
+        );
     }
 
     #[test]
-    fn query_item_from_vec_u8(){
+    fn query_item_from_vec_u8() {
         let queryitems: Vec<u8> = vec![42];
         let query = QueryItem::from(queryitems);
 
