@@ -1377,4 +1377,14 @@ mod test {
         expected.insert(QueryItem::Range(vec![0, 0, 0, 0, 0, 0, 0, 5, 5]..vec![0, 0, 0, 0, 0, 0, 0, 7]));
         assert_eq!(query.items, expected);
     }
+
+    #[test]
+    fn query_into_vec(){
+        let mut query = Query::new();
+        query.insert_item(QueryItem::Range(vec![0, 0, 0, 0, 0, 0, 5, 5]..vec![0, 0, 0, 0, 0, 0, 0, 7]));
+        let query_vec: Vec<QueryItem> = query.into();
+        let expected = vec![QueryItem::Range(vec![0, 0, 0, 0, 0, 0, 5, 5]..vec![0, 0, 0, 0, 0, 0, 0, 7])];
+        assert_eq!(query_vec.get(0).unwrap().lower_bound(), expected.get(0).unwrap().lower_bound());
+        assert_eq!(query_vec.get(0).unwrap().upper_bound(), expected.get(0).unwrap().upper_bound());
+    }
 }
