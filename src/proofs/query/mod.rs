@@ -1367,7 +1367,7 @@ mod test {
     }
 
     #[test]
-    fn query_item_from_vec(){
+    fn query_from_vec(){
         let queryitems = vec![
             QueryItem::Range(vec![0, 0, 0, 0, 0, 0, 0, 5, 5]..vec![0, 0, 0, 0, 0, 0, 0, 7]),
         ];
