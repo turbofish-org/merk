@@ -1365,4 +1365,16 @@ mod test {
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
         assert_eq!(res, vec![(vec![0, 0, 0, 0, 0, 0, 0, 6], vec![123; 60]),]);
     }
+
+    #[test]
+    fn vec_into_query_item(){
+        let queryitems = vec![
+            QueryItem::Range(vec![0, 0, 0, 0, 0, 0, 0, 5, 5]..vec![0, 0, 0, 0, 0, 0, 0, 7]),
+        ];
+        let query = Query::from(queryitems);
+
+        let mut expected = BTreeSet::new();
+        expected.insert(QueryItem::Range(vec![0, 0, 0, 0, 0, 0, 0, 5, 5]..vec![0, 0, 0, 0, 0, 0, 0, 7]));
+        assert_eq!(query.items, expected);
+    }
 }
