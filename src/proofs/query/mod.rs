@@ -1408,4 +1408,26 @@ mod test {
         let expected = QueryItem::Key(vec![42]);
         assert_eq!(query, expected);
     }
+
+    #[test]
+    fn verify_ops() {
+        let mut tree = Tree::new(vec![5], vec![5]);
+        tree.commit(&mut NoopCommit {}).expect("commit failed");
+
+        let root_hash = tree.hash();
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+
+        let (proof, _) = walker
+            .create_proof(vec![QueryItem::Key(vec![5])].as_slice())
+            .expect("failed to create proof");
+        let mut bytes = vec![];
+
+        encode_into(proof.iter(), &mut bytes);
+
+        let map = verify(&bytes, root_hash).unwrap();
+        assert_eq!(
+            map.get(vec![5].as_slice()).unwrap().unwrap(),
+            vec![5].as_slice()
+        );
+    }
 }
