@@ -1454,14 +1454,24 @@ mod test {
     fn verify_query_mismatched_hash() {
         let mut tree = make_3_node_tree();
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
-
+        let keys = vec![vec![5], vec![7]];
         let (proof, _) = walker
-            .create_proof(vec![].as_slice())
+            .create_proof(
+                keys.clone()
+                    .into_iter()
+                    .map(QueryItem::Key)
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+            )
             .expect("failed to create proof");
         let mut bytes = vec![];
         encode_into(proof.iter(), &mut bytes);
+
         let mut query = Query::new();
-        query.insert_item(QueryItem::Range(vec![0]..vec![1]));
+        for key in keys.iter() {
+            query.insert_key(key.clone());
+        }
+
         let _result = verify_query(bytes.as_slice(), &query, [42; 32]).expect("verify failed");
     }
 }
