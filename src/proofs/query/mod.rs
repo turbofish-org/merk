@@ -1430,4 +1430,28 @@ mod test {
             vec![5].as_slice()
         );
     }
+
+    #[test]
+    #[should_panic(
+        expected = "Proof did not match expected hash\\n\\tExpected: [42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42]\\n\\tActual: [6, 189, 52, 109, 141, 122, 22, 148, 79, 245, 104, 135, 5, 52, 111, 160, 37, 228, 109, 246, 123, 215, 130, 95, 215, 226, 166, 136, 61, 174, 227, 43]"
+    )]
+    fn verify_ops_force_bail() {
+        let mut tree = Tree::new(vec![5], vec![5]);
+        tree.commit(&mut NoopCommit {}).expect("commit failed");
+
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+
+        let (proof, _) = walker
+            .create_proof(vec![QueryItem::Key(vec![5])].as_slice())
+            .expect("failed to create proof");
+        let mut bytes = vec![];
+
+        encode_into(proof.iter(), &mut bytes);
+
+        let map = verify(&bytes, [42; 32]).unwrap();
+        assert_eq!(
+            map.get(vec![5].as_slice()).unwrap().unwrap(),
+            vec![5].as_slice()
+        );
+    }
 }
