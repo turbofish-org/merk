@@ -1454,4 +1454,20 @@ mod test {
             vec![5].as_slice()
         );
     }
+
+    #[test]
+    #[should_panic(expected = "verify failed")]
+    fn verify_query_mismatched_hash() {
+        let mut tree = make_3_node_tree();
+        let mut walker = RefWalker::new(&mut tree, PanicSource {});
+
+        let (proof, _) = walker
+            .create_proof(vec![].as_slice())
+            .expect("failed to create proof");
+        let mut bytes = vec![];
+        encode_into(proof.iter(), &mut bytes);
+        let mut query = Query::new();
+        query.insert_item(QueryItem::Range(vec![0]..vec![1]));
+        let _result = verify_query(bytes.as_slice(), &query, [42; 32]).expect("verify failed");
+    }
 }
