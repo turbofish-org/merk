@@ -1435,7 +1435,7 @@ mod test {
     #[should_panic(
         expected = "Proof did not match expected hash\\n\\tExpected: [42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42]\\n\\tActual: [6, 189, 52, 109, 141, 122, 22, 148, 79, 245, 104, 135, 5, 52, 111, 160, 37, 228, 109, 246, 123, 215, 130, 95, 215, 226, 166, 136, 61, 174, 227, 43]"
     )]
-    fn verify_ops_force_bail() {
+    fn verify_ops_mismatched_hash() {
         let mut tree = Tree::new(vec![5], vec![5]);
         tree.commit(&mut NoopCommit {}).expect("commit failed");
 
