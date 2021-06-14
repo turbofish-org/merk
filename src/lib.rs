@@ -1,3 +1,5 @@
+#![feature(map_first_last)]
+
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
@@ -20,5 +22,7 @@ pub mod tree;
 pub use crate::merk::{chunks, restore, Merk};
 
 pub use error::{Error, Result};
-pub use proofs::verify_query;
 pub use tree::{Batch, BatchEntry, Hash, Op, PanicSource, HASH_LENGTH};
+
+#[allow(deprecated)]
+pub use proofs::query::verify_query;

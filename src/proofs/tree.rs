@@ -1,4 +1,4 @@
-use super::{Decoder, Node, Op};
+use super::{Node, Op};
 use crate::error::Result;
 use crate::tree::{kv_hash, node_hash, Hash, NULL_HASH};
 use failure::bail;
@@ -6,19 +6,19 @@ use failure::bail;
 /// Contains a tree's child node and its hash. The hash can always be assumed to
 /// be up-to-date.
 #[derive(Debug)]
-pub(crate) struct Child {
-    pub(crate) tree: Box<Tree>,
-    pub(crate) hash: Hash,
+pub struct Child {
+    pub tree: Box<Tree>,
+    pub hash: Hash,
 }
 
 /// A binary tree data structure used to represent a select subset of a tree
 /// when verifying Merkle proofs.
 #[derive(Debug)]
-pub(crate) struct Tree {
-    pub(crate) node: Node,
-    pub(crate) left: Option<Child>,
-    pub(crate) right: Option<Child>,
-    pub(crate) height: usize,
+pub struct Tree {
+    pub node: Node,
+    pub left: Option<Child>,
+    pub right: Option<Child>,
+    pub height: usize,
 }
 
 impl From<Node> for Tree {
@@ -34,15 +34,66 @@ impl From<Node> for Tree {
 }
 
 impl PartialEq for Tree {
-    /// Checks equality for the hashes of the two trees.
+    /// Checks equality for the root hashes of the two trees.
     fn eq(&self, other: &Self) -> bool {
         self.hash() == other.hash()
     }
 }
 
 impl Tree {
+    /// Gets or computes the hash for this tree node.
+    pub fn hash(&self) -> Hash {
+        fn compute_hash(tree: &Tree, kv_hash: Hash) -> Hash {
+            node_hash(&kv_hash, &tree.child_hash(true), &tree.child_hash(false))
+        }
+
+        match &self.node {
+            Node::Hash(hash) => *hash,
+            Node::KVHash(kv_hash) => compute_hash(&self, *kv_hash),
+            Node::KV(key, value) => {
+                let kv_hash = kv_hash(key.as_slice(), value.as_slice());
+                compute_hash(&self, kv_hash)
+            }
+        }
+    }
+
+    /// Creates an iterator that yields the in-order traversal of the nodes at
+    /// the given depth.
+    pub fn layer(&self, depth: usize) -> LayerIter {
+        LayerIter::new(self, depth)
+    }
+
+    /// Consumes the `Tree` and does an in-order traversal over all the nodes in
+    /// the tree, calling `visit_node` for each.
+    pub fn visit_nodes<F: FnMut(Node)>(mut self, visit_node: &mut F) {
+        if let Some(child) = self.left.take() {
+            child.tree.visit_nodes(visit_node);
+        }
+
+        let maybe_right_child = self.right.take();
+        visit_node(self.node);
+
+        if let Some(child) = maybe_right_child {
+            child.tree.visit_nodes(visit_node);
+        }
+    }
+
+    /// Does an in-order traversal over references to all the nodes in the tree,
+    /// calling `visit_node` for each.
+    pub fn visit_refs<F: FnMut(&Tree)>(&self, visit_node: &mut F) {
+        if let Some(child) = &self.left {
+            child.tree.visit_refs(visit_node);
+        }
+
+        visit_node(self);
+
+        if let Some(child) = &self.right {
+            child.tree.visit_refs(visit_node);
+        }
+    }
+
     /// Returns an immutable reference to the child on the given side, if any.
-    pub(crate) fn child(&self, left: bool) -> Option<&Child> {
+    pub fn child(&self, left: bool) -> Option<&Child> {
         if left {
             self.left.as_ref()
         } else {
@@ -51,7 +102,7 @@ impl Tree {
     }
 
     /// Returns a mutable reference to the child on the given side, if any.
-    fn child_mut(&mut self, left: bool) -> &mut Option<Child> {
+    pub(crate) fn child_mut(&mut self, left: bool) -> &mut Option<Child> {
         if left {
             &mut self.left
         } else {
@@ -61,7 +112,7 @@ impl Tree {
 
     /// Attaches the child to the `Tree`'s given side. Panics if there is
     /// already a child attached to this side.
-    fn attach(&mut self, left: bool, child: Tree) -> Result<()> {
+    pub(crate) fn attach(&mut self, left: bool, child: Tree) -> Result<()> {
         if self.child(left).is_some() {
             bail!("Tried to attach to left child, but it is already Some");
         }
@@ -89,58 +140,6 @@ impl Tree {
         Node::Hash(self.hash()).into()
     }
 
-    /// Gets or computes the hash for this tree node.
-    pub(crate) fn hash(&self) -> Hash {
-        fn compute_hash(tree: &Tree, kv_hash: Hash) -> Hash {
-            node_hash(&kv_hash, &tree.child_hash(true), &tree.child_hash(false))
-        }
-
-        match &self.node {
-            Node::Hash(hash) => *hash,
-            Node::KVHash(kv_hash) => compute_hash(&self, *kv_hash),
-            Node::KV(key, value) => {
-                let kv_hash = kv_hash(key.as_slice(), value.as_slice());
-                compute_hash(&self, kv_hash)
-            }
-        }
-    }
-
-    /// Creates an iterator that yields the in-order traversal of the nodes at
-    /// the given depth.
-    pub(crate) fn layer(&self, depth: usize) -> LayerIter {
-        LayerIter::new(self, depth)
-    }
-
-    /// Consumes the `Tree` and does an in-order traversal over all the nodes in
-    /// the tree, calling `visit_node` for each.
-    #[allow(dead_code)] // (only used in tests for now)
-    pub(crate) fn visit_nodes<F: FnMut(Node)>(mut self, visit_node: &mut F) {
-        if let Some(child) = self.left.take() {
-            child.tree.visit_nodes(visit_node);
-        }
-
-        let maybe_right_child = self.right.take();
-        visit_node(self.node);
-
-        if let Some(child) = maybe_right_child {
-            child.tree.visit_nodes(visit_node);
-        }
-    }
-
-    /// Does an in-order traversal over references to all the nodes in the tree,
-    /// calling `visit_node` for each.
-    pub(crate) fn visit_refs<F: FnMut(&Tree)>(&self, visit_node: &mut F) {
-        if let Some(child) = &self.left {
-            child.tree.visit_refs(visit_node);
-        }
-
-        visit_node(self);
-
-        if let Some(child) = &self.right {
-            child.tree.visit_refs(visit_node);
-        }
-    }
-
     pub(crate) fn key(&self) -> &[u8] {
         match self.node {
             Node::KV(ref key, _) => key,
@@ -151,7 +150,7 @@ impl Tree {
 
 /// `LayerIter` iterates over the nodes in a `Tree` at a given depth. Nodes are
 /// visited in order.
-pub(crate) struct LayerIter<'a> {
+pub struct LayerIter<'a> {
     stack: Vec<&'a Tree>,
     depth: usize,
 }
@@ -283,98 +282,14 @@ where
     Ok(stack.pop().unwrap())
 }
 
-/// Verifies the encoded proof with the given query and expected hash.
-///
-/// Every key in `keys` is checked to either have a key/value pair in the proof,
-/// or to have its absence in the tree proven.
-///
-/// Returns `Err` if the proof is invalid, or a list of proven values associated
-/// with `keys`. For example, if `keys` contains keys `A` and `B`, the returned
-/// list will contain 2 elements, the value of `A` and the value of `B`. Keys
-/// proven to be absent in the tree will have an entry of `None`, keys that have
-/// a proven value will have an entry of `Some(value)`.
-pub fn verify_query(
-    bytes: &[u8],
-    keys: &[Vec<u8>],
-    expected_hash: Hash,
-) -> Result<Vec<Option<Vec<u8>>>> {
-    let mut key_index = 0;
-    let mut last_push = None;
-    let mut output = Vec::with_capacity(keys.len());
-
-    let ops = Decoder::new(bytes);
-
-    let root = execute(ops, true, |node| {
-        if let Node::KV(key, value) = node {
-            loop {
-                if key_index >= keys.len() || *key < keys[key_index] {
-                    // TODO: should we error if proof includes unused keys?
-                    break;
-                } else if key == &keys[key_index] {
-                    // KV for queried key
-                    output.push(Some(value.clone()));
-                } else if *key > keys[key_index] {
-                    match &last_push {
-                        None | Some(Node::KV(_, _)) => {
-                            // previous push was a boundary (global edge or lower key),
-                            // so this is a valid absence proof
-                            output.push(None);
-                        }
-                        // proof is incorrect since it skipped queried keys
-                        _ => bail!("Proof incorrectly formed"),
-                    }
-                }
-
-                key_index += 1;
-            }
-        }
-
-        last_push = Some(node.clone());
-
-        Ok(())
-    })?;
-
-    // absence proofs for right edge
-    if key_index < keys.len() {
-        if let Some(Node::KV(_, _)) = last_push {
-            for _ in 0..(keys.len() - key_index) {
-                output.push(None);
-            }
-        } else {
-            bail!("Proof incorrectly formed");
-        }
-    } else {
-        debug_assert_eq!(keys.len(), output.len());
-    }
-
-    if root.hash() != expected_hash {
-        bail!(
-            "Proof did not match expected hash\n\tExpected: {:?}\n\tActual: {:?}",
-            expected_hash,
-            root.hash()
-        );
-    }
-
-    Ok(output)
-}
-
 #[cfg(test)]
 mod test {
     use super::super::*;
+    use super::Tree as ProofTree;
     use super::*;
-    use crate::tree;
-    use crate::tree::{NoopCommit, PanicSource, RefWalker};
 
-    fn make_3_node_tree() -> tree::Tree {
-        let mut tree = tree::Tree::new(vec![5], vec![5])
-            .attach(true, Some(tree::Tree::new(vec![3], vec![3])))
-            .attach(false, Some(tree::Tree::new(vec![7], vec![7])));
-        tree.commit(&mut NoopCommit {}).expect("commit failed");
-        tree
-    }
-
-    fn make_7_node_prooftree() -> super::Tree {
-        let make_node = |i| -> super::Tree { Node::KV(vec![i], vec![]).into() };
+    fn make_7_node_prooftree() -> ProofTree {
+        let make_node = |i| -> super::super::tree::Tree { Node::KV(vec![i], vec![]).into() };
 
         let mut tree = make_node(3);
         let mut left = make_node(1);
@@ -387,73 +302,6 @@ mod test {
         tree.attach(false, right).unwrap();
 
         tree
-    }
-
-    fn verify_test(keys: Vec<Vec<u8>>, expected_result: Vec<Option<Vec<u8>>>) {
-        let mut tree = make_3_node_tree();
-        let mut walker = RefWalker::new(&mut tree, PanicSource {});
-
-        let (proof, _) = walker
-            .create_proof(keys.as_slice())
-            .expect("failed to create proof");
-        let mut bytes = vec![];
-        encode_into(proof.iter(), &mut bytes);
-
-        let expected_hash = [
-            152, 49, 143, 253, 103, 178, 190, 32, 220, 107, 195, 90, 13, 69, 91, 129, 200, 90, 83,
-            174, 124, 122, 64, 230, 201, 226, 250, 125, 102, 139, 137, 124,
-        ];
-        let result =
-            verify_query(bytes.as_slice(), keys.as_slice(), expected_hash).expect("verify failed");
-        assert_eq!(result, expected_result);
-    }
-
-    #[test]
-    fn root_verify() {
-        verify_test(vec![vec![5]], vec![Some(vec![5])]);
-    }
-
-    #[test]
-    fn single_verify() {
-        verify_test(vec![vec![3]], vec![Some(vec![3])]);
-    }
-
-    #[test]
-    fn double_verify() {
-        verify_test(vec![vec![3], vec![5]], vec![Some(vec![3]), Some(vec![5])]);
-    }
-
-    #[test]
-    fn double_verify_2() {
-        verify_test(vec![vec![3], vec![7]], vec![Some(vec![3]), Some(vec![7])]);
-    }
-
-    #[test]
-    fn triple_verify() {
-        verify_test(
-            vec![vec![3], vec![5], vec![7]],
-            vec![Some(vec![3]), Some(vec![5]), Some(vec![7])],
-        );
-    }
-
-    #[test]
-    fn left_edge_absence_verify() {
-        verify_test(vec![vec![2]], vec![None]);
-    }
-
-    #[test]
-    fn right_edge_absence_verify() {
-        verify_test(vec![vec![8]], vec![None]);
-    }
-
-    #[test]
-    fn inner_absence_verify() {
-        verify_test(vec![vec![6]], vec![None]);
-    }
-
-    #[test]
-    fn absent_and_present_verify() {
-        verify_test(vec![vec![5], vec![6]], vec![Some(vec![5]), None]);
     }
 
     #[test]

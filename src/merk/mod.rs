@@ -9,7 +9,7 @@ use failure::bail;
 use rocksdb::{checkpoint::Checkpoint, ColumnFamilyDescriptor, WriteBatch};
 
 use crate::error::Result;
-use crate::proofs::encode_into;
+use crate::proofs::{encode_into, query::QueryItem, Query};
 use crate::tree::{Batch, Commit, Fetch, Hash, Link, Op, RefWalker, Tree, Walker, NULL_HASH};
 
 const ROOT_KEY_KEY: &[u8] = b"root";
@@ -212,21 +212,8 @@ impl Merk {
     /// check adds some overhead, so if you are sure your batch is sorted and
     /// unique you can use the unsafe `prove_unchecked` for a small performance
     /// gain.
-    pub fn prove(&self, query: &[Vec<u8>]) -> Result<Vec<u8>> {
-        // ensure keys in query are sorted and unique
-        let mut maybe_prev_key = None;
-        for key in query.iter() {
-            if let Some(prev_key) = maybe_prev_key {
-                if prev_key > *key {
-                    bail!("Keys in query must be sorted");
-                } else if prev_key == *key {
-                    bail!("Keys in query must be unique");
-                }
-            }
-            maybe_prev_key = Some(key.to_vec());
-        }
-
-        unsafe { self.prove_unchecked(query) }
+    pub fn prove(&self, query: Query) -> Result<Vec<u8>> {
+        self.prove_unchecked(query)
     }
 
     /// Creates a Merkle proof for the list of queried keys. For each key in the
@@ -241,7 +228,13 @@ impl Merk {
     /// if they are not, there will be undefined behavior. For a safe version of
     /// this method which checks to ensure the batch is sorted and unique, see
     /// `prove`.
-    pub unsafe fn prove_unchecked(&self, query: &[Vec<u8>]) -> Result<Vec<u8>> {
+    pub fn prove_unchecked<Q, I>(&self, query: I) -> Result<Vec<u8>>
+    where
+        Q: Into<QueryItem>,
+        I: IntoIterator<Item = Q>,
+    {
+        let query: Vec<QueryItem> = query.into_iter().map(Into::into).collect();
+
         self.use_tree_mut(|maybe_tree| {
             let tree = match maybe_tree {
                 None => bail!("Cannot create proof for empty tree"),
@@ -249,7 +242,7 @@ impl Merk {
             };
 
             let mut ref_walker = RefWalker::new(tree, self.source());
-            let (proof, _) = ref_walker.create_proof(query)?;
+            let (proof, _) = ref_walker.create_proof(query.as_slice())?;
 
             let mut bytes = Vec::with_capacity(128);
             encode_into(proof.iter(), &mut bytes);
