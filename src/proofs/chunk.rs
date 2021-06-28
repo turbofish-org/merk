@@ -1,13 +1,11 @@
 #[cfg(feature = "full")]
-use failure::bail;
-#[cfg(feature = "full")]
-use rocksdb::DBRawIterator;
-#[cfg(feature = "full")]
-use super::tree::{execute, Tree as ProofTree};
-#[cfg(feature = "full")]
-use crate::tree::Hash;
-#[cfg(feature = "full")]
-use crate::tree::Tree;
+use {
+    failure::bail,
+    rocksdb::DBRawIterator,
+    super::tree::{execute, Tree as ProofTree},
+    crate::tree::Hash,
+    crate::tree::Tree,
+};
 
 use super::{Node, Op};
 use crate::error::Result;

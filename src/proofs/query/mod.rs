@@ -1,15 +1,17 @@
 mod map;
 
-use super::tree::execute;
 #[cfg(feature = "full")]
-use super::Op;
+use {
+    super::Op,
+    std::collections::LinkedList,
+};
+
+use super::tree::execute;
 use super::{Decoder, Node};
 use crate::error::Result;
 use crate::tree::{Fetch, Hash, Link, RefWalker};
 use failure::bail;
 use std::cmp::{max, min, Ordering};
-#[cfg(feature = "full")]
-use std::collections::LinkedList;
 use std::collections::BTreeSet;
 use std::ops::{Range, RangeInclusive};
 
