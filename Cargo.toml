@@ -69,4 +69,7 @@ full = ["rand",
         "ed",
         "blake3"
 ]
-verify = []
+verify = ["ed",
+          "failure",
+          "blake3"
+]
