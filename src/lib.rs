@@ -1,6 +1,7 @@
 #![feature(map_first_last)]
 
 #[global_allocator]
+#[cfg(feature = "full")]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 #[cfg(feature = "full")]
