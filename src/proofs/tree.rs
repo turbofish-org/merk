@@ -139,7 +139,8 @@ impl Tree {
     fn into_hash(self) -> Tree {
         Node::Hash(self.hash()).into()
     }
-
+    
+    #[cfg(feature = "full")]
     pub(crate) fn key(&self) -> &[u8] {
         match self.node {
             Node::KV(ref key, _) => key,
