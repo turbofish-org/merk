@@ -1,6 +1,6 @@
+mod commit;
 #[cfg(feature = "full")]
 mod debug;
-mod commit;
 mod encoding;
 mod fuzz_tests;
 mod hash;

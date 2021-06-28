@@ -1,10 +1,7 @@
 mod map;
 
 #[cfg(feature = "full")]
-use {
-    super::Op,
-    std::collections::LinkedList,
-};
+use {super::Op, std::collections::LinkedList};
 
 use super::tree::execute;
 use super::{Decoder, Node};

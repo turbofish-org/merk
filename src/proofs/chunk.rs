@@ -1,10 +1,10 @@
 #[cfg(feature = "full")]
 use {
-    failure::bail,
-    rocksdb::DBRawIterator,
     super::tree::{execute, Tree as ProofTree},
     crate::tree::Hash,
     crate::tree::Tree,
+    failure::bail,
+    rocksdb::DBRawIterator,
 };
 
 use super::{Node, Op};
