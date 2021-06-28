@@ -7,7 +7,9 @@ use super::{
     Node, Op,
 };
 use crate::error::Result;
-use crate::tree::{Fetch, Hash, RefWalker, Tree};
+use crate::tree::{Fetch, Hash, RefWalker};
+#[cfg(feature = "full")]
+use crate::tree::Tree;
 
 /// The minimum number of layers the trunk will be guaranteed to have before
 /// splitting into multiple chunks. If the tree's height is less than double
