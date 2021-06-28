@@ -1,4 +1,5 @@
 use failure::bail;
+#[cfg(feature = "full")]
 use rocksdb::DBRawIterator;
 
 use super::{
@@ -119,6 +120,7 @@ where
 /// when a node with key `end_key` is encountered.
 ///
 /// Advances the iterator for all nodes in the chunk and the `end_key` (if any).
+#[cfg(feature = "full")]
 pub(crate) fn get_next_chunk(iter: &mut DBRawIterator, end_key: Option<&[u8]>) -> Result<Vec<Op>> {
     let mut chunk = Vec::with_capacity(512);
     let mut stack = Vec::with_capacity(32);
