@@ -336,7 +336,6 @@ where
     }
 }
 
-#[cfg(feature = "verify")]
 pub fn verify(bytes: &[u8], expected_hash: Hash) -> Result<Map> {
     let ops = Decoder::new(bytes);
     let mut map_builder = MapBuilder::new();
