@@ -190,7 +190,7 @@ pub(crate) fn verify_leaf<I: Iterator<Item = Result<Op>>>(
         );
     }
 
-    return Ok(tree);
+    Ok(tree)
 }
 
 /// Verifies a trunk chunk proof by executing its operators. Ensures the
