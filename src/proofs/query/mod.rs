@@ -1,12 +1,15 @@
 mod map;
 
+#[cfg(feature = "full")]
+use {super::Op, std::collections::LinkedList};
+
 use super::tree::execute;
-use super::{Decoder, Node, Op};
+use super::{Decoder, Node};
 use crate::error::Result;
 use crate::tree::{Fetch, Hash, Link, RefWalker};
 use failure::bail;
 use std::cmp::{max, min, Ordering};
-use std::collections::{BTreeSet, LinkedList};
+use std::collections::BTreeSet;
 use std::ops::{Range, RangeInclusive};
 
 pub use map::*;
@@ -213,6 +216,7 @@ impl From<Vec<u8>> for QueryItem {
 impl Link {
     /// Creates a `Node::Hash` from this link. Panics if the link is of variant
     /// `Link::Modified` since its hash has not yet been computed.
+    #[cfg(feature = "full")]
     fn to_hash_node(&self) -> Node {
         let hash = match self {
             Link::Reference { hash, .. } => hash,
@@ -250,6 +254,7 @@ where
     /// containing the generated proof operators, and a tuple representing if
     /// any keys were queried were less than the left edge or greater than the
     /// right edge, respectively.
+    #[cfg(feature = "full")]
     pub(crate) fn create_proof(
         &mut self,
         query: &[QueryItem],
@@ -315,6 +320,7 @@ where
 
     /// Similar to `create_proof`. Recurses into the child on the given side and
     /// generates a proof for the queried keys.
+    #[cfg(feature = "full")]
     fn create_child_proof(
         &mut self,
         left: bool,

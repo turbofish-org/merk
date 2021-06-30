@@ -187,6 +187,7 @@ impl Link {
     }
 
     #[inline]
+    #[cfg(feature = "full")]
     pub(crate) fn child_heights_mut(&mut self) -> &mut (u8, u8) {
         match self {
             Link::Reference {

@@ -1,12 +1,15 @@
-use failure::bail;
-use rocksdb::DBRawIterator;
-
-use super::{
-    tree::{execute, Tree as ProofTree},
-    Node, Op,
+#[cfg(feature = "full")]
+use {
+    super::tree::{execute, Tree as ProofTree},
+    crate::tree::Hash,
+    crate::tree::Tree,
+    failure::bail,
+    rocksdb::DBRawIterator,
 };
+
+use super::{Node, Op};
 use crate::error::Result;
-use crate::tree::{Fetch, Hash, RefWalker, Tree};
+use crate::tree::{Fetch, RefWalker};
 
 /// The minimum number of layers the trunk will be guaranteed to have before
 /// splitting into multiple chunks. If the tree's height is less than double
@@ -119,6 +122,7 @@ where
 /// when a node with key `end_key` is encountered.
 ///
 /// Advances the iterator for all nodes in the chunk and the `end_key` (if any).
+#[cfg(feature = "full")]
 pub(crate) fn get_next_chunk(iter: &mut DBRawIterator, end_key: Option<&[u8]>) -> Result<Vec<Op>> {
     let mut chunk = Vec::with_capacity(512);
     let mut stack = Vec::with_capacity(32);
@@ -168,6 +172,7 @@ pub(crate) fn get_next_chunk(iter: &mut DBRawIterator, end_key: Option<&[u8]>) -
 /// Verifies a leaf chunk proof by executing its operators. Checks that there
 /// were no abridged nodes (Hash or KVHash) and the proof hashes to
 /// `expected_hash`.
+#[cfg(feature = "full")]
 pub(crate) fn verify_leaf<I: Iterator<Item = Result<Op>>>(
     ops: I,
     expected_hash: Hash,
@@ -192,6 +197,7 @@ pub(crate) fn verify_leaf<I: Iterator<Item = Result<Op>>>(
 /// resulting tree contains a valid height proof, the trunk is the correct
 /// height, and all of its inner nodes are not abridged. Returns the tree and
 /// the height given by the height proof.
+#[cfg(feature = "full")]
 pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(ProofTree, usize)> {
     fn verify_height_proof(tree: &ProofTree) -> Result<usize> {
         Ok(match tree.child(true) {
