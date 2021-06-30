@@ -87,7 +87,7 @@ impl Map {
 
         Range {
             map: self,
-            prev_key: start_key.as_ref().map(|k: &Vec<u8>| k.clone()),
+            prev_key: start_key.as_ref().cloned(),
             start_key,
             iter: self.entries.range(bounds),
         }
