@@ -23,8 +23,8 @@ impl CrashMerk {
         })
     }
 
-    pub fn crash(&mut self) -> Result<()> {
-        drop(self.inner.take().unwrap());
+    pub unsafe fn crash(&mut self) -> Result<()> {
+        ManuallyDrop::drop(&mut self.inner.take().unwrap());
 
         // rename to invalidate rocksdb's lock
         let file_name = format!(
@@ -72,11 +72,13 @@ mod tests {
     #[ignore] // currently this still works because we enabled the WAL
     fn crash() {
         let path = std::thread::current().name().unwrap().to_owned();
-
+        
         let mut merk = CrashMerk::open(&path).expect("failed to open merk");
         merk.apply(&[(vec![1, 2, 3], Op::Put(vec![4, 5, 6]))], &[])
             .expect("apply failed");
-        merk.crash().unwrap();
+        unsafe {
+            merk.crash().unwrap();
+        }
         assert_eq!(merk.get(&[1, 2, 3]).expect("failed to get"), None);
         merk.into_inner().destroy().unwrap();
     }

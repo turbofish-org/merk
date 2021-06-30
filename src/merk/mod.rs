@@ -540,8 +540,10 @@ mod test {
             merk.apply(&make_batch_seq(i * 2_000..(i + 1) * 2_000), &[])
                 .expect("apply failed");
         }
-
-        merk.crash().unwrap();
+        
+        unsafe {
+            merk.crash().unwrap();
+        }
 
         assert_eq!(merk.get_aux(&[2]).unwrap(), Some(vec![3]));
         merk.destroy().unwrap();
