@@ -93,9 +93,9 @@ impl<Q: Into<QueryItem>> From<Vec<Q>> for Query {
     }
 }
 
-impl Into<Vec<QueryItem>> for Query {
-    fn into(self) -> Vec<QueryItem> {
-        self.into_iter().collect()
+impl From<Query> for Vec<QueryItem> {
+    fn from(q: Query) -> Vec<QueryItem> {
+        q.into_iter().collect()
     }
 }
 
