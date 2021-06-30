@@ -69,7 +69,7 @@ impl Encode for KV {
     #[inline]
     fn encode_into<W: Write>(&self, out: &mut W) -> Result<()> {
         out.write_all(&self.hash[..])?;
-        out.write_all(&self.value.as_slice())?;
+        out.write_all(self.value.as_slice())?;
         Ok(())
     }
 
