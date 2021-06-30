@@ -61,13 +61,11 @@ impl Decode for Op {
             }
             0x03 => {
                 let key_len: u8 = Decode::decode(&mut input)?;
-                let mut key = Vec::with_capacity(key_len as usize);
-                key.resize(key_len as usize, 0);
+                let mut key = vec![0; key_len as usize];
                 input.read_exact(key.as_mut_slice())?;
 
                 let value_len: u16 = Decode::decode(&mut input)?;
-                let mut value = Vec::with_capacity(value_len as usize);
-                value.resize(value_len as usize, 0);
+                let mut value = vec![0; value_len as usize];
                 input.read_exact(value.as_mut_slice())?;
 
                 Op::Push(Node::KV(key, value))
