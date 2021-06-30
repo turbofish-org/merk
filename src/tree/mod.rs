@@ -364,7 +364,7 @@ impl Tree {
 
         c.write(&self)?;
 
-        let (prune_left, prune_right) = c.prune(&self);
+        let (prune_left, prune_right) = c.prune(self);
         if prune_left {
             self.inner.left = self.inner.left.take().map(|link| link.into_reference());
         }
