@@ -241,10 +241,7 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
 
     let mut kv_only = true;
     let tree = execute(ops, false, |node| {
-        kv_only &= match node {
-            Node::KV(_, _) => true,
-            _ => false,
-        };
+        kv_only &= matches!(node, Node::KV(_, _));
         Ok(())
     })?;
 
