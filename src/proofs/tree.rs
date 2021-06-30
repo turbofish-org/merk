@@ -52,7 +52,7 @@ impl Tree {
             Node::KVHash(kv_hash) => compute_hash(&self, *kv_hash),
             Node::KV(key, value) => {
                 let kv_hash = kv_hash(key.as_slice(), value.as_slice());
-                compute_hash(&self, kv_hash)
+                compute_hash(self, kv_hash)
             }
         }
     }
