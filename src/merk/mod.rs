@@ -3,6 +3,7 @@ pub mod restore;
 
 use std::cell::Cell;
 use std::collections::LinkedList;
+use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
 use failure::bail;
@@ -142,13 +143,13 @@ impl Merk {
     /// ```
     pub fn apply(&mut self, batch: &Batch, aux: &Batch) -> Result<()> {
         // ensure keys in batch are sorted and unique
-        let mut maybe_prev_key = None;
+        let mut maybe_prev_key: Option<Vec<u8>> = None;
         for (key, _) in batch.iter() {
             if let Some(prev_key) = maybe_prev_key {
-                if prev_key > *key {
-                    bail!("Keys in batch must be sorted");
-                } else if prev_key == *key {
-                    bail!("Keys in batch must be unique");
+                match prev_key.cmp(key){
+                    Ordering::Greater => bail!("Keys in batch must be sorted"), 
+                    Ordering::Equal => bail!("Keys in batch must be unique"),
+                    _ => ()
                 }
             }
             maybe_prev_key = Some(key.to_vec());
