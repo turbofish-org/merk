@@ -87,7 +87,7 @@ impl<'a> ChunkProducer<'a> {
     /// optimizing throughput compared to random access.
     fn next_chunk(&mut self) -> Result<Vec<u8>> {
         if self.index == 0 {
-            if self.trunk.len() == 0 {
+            if self.trunk.is_empty() {
                 bail!("Attempted to fetch chunk on empty tree");
             }
             self.index += 1;
