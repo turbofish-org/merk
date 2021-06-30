@@ -161,11 +161,7 @@ impl PartialEq for QueryItem {
 
 impl PartialEq<&[u8]> for QueryItem {
     fn eq(&self, other: &&[u8]) -> bool {
-        if let Some(Ordering::Equal) = self.partial_cmp(other) {
-            true
-        } else {
-            false
-        }
+        matches!(self.partial_cmp(other), Some(Ordering::Equal))
     }
 }
 
