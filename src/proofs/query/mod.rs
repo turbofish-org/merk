@@ -169,8 +169,8 @@ impl Eq for QueryItem {}
 
 impl Ord for QueryItem {
     fn cmp(&self, other: &QueryItem) -> Ordering {
-        let cmp_lu = self.lower_bound().cmp(&other.upper_bound().0);
-        let cmp_ul = self.upper_bound().0.cmp(&other.lower_bound());
+        let cmp_lu = self.lower_bound().cmp(other.upper_bound().0);
+        let cmp_ul = self.upper_bound().0.cmp(other.lower_bound());
         let self_inclusive = self.upper_bound().1;
         let other_inclusive = other.upper_bound().1;
 
