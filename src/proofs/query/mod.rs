@@ -380,13 +380,9 @@ pub fn verify_query(
 
     let root = execute(ops, true, |node| {
         if let Node::KV(key, value) = node {
-            loop {
+            while let Some(item) = query.peek() {
                 // get next item in query
-                let query_item = match query.peek() {
-                    Some(item) => *item,
-                    None => break, // no items left in query
-                };
-
+                let query_item = *item;
                 // we have not reached next queried part of tree
                 if *query_item > key.as_slice() {
                     // continue to next push
