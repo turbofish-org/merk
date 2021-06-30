@@ -362,7 +362,7 @@ impl Tree {
             }
         }
 
-        c.write(&self)?;
+        c.write(self)?;
 
         let (prune_left, prune_right) = c.prune(self);
         if prune_left {
