@@ -165,7 +165,7 @@ impl Restorer {
                 self.leaf_hashes.as_ref().unwrap().len() / 2
             );
 
-            let chunks_remaining = (2 as usize).pow(trunk_height as u32);
+            let chunks_remaining = (2_usize).pow(trunk_height as u32);
             assert_eq!(self.remaining_chunks_unchecked(), chunks_remaining);
             chunks_remaining
         } else {
