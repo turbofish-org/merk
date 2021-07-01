@@ -160,6 +160,7 @@ impl Merk {
 
     /// Applies a batch of operations (puts and deletes) to the tree.
     ///
+    /// # Safety
     /// This is unsafe because the keys in `batch` must be sorted and unique -
     /// if they are not, there will be undefined behavior. For a safe version of
     /// this method which checks to ensure the batch is sorted and unique, see
