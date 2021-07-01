@@ -2,8 +2,8 @@ pub mod chunks;
 pub mod restore;
 
 use std::cell::Cell;
-use std::collections::LinkedList;
 use std::cmp::Ordering;
+use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
 use failure::bail;
@@ -148,10 +148,10 @@ impl Merk {
         let mut maybe_prev_key: Option<Vec<u8>> = None;
         for (key, _) in batch.iter() {
             if let Some(prev_key) = maybe_prev_key {
-                match prev_key.cmp(key){
-                    Ordering::Greater => bail!("Keys in batch must be sorted"), 
+                match prev_key.cmp(key) {
+                    Ordering::Greater => bail!("Keys in batch must be sorted"),
                     Ordering::Equal => bail!("Keys in batch must be unique"),
-                    _ => ()
+                    _ => (),
                 }
             }
             maybe_prev_key = Some(key.to_vec());
@@ -263,25 +263,24 @@ impl Merk {
         let aux_cf = self.db.cf_handle(AUX_CF_NAME).unwrap();
 
         let mut batch = rocksdb::WriteBatch::default();
-        let mut to_batch =
-            self.use_tree_mut(|maybe_tree| -> UseTreeMutResult {
-                // TODO: concurrent commit
-                if let Some(tree) = maybe_tree {
-                    // TODO: configurable committer
-                    let mut committer = MerkCommitter::new(tree.height(), 100);
-                    tree.commit(&mut committer)?;
+        let mut to_batch = self.use_tree_mut(|maybe_tree| -> UseTreeMutResult {
+            // TODO: concurrent commit
+            if let Some(tree) = maybe_tree {
+                // TODO: configurable committer
+                let mut committer = MerkCommitter::new(tree.height(), 100);
+                tree.commit(&mut committer)?;
 
-                    // update pointer to root node
-                    batch.put_cf(internal_cf, ROOT_KEY_KEY, tree.key());
+                // update pointer to root node
+                batch.put_cf(internal_cf, ROOT_KEY_KEY, tree.key());
 
-                    Ok(committer.batch)
-                } else {
-                    // empty tree, delete pointer to root
-                    batch.delete_cf(internal_cf, ROOT_KEY_KEY);
+                Ok(committer.batch)
+            } else {
+                // empty tree, delete pointer to root
+                batch.delete_cf(internal_cf, ROOT_KEY_KEY);
 
-                    Ok(vec![])
-                }
-            })?;
+                Ok(vec![])
+            }
+        })?;
 
         // TODO: move this to MerkCommitter impl?
         for key in deleted_keys {
@@ -543,7 +542,7 @@ mod test {
             merk.apply(&make_batch_seq(i * 2_000..(i + 1) * 2_000), &[])
                 .expect("apply failed");
         }
-        
+
         unsafe {
             merk.crash().unwrap();
         }
