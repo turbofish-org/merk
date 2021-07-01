@@ -73,6 +73,7 @@ impl<'a> ChunkProducer<'a> {
     }
 
     /// Returns the total number of chunks for the underlying Merk tree.
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         let boundaries_len = self.chunk_boundaries.len();
         if boundaries_len == 0 {
