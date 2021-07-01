@@ -32,6 +32,8 @@ pub struct Merk {
     pub(crate) path: PathBuf,
 }
 
+pub type UseTreeMutResult = Result<Vec<(Vec<u8>, Option<Vec<u8>>)>>;
+
 impl Merk {
     /// Opens a store with the specified file path. If no store exists at that
     /// path, one will be created.
@@ -262,7 +264,7 @@ impl Merk {
 
         let mut batch = rocksdb::WriteBatch::default();
         let mut to_batch =
-            self.use_tree_mut(|maybe_tree| -> Result<Vec<(Vec<u8>, Option<Vec<u8>>)>> {
+            self.use_tree_mut(|maybe_tree| -> UseTreeMutResult {
                 // TODO: concurrent commit
                 if let Some(tree) = maybe_tree {
                     // TODO: configurable committer
