@@ -234,7 +234,7 @@ impl Merk {
         Q: Into<QueryItem>,
         I: IntoIterator<Item = Q>,
     {
-        let query: Vec<QueryItem> = query.into_iter().map(Into::into).collect();
+        let query_vec: Vec<QueryItem> = query.into_iter().map(Into::into).collect();
 
         self.use_tree_mut(|maybe_tree| {
             let tree = match maybe_tree {
@@ -243,7 +243,7 @@ impl Merk {
             };
 
             let mut ref_walker = RefWalker::new(tree, self.source());
-            let (proof, _) = ref_walker.create_proof(query.as_slice())?;
+            let (proof, _) = ref_walker.create_proof(query_vec.as_slice())?;
 
             let mut bytes = Vec::with_capacity(128);
             encode_into(proof.iter(), &mut bytes);
