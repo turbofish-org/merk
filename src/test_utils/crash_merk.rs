@@ -23,6 +23,7 @@ impl CrashMerk {
         })
     }
 
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn crash(&mut self) -> Result<()> {
         ManuallyDrop::drop(&mut self.inner.take().unwrap());
 
