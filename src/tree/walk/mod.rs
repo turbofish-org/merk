@@ -31,7 +31,7 @@ where
 
     /// Similar to `Tree#detach`, but yields a `Walker` which fetches from the
     /// same source as `self`. Returned tuple is `(updated_self, maybe_child_walker)`.
-    pub unsafe fn detach(mut self, left: bool) -> Result<(Self, Option<Self>)> {
+    pub fn detach(mut self, left: bool) -> Result<(Self, Option<Self>)> {
         let link = match self.tree.link(left) {
             None => return Ok((self, None)),
             Some(link) => link,
@@ -57,7 +57,7 @@ where
 
     /// Similar to `Tree#detach_expect`, but yields a `Walker` which fetches
     /// from the same source as `self`. Returned tuple is `(updated_self, child_walker)`.
-    pub unsafe fn detach_expect(self, left: bool) -> Result<(Self, Self)> {
+    pub fn detach_expect(self, left: bool) -> Result<(Self, Self)> {
         let (walker, maybe_child) = self.detach(left)?;
         if let Some(child) = maybe_child {
             Ok((walker, child))
@@ -76,7 +76,7 @@ where
         F: FnOnce(Option<Self>) -> Result<Option<T>>,
         T: Into<Tree>,
     {
-        let (mut walker, maybe_child) = unsafe { self.detach(left)? };
+        let (mut walker, maybe_child) = self.detach(left)?;
         let new_child = f(maybe_child)?.map(|t| t.into());
         walker.tree.own(|t| t.attach(left, new_child));
         Ok(walker)
@@ -89,7 +89,7 @@ where
         F: FnOnce(Self) -> Result<Option<T>>,
         T: Into<Tree>,
     {
-        let (mut walker, child) = unsafe { self.detach_expect(left)? };
+        let (mut walker, child) = self.detach_expect(left)?;
         let new_child = f(child)?.map(|t| t.into());
         walker.tree.own(|t| t.attach(left, new_child));
         Ok(walker)
@@ -117,7 +117,7 @@ where
     }
 
     /// Similar to `Tree#attach`, but can also take a `Walker` since it
-    /// implements `Into<Tree`>.
+    /// implements `Into<Tree>`.
     pub fn attach<T>(mut self, left: bool, maybe_child: Option<T>) -> Self
     where
         T: Into<Tree>,
