@@ -1,4 +1,5 @@
 mod map;
+mod map_js;
 
 #[cfg(feature = "full")]
 use {super::Op, std::collections::LinkedList};
@@ -11,8 +12,10 @@ use failure::bail;
 use std::cmp::{max, min, Ordering};
 use std::collections::BTreeSet;
 use std::ops::{Range, RangeInclusive};
-
+use wasm_bindgen::prelude::*;
 pub use map::*;
+pub use map_js::*;
+use console_error_panic_hook;
 
 /// `Query` represents one or more keys or ranges of keys, which can be used to
 /// resolve a proof which will include all of the requested values.
@@ -340,6 +343,25 @@ where
             (LinkedList::new(), (false, false))
         })
     }
+}
+
+#[wasm_bindgen]
+pub fn verify_js(bytes: &[u8], expected_hash: &[u8]) -> JsMap {
+    console_error_panic_hook::set_once();
+    let ops = Decoder::new(&bytes);
+    let mut map_builder = JsMapBuilder::new();
+
+    let root = execute(ops, true, |node| map_builder.insert(node)).unwrap();
+
+    if root.hash() != expected_hash {
+        panic!(
+            "Proof did not match expected hash\n\tExpected: {:?}\n\tActual: {:?}",
+            expected_hash,
+            root.hash()
+        );
+    }
+
+    map_builder.build()
 }
 
 pub fn verify(bytes: &[u8], expected_hash: Hash) -> Result<Map> {
