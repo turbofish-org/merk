@@ -49,10 +49,10 @@ impl Tree {
 
         match &self.node {
             Node::Hash(hash) => *hash,
-            Node::KVHash(kv_hash) => compute_hash(&self, *kv_hash),
+            Node::KVHash(kv_hash) => compute_hash(self, *kv_hash),
             Node::KV(key, value) => {
                 let kv_hash = kv_hash(key.as_slice(), value.as_slice());
-                compute_hash(&self, kv_hash)
+                compute_hash(self, kv_hash)
             }
         }
     }

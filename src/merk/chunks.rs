@@ -73,6 +73,7 @@ impl<'a> ChunkProducer<'a> {
     }
 
     /// Returns the total number of chunks for the underlying Merk tree.
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         let boundaries_len = self.chunk_boundaries.len();
         if boundaries_len == 0 {
@@ -87,7 +88,7 @@ impl<'a> ChunkProducer<'a> {
     /// optimizing throughput compared to random access.
     fn next_chunk(&mut self) -> Result<Vec<u8>> {
         if self.index == 0 {
-            if self.trunk.len() == 0 {
+            if self.trunk.is_empty() {
                 bail!("Attempted to fetch chunk on empty tree");
             }
             self.index += 1;

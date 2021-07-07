@@ -70,37 +70,25 @@ impl Link {
     /// Returns `true` if the link is of the `Link::Reference` variant.
     #[inline]
     pub fn is_reference(&self) -> bool {
-        match self {
-            Link::Reference { .. } => true,
-            _ => false,
-        }
+        matches!(self, Link::Reference { .. })
     }
 
     /// Returns `true` if the link is of the `Link::Modified` variant.
     #[inline]
     pub fn is_modified(&self) -> bool {
-        match self {
-            Link::Modified { .. } => true,
-            _ => false,
-        }
+        matches!(self, Link::Modified { .. })
     }
 
     /// Returns `true` if the link is of the `Link::Uncommitted` variant.
     #[inline]
     pub fn is_uncommitted(&self) -> bool {
-        match self {
-            Link::Uncommitted { .. } => true,
-            _ => false,
-        }
+        matches!(self, Link::Uncommitted { .. })
     }
 
     /// Returns `true` if the link is of the `Link::Loaded` variant.
     #[inline]
     pub fn is_stored(&self) -> bool {
-        match self {
-            Link::Loaded { .. } => true,
-            _ => false,
-        }
+        matches!(self, Link::Loaded { .. })
     }
 
     /// Returns the key of the tree referenced by this link, as a slice.

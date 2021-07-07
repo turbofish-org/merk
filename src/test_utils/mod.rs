@@ -120,7 +120,7 @@ pub fn make_tree_rand(node_count: u64, batch_size: u64, initial_seed: u64) -> Tr
     assert!((node_count % batch_size) == 0);
 
     let value = vec![123; 60];
-    let mut tree = Tree::new(vec![0; 20], value.clone());
+    let mut tree = Tree::new(vec![0; 20], value);
 
     let mut seed = initial_seed;
 
@@ -143,7 +143,7 @@ pub fn make_tree_seq(node_count: u64) -> Tree {
     };
 
     let value = vec![123; 60];
-    let mut tree = Tree::new(vec![0; 20], value.clone());
+    let mut tree = Tree::new(vec![0; 20], value);
 
     let batch_count = node_count / batch_size;
     for i in 0..batch_count {

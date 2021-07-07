@@ -215,16 +215,14 @@ where
     /// Applies an AVL tree rotation, a constant-time operation which only needs
     /// to swap pointers in order to rebalance a tree.
     fn rotate(self, left: bool) -> Result<Self> {
-        unsafe {
-            let (tree, child) = self.detach_expect(left)?;
-            let (child, maybe_grandchild) = child.detach(!left)?;
+        let (tree, child) = self.detach_expect(left)?;
+        let (child, maybe_grandchild) = child.detach(!left)?;
 
-            // attach grandchild to self
-            let tree = tree.attach(left, maybe_grandchild).maybe_balance()?;
+        // attach grandchild to self
+        let tree = tree.attach(left, maybe_grandchild).maybe_balance()?;
 
-            // attach self to child, return child
-            child.attach(!left, Some(tree)).maybe_balance()
-        }
+        // attach self to child, return child
+        child.attach(!left, Some(tree)).maybe_balance()
     }
 
     /// Removes the root node from the tree. Rearranges and rebalances
@@ -235,19 +233,17 @@ where
         let has_right = tree.link(false).is_some();
         let left = tree.child_height(true) > tree.child_height(false);
 
-        let maybe_tree = unsafe {
-            if has_left && has_right {
-                // two children, promote edge of taller child
-                let (tree, tall_child) = self.detach_expect(left)?;
-                let (_, short_child) = tree.detach_expect(!left)?;
-                Some(tall_child.promote_edge(!left, short_child)?)
-            } else if has_left || has_right {
-                // single child, promote it
-                Some(self.detach_expect(left)?.1)
-            } else {
-                // no child
-                None
-            }
+        let maybe_tree = if has_left && has_right {
+            // two children, promote edge of taller child
+            let (tree, tall_child) = self.detach_expect(left)?;
+            let (_, short_child) = tree.detach_expect(!left)?;
+            Some(tall_child.promote_edge(!left, short_child)?)
+        } else if has_left || has_right {
+            // single child, promote it
+            Some(self.detach_expect(left)?.1)
+        } else {
+            // no child
+            None
         };
 
         Ok(maybe_tree)
@@ -270,13 +266,13 @@ where
     fn remove_edge(self, left: bool) -> Result<(Self, Option<Self>)> {
         if self.tree().link(left).is_some() {
             // this node is not the edge, recurse
-            let (tree, child) = unsafe { self.detach_expect(left)? };
+            let (tree, child) = self.detach_expect(left)?;
             let (edge, maybe_child) = child.remove_edge(left)?;
             let tree = tree.attach(left, maybe_child).maybe_balance()?;
             Ok((edge, Some(tree)))
         } else {
             // this node is the edge, detach its child if present
-            unsafe { self.detach(!left) }
+            self.detach(!left)
         }
     }
 }

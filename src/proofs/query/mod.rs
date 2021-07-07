@@ -93,9 +93,9 @@ impl<Q: Into<QueryItem>> From<Vec<Q>> for Query {
     }
 }
 
-impl Into<Vec<QueryItem>> for Query {
-    fn into(self) -> Vec<QueryItem> {
-        self.into_iter().collect()
+impl From<Query> for Vec<QueryItem> {
+    fn from(q: Query) -> Vec<QueryItem> {
+        q.into_iter().collect()
     }
 }
 
@@ -161,11 +161,7 @@ impl PartialEq for QueryItem {
 
 impl PartialEq<&[u8]> for QueryItem {
     fn eq(&self, other: &&[u8]) -> bool {
-        if let Some(Ordering::Equal) = self.partial_cmp(other) {
-            true
-        } else {
-            false
-        }
+        matches!(self.partial_cmp(other), Some(Ordering::Equal))
     }
 }
 
@@ -173,8 +169,8 @@ impl Eq for QueryItem {}
 
 impl Ord for QueryItem {
     fn cmp(&self, other: &QueryItem) -> Ordering {
-        let cmp_lu = self.lower_bound().cmp(&other.upper_bound().0);
-        let cmp_ul = self.upper_bound().0.cmp(&other.lower_bound());
+        let cmp_lu = self.lower_bound().cmp(other.upper_bound().0);
+        let cmp_ul = self.upper_bound().0.cmp(other.lower_bound());
         let self_inclusive = self.upper_bound().1;
         let other_inclusive = other.upper_bound().1;
 
@@ -384,13 +380,9 @@ pub fn verify_query(
 
     let root = execute(ops, true, |node| {
         if let Node::KV(key, value) = node {
-            loop {
+            while let Some(item) = query.peek() {
                 // get next item in query
-                let query_item = match query.peek() {
-                    Some(item) => *item,
-                    None => break, // no items left in query
-                };
-
+                let query_item = *item;
                 // we have not reached next queried part of tree
                 if *query_item > key.as_slice() {
                     // continue to next push

@@ -34,7 +34,7 @@ where
     /// Traverses to the child on the given side (if any), fetching from the
     /// source if pruned. When fetching, the link is upgraded from
     /// `Link::Reference` to `Link::Loaded`.
-    pub fn walk<'b>(&'b mut self, left: bool) -> Result<Option<RefWalker<'b, S>>> {
+    pub fn walk(&mut self, left: bool) -> Result<Option<RefWalker<S>>> {
         let link = match self.tree.link(left) {
             None => return Ok(None),
             Some(link) => link,

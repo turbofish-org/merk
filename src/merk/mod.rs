@@ -2,6 +2,7 @@ pub mod chunks;
 pub mod restore;
 
 use std::cell::Cell;
+use std::cmp::Ordering;
 use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
@@ -30,6 +31,8 @@ pub struct Merk {
     pub(crate) db: rocksdb::DB,
     pub(crate) path: PathBuf,
 }
+
+pub type UseTreeMutResult = Result<Vec<(Vec<u8>, Option<Vec<u8>>)>>;
 
 impl Merk {
     /// Opens a store with the specified file path. If no store exists at that
@@ -142,13 +145,13 @@ impl Merk {
     /// ```
     pub fn apply(&mut self, batch: &Batch, aux: &Batch) -> Result<()> {
         // ensure keys in batch are sorted and unique
-        let mut maybe_prev_key = None;
+        let mut maybe_prev_key: Option<Vec<u8>> = None;
         for (key, _) in batch.iter() {
             if let Some(prev_key) = maybe_prev_key {
-                if prev_key > *key {
-                    bail!("Keys in batch must be sorted");
-                } else if prev_key == *key {
-                    bail!("Keys in batch must be unique");
+                match prev_key.cmp(key) {
+                    Ordering::Greater => bail!("Keys in batch must be sorted"),
+                    Ordering::Equal => bail!("Keys in batch must be unique"),
+                    _ => (),
                 }
             }
             maybe_prev_key = Some(key.to_vec());
@@ -159,6 +162,7 @@ impl Merk {
 
     /// Applies a batch of operations (puts and deletes) to the tree.
     ///
+    /// # Safety
     /// This is unsafe because the keys in `batch` must be sorted and unique -
     /// if they are not, there will be undefined behavior. For a safe version of
     /// this method which checks to ensure the batch is sorted and unique, see
@@ -233,7 +237,7 @@ impl Merk {
         Q: Into<QueryItem>,
         I: IntoIterator<Item = Q>,
     {
-        let query: Vec<QueryItem> = query.into_iter().map(Into::into).collect();
+        let query_vec: Vec<QueryItem> = query.into_iter().map(Into::into).collect();
 
         self.use_tree_mut(|maybe_tree| {
             let tree = match maybe_tree {
@@ -242,7 +246,7 @@ impl Merk {
             };
 
             let mut ref_walker = RefWalker::new(tree, self.source());
-            let (proof, _) = ref_walker.create_proof(query.as_slice())?;
+            let (proof, _) = ref_walker.create_proof(query_vec.as_slice())?;
 
             let mut bytes = Vec::with_capacity(128);
             encode_into(proof.iter(), &mut bytes);
@@ -259,25 +263,24 @@ impl Merk {
         let aux_cf = self.db.cf_handle(AUX_CF_NAME).unwrap();
 
         let mut batch = rocksdb::WriteBatch::default();
-        let mut to_batch =
-            self.use_tree_mut(|maybe_tree| -> Result<Vec<(Vec<u8>, Option<Vec<u8>>)>> {
-                // TODO: concurrent commit
-                if let Some(tree) = maybe_tree {
-                    // TODO: configurable committer
-                    let mut committer = MerkCommitter::new(tree.height(), 100);
-                    tree.commit(&mut committer)?;
+        let mut to_batch = self.use_tree_mut(|maybe_tree| -> UseTreeMutResult {
+            // TODO: concurrent commit
+            if let Some(tree) = maybe_tree {
+                // TODO: configurable committer
+                let mut committer = MerkCommitter::new(tree.height(), 100);
+                tree.commit(&mut committer)?;
 
-                    // update pointer to root node
-                    batch.put_cf(internal_cf, ROOT_KEY_KEY, tree.key());
+                // update pointer to root node
+                batch.put_cf(internal_cf, ROOT_KEY_KEY, tree.key());
 
-                    Ok(committer.batch)
-                } else {
-                    // empty tree, delete pointer to root
-                    batch.delete_cf(internal_cf, ROOT_KEY_KEY);
+                Ok(committer.batch)
+            } else {
+                // empty tree, delete pointer to root
+                batch.delete_cf(internal_cf, ROOT_KEY_KEY);
 
-                    Ok(vec![])
-                }
-            })?;
+                Ok(vec![])
+            }
+        })?;
 
         // TODO: move this to MerkCommitter impl?
         for key in deleted_keys {
@@ -540,7 +543,9 @@ mod test {
                 .expect("apply failed");
         }
 
-        merk.crash().unwrap();
+        unsafe {
+            merk.crash().unwrap();
+        }
 
         assert_eq!(merk.get_aux(&[2]).unwrap(), Some(vec![3]));
         merk.destroy().unwrap();
