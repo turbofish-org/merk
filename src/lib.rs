@@ -34,3 +34,4 @@ pub use tree::{Batch, BatchEntry, Hash, Op, PanicSource, HASH_LENGTH};
 pub use proofs::query::verify_query;
 
 pub use proofs::query::verify;
+pub use proofs::query::execute_proof;
