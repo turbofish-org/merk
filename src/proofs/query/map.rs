@@ -78,7 +78,7 @@ impl Map {
         Ok(entry)
     }
 
-    pub fn all(&self) -> Iter<'_, K, V> {
+    pub fn all(&self) -> Iter<'_, Vec<u8>, (bool, Vec<u8>)> {
         self.entries.iter()
     }
 
