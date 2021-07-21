@@ -4,6 +4,7 @@ use failure::{bail, ensure, format_err};
 use std::collections::btree_map;
 use std::collections::BTreeMap;
 use std::ops::{Bound, RangeBounds};
+use std::collections::btree_map::Iter;
 
 /// `MapBuilder` allows a consumer to construct a `Map` by inserting the nodes
 /// contained in a proof, in key-order.
@@ -75,6 +76,10 @@ impl Map {
             .transpose()?
             .map(|(_, value)| value);
         Ok(entry)
+    }
+
+    pub fn all(&self) -> Iter<'_, K, V> {
+        self.entries.iter()
     }
 
     /// Returns an iterator over all (key, value) entries in the requested range
