@@ -1,6 +1,6 @@
 use super::super::Node;
 use crate::Result;
-use failure::{ensure, format_err};
+use failure::format_err;
 use std::collections::btree_map;
 use std::collections::BTreeMap;
 use std::ops::{Bound, RangeBounds};
