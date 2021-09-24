@@ -1,8 +1,7 @@
-pub use failure::Error;
 pub use thiserror::Error;
 
-#[derive(thiserror::Error, Debug)]
-pub enum MyError {
+#[derive(Error, Debug)]
+pub enum Error {
     #[error("Unknown Error")]
     Unknown,
 }
