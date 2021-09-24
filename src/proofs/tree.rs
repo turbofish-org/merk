@@ -1,5 +1,5 @@
 use super::{Node, Op};
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::tree::{kv_hash, node_hash, Hash, NULL_HASH};
 
 /// Contains a tree's child node and its hash. The hash can always be assumed to
