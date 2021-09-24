@@ -34,6 +34,8 @@ pub enum Error {
     TreeError(String),
     #[error("{Unexpected Node Error: {0}")]
     UnexpectedNodeError(String),
+    #[error("Attach Error: ")]
+    AttachError(String),
     #[error("Unknown Error")]
     Unknown,
 }
