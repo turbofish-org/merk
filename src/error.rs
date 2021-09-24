@@ -24,6 +24,8 @@ pub enum Error {
     ProofHashMismatch(String, String),
     #[error("Query Error: {0}")]
     QueryError(String),
+    #[error("Bound Error: {0}")]
+    BoundError(String),
     #[error("Unknown Error")]
     Unknown,
 }
