@@ -14,9 +14,9 @@ pub enum Error {
     BatchKey(String),
     #[error("Key Error: {0}")]
     KeyError(String),
-    #[error("Path Error: {}")]
+    #[error("Path Error: {0}")]
     PathError(String),
-    #[error("Chunk Processing Error: {}")]
+    #[error("Chunk Processing Error: {0}")]
     ChunkProcessingError(String),
     #[error("Proof did not match expected hash\n\tExpected: {0}\n\tActual: {1}")]
     ProofHashMismatch(String, String),
@@ -30,11 +30,11 @@ pub enum Error {
     BoundError(String),
     #[error("Tree Error: {0}")]
     TreeError(String),
-    #[error("{Unexpected Node Error: {0}")]
+    #[error("Unexpected Node Error: {0}")]
     UnexpectedNodeError(String),
-    #[error("Attach Error: ")]
+    #[error("Attach Error: {0}")]
     AttachError(String),
-    #[error("Tried to delete non-existent key {}")]
+    #[error("Tried to delete non-existent key {0}")]
     KeyDeleteError(String),
     #[error(transparent)]
     IOError(#[from] std::io::Error),
