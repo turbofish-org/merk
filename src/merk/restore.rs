@@ -12,7 +12,6 @@ use crate::{
     tree::{Link, RefWalker, Tree},
     Hash, Result,
 };
-use failure::bail;
 use rocksdb::WriteBatch;
 use std::iter::Peekable;
 use std::{path::Path, u8};
