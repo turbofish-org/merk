@@ -134,11 +134,10 @@ impl Restorer {
         let (trunk, height) = verify_trunk(ops)?;
 
         if trunk.hash() != self.expected_root_hash {
-            bail!(
-                "Proof did not match expected hash\n\tExpected: {:?}\n\tActual: {:?}",
+            Err(Error::ProofHashMismatch(
                 self.expected_root_hash,
-                trunk.hash()
-            );
+                trunk.hash(),
+            ))
         }
 
         let root_key = trunk.key().to_vec();
