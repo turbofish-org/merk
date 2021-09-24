@@ -55,9 +55,7 @@ impl<'a> ChunkProducer<'a> {
     /// `producer.len()`.
     pub fn chunk(&mut self, index: usize) -> Result<Vec<u8>> {
         if index >= self.len() {
-            Err(MyError::IndexOutOfBounds(
-                "Chunk index out-of-bounds".into(),
-            ));
+            Err(Error::IndexOutOfBounds("Chunk index out-of-bounds".into()));
         }
 
         self.index = index;
@@ -90,7 +88,7 @@ impl<'a> ChunkProducer<'a> {
     fn next_chunk(&mut self) -> Result<Vec<u8>> {
         if self.index == 0 {
             if self.trunk.is_empty() {
-                Err(MyError::FetchError(
+                Err(Error::FetchError(
                     "Attempted to fetch chunk on empty tree".into(),
                 ));
             }
