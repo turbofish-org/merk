@@ -20,6 +20,8 @@ pub enum Error {
     ChunkProcessingError(String),
     #[error("Proof did not match expected hash\n\tExpected: {0}\n\tActual: {1}")]
     ProofHashMismatch(String, String),
+    #[error("Query Error: {0}")]
+    QueryError(String),
     #[error("Unknown Error")]
     Unknown,
 }
