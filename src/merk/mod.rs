@@ -149,8 +149,10 @@ impl Merk {
         for (key, _) in batch.iter() {
             if let Some(prev_key) = maybe_prev_key {
                 match prev_key.cmp(key) {
-                    Ordering::Greater => bail!("Keys in batch must be sorted"),
-                    Ordering::Equal => bail!("Keys in batch must be unique"),
+                    Ordering::Greater => {
+                        Err(Error::BatchKey("Keys in batch must be sorted".into()))
+                    }
+                    Ordering::Equal => Err(Error::BatchKey("Keys in batch must be unique".into())),
                     _ => (),
                 }
             }
