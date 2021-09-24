@@ -26,6 +26,8 @@ pub enum Error {
     QueryError(String),
     #[error("Bound Error: {0}")]
     BoundError(String),
+    #[error("Tree Error: {0}")]
+    TreeError(String),
     #[error("Unknown Error")]
     Unknown,
 }
