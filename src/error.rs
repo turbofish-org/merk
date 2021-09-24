@@ -8,6 +8,8 @@ pub enum Error {
     IndexOutOfBounds(String),
     #[error("Fetch Error: {0}")]
     FetchError(String),
+    #[error("Proof Error: {0}")]
+    ProofError(String),
     #[error("Batch Key Error: {0}")]
     BatchKey(String),
     #[error("Unknown Error")]
