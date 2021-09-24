@@ -27,7 +27,7 @@ pub mod tree;
 #[cfg(feature = "full")]
 pub use crate::merk::{chunks, restore, Merk};
 
-pub use error::{Error, MyError, Result};
+pub use error::{Error, Result};
 pub use tree::{Batch, BatchEntry, Hash, Op, PanicSource, HASH_LENGTH};
 
 #[allow(deprecated)]
