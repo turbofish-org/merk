@@ -10,6 +10,8 @@ pub enum Error {
     FetchError(String),
     #[error("Proof Error: {0}")]
     ProofError(String),
+    #[error("Key not found: {0}")]
+    KeyNotFound(String),
     #[error("Batch Key Error: {0}")]
     BatchKey(String),
     #[error("Unknown Error")]
