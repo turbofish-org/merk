@@ -345,7 +345,10 @@ pub fn verify(bytes: &[u8], expected_hash: Hash) -> Result<Map> {
     let root = execute(ops, true, |node| map_builder.insert(node))?;
 
     if root.hash() != expected_hash {
-        return Err(Error::ProofHashMismatch(expected_hash, root.hash()));
+        return Err(Error::ProofHashMismatch(
+            expected_hash.into(),
+            root.hash().into(),
+        ));
     }
 
     Ok(map_builder.build())
@@ -461,7 +464,10 @@ pub fn verify_query(
     }
 
     if root.hash() != expected_hash {
-        return Err(Error::ProofHashMismatch(expected_hash, root.hash()));
+        return Err(Error::ProofHashMismatch(
+            expected_hash.into(),
+            root.hash().into(),
+        ));
     }
 
     Ok(output)

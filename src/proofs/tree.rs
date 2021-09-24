@@ -114,7 +114,7 @@ impl Tree {
     pub(crate) fn attach(&mut self, left: bool, child: Tree) -> Result<()> {
         if self.child(left).is_some() {
             return Err(Error::AttachError(
-                "Tried to attach to left child, but it is already Some",
+                "Tried to attach to left child, but it is already Some".into(),
             ));
         }
 
@@ -264,7 +264,7 @@ where
                     // keys should always increase
                     if let Some(last_key) = &maybe_last_key {
                         if key <= last_key {
-                            return Err(Error::KeyError("Incorrect key ordering"));
+                            return Err(Error::KeyError("Incorrect key ordering".into()));
                         }
                     }
 
@@ -281,7 +281,7 @@ where
 
     if stack.len() != 1 {
         return Err(Error::ProofError(
-            "Expected proof to result in exactly on stack item",
+            "Expected proof to result in exactly on stack item".into(),
         ));
     }
 
