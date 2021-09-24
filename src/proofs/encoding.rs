@@ -72,7 +72,7 @@ impl Decode for Op {
             0x10 => Op::Parent,
             0x11 => Op::Child,
             _ => {
-                return Err(Error::ProofError("Proof has unexpected value"));
+                return Err(ed::Error::UnexpectedBytes("Proof has unexpected value"));
             }
         })
     }
