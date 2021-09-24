@@ -4,7 +4,7 @@
 use super::Merk;
 use crate::proofs::{chunk::get_next_chunk, Node, Op};
 
-use crate::Result;
+use crate::{Error, Result};
 use ed::Encode;
 use failure::bail;
 use rocksdb::DBRawIterator;
