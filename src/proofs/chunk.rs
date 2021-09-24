@@ -179,15 +179,13 @@ pub(crate) fn verify_leaf<I: Iterator<Item = Result<Op>>>(
 ) -> Result<ProofTree> {
     let tree = execute(ops, false, |node| match node {
         Node::KV(_, _) => Ok(()),
-        _ => bail!("Leaf chunks must contain full subtree"),
+        _ => {
+            return Err(Error::TreeError("Leaf chunks must contain full subtree"));
+        }
     })?;
 
     if tree.hash() != expected_hash {
-        bail!(
-            "Leaf chunk proof did not match expected hash\n\tExpected: {:?}\n\tActual: {:?}",
-            expected_hash,
-            tree.hash()
-        );
+        return Err(Error::LeafChunkHashMismatch(expected_hash, tree.hash()));
     }
 
     Ok(tree)
