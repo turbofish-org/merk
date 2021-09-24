@@ -91,7 +91,9 @@ impl<'a> ChunkProducer<'a> {
     fn next_chunk(&mut self) -> Result<Vec<u8>> {
         if self.index == 0 {
             if self.trunk.is_empty() {
-                bail!("Attempted to fetch chunk on empty tree");
+                Err(MyError::FetchError(
+                    "Attempted to fetch chunk on empty tree".into(),
+                ));
             }
             self.index += 1;
             return self.trunk.encode();
