@@ -1,5 +1,5 @@
 use super::super::Node;
-use crate::Result;
+use crate::{Error, Result};
 use std::collections::btree_map;
 use std::collections::BTreeMap;
 use std::ops::{Bound, RangeBounds};

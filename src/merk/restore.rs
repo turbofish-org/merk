@@ -10,7 +10,7 @@ use crate::{
         Decoder, Node,
     },
     tree::{Link, RefWalker, Tree},
-    Hash, Result,
+    Error, Hash, Result,
 };
 use rocksdb::WriteBatch;
 use std::iter::Peekable;

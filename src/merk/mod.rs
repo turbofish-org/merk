@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use rocksdb::{checkpoint::Checkpoint, ColumnFamilyDescriptor, WriteBatch};
 
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::proofs::{encode_into, query::QueryItem, Query};
 use crate::tree::{Batch, Commit, Fetch, Hash, Link, Op, RefWalker, Tree, Walker, NULL_HASH};
 
