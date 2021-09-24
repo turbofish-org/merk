@@ -80,7 +80,9 @@ impl Restorer {
     /// to 0).
     pub fn finalize(mut self) -> Result<Merk> {
         if self.remaining_chunks().is_none() || self.remaining_chunks().unwrap() != 0 {
-            bail!("Called finalize before all chunks were processed");
+            Err(Error::ChunkProcessingError(
+                "Called finalize before all chunks were processed",
+            ))
         }
 
         if self.trunk_height.unwrap() >= MIN_TRUNK_HEIGHT {
