@@ -16,6 +16,8 @@ pub enum Error {
     BatchKey(String),
     #[error("Path Error: {}")]
     PathError(String),
+    #[error("Chunk Processing Error: {}")]
+    ChunkProcessingError(String),
     #[error("Unknown Error")]
     Unknown,
 }
