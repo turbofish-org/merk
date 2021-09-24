@@ -403,7 +403,9 @@ pub fn verify_query(
                         // cannot verify lower bound - we have an abridged
                         // tree so we cannot tell what the preceding key was
                         Some(_) => {
-                            bail!("Cannot verify lower bound of queried range");
+                            return Err(Error::BoundError(
+                                "Cannot verify lower bound of queried range",
+                            ));
                         }
                     }
                 }
@@ -435,7 +437,7 @@ pub fn verify_query(
         } else if in_range {
             // we encountered a queried range but the proof was abridged (saw a
             // non-KV push), we are missing some part of the range
-            bail!("Proof is missing data for query");
+            return Err(Error::QueryError("Proof is missing data for query"));
         }
 
         last_push = Some(node.clone());
@@ -452,16 +454,14 @@ pub fn verify_query(
 
             // proof contains abridged data so we cannot verify absence of
             // remaining query items
-            _ => bail!("Proof is missing data for query"),
+            _ => {
+                return Err(Error::QueryError("Proof is missing data for query"));
+            }
         }
     }
 
     if root.hash() != expected_hash {
-        bail!(
-            "Proof did not match expected hash\n\tExpected: {:?}\n\tActual: {:?}",
-            expected_hash,
-            root.hash()
-        );
+        return Err(Error::ProofHashMismatch(expected_hash, root.hash()));
     }
 
     Ok(output)
