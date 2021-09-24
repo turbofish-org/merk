@@ -114,7 +114,9 @@ impl Tree {
     /// already a child attached to this side.
     pub(crate) fn attach(&mut self, left: bool, child: Tree) -> Result<()> {
         if self.child(left).is_some() {
-            bail!("Tried to attach to left child, but it is already Some");
+            return Err(Error::AttachError(
+                "Tried to attach to left child, but it is already Some",
+            ));
         }
 
         self.height = self.height.max(child.height + 1);
