@@ -8,7 +8,7 @@ use {
 };
 
 use super::{Node, Op};
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::tree::{Fetch, RefWalker};
 
 /// The minimum number of layers the trunk will be guaranteed to have before
