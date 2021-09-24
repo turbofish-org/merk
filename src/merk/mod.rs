@@ -245,7 +245,9 @@ impl Merk {
         self.use_tree_mut(|maybe_tree| {
             let tree = match maybe_tree {
                 None => {
-                    return Err(Error::ProofError("Cannot create proof for empty tree"));
+                    return Err(Error::ProofError(
+                        "Cannot create proof for empty tree".into(),
+                    ));
                 }
                 Some(tree) => tree,
             };
