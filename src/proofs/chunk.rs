@@ -201,7 +201,9 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
         Ok(match tree.child(true) {
             Some(child) => {
                 if let Node::Hash(_) = child.tree.node {
-                    bail!("Expected height proof to only contain KV and KVHash nodes")
+                    return Err(Error::UnexpectedNodeError(
+                        "Expected height proof to only contain KV and KVHash nodes",
+                    ));
                 }
                 verify_height_proof(&child.tree)? + 1
             }
