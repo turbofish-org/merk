@@ -14,6 +14,8 @@ pub enum Error {
     KeyNotFound(String),
     #[error("Batch Key Error: {0}")]
     BatchKey(String),
+    #[error("Path Error: {}")]
+    PathError(String),
     #[error("Unknown Error")]
     Unknown,
 }
