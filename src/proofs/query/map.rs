@@ -25,10 +25,11 @@ impl MapBuilder {
         match node {
             Node::KV(key, value) => {
                 if let Some((prev_key, _)) = self.0.entries.last_key_value() {
-                    ensure!(
-                        key > prev_key,
-                        "Expected nodes to be in increasing key order"
-                    );
+                    if key > prev_key {
+                        Err(Error::KeyError(
+                            "Expected nodes to be in increasing key order",
+                        ))
+                    }
                 }
 
                 let value = (self.0.right_edge, value.clone());
