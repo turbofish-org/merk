@@ -25,9 +25,9 @@ impl MapBuilder {
             Node::KV(key, value) => {
                 if let Some((prev_key, _)) = self.0.entries.last_key_value() {
                     if key > prev_key {
-                        Err(Error::KeyError(
+                        return Err(Error::KeyError(
                             "Expected nodes to be in increasing key order",
-                        ))
+                        ));
                     }
                 }
 
@@ -155,7 +155,7 @@ impl<'a> Range<'a> {
         };
 
         if excluded_data {
-            Err(Error::QueryError("Proof is missing data for query"))
+            return Err(Error::QueryError("Proof is missing data for query"));
         }
 
         Ok(())

@@ -45,7 +45,7 @@ impl Restorer {
         stated_length: usize,
     ) -> Result<Self> {
         if db_path.as_ref().exists() {
-            Err(Error::PathError("The given path already exists"))
+            return Err(Error::PathError("The given path already exists"));
         }
 
         Ok(Self {
@@ -79,9 +79,9 @@ impl Restorer {
     /// to 0).
     pub fn finalize(mut self) -> Result<Merk> {
         if self.remaining_chunks().is_none() || self.remaining_chunks().unwrap() != 0 {
-            Err(Error::ChunkProcessingError(
+            return Err(Error::ChunkProcessingError(
                 "Called finalize before all chunks were processed",
-            ))
+            ));
         }
 
         if self.trunk_height.unwrap() >= MIN_TRUNK_HEIGHT {
@@ -133,10 +133,10 @@ impl Restorer {
         let (trunk, height) = verify_trunk(ops)?;
 
         if trunk.hash() != self.expected_root_hash {
-            Err(Error::ProofHashMismatch(
+            return Err(Error::ProofHashMismatch(
                 self.expected_root_hash,
                 trunk.hash(),
-            ))
+            ));
         }
 
         let root_key = trunk.key().to_vec();

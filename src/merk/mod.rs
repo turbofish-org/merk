@@ -149,9 +149,11 @@ impl Merk {
             if let Some(prev_key) = maybe_prev_key {
                 match prev_key.cmp(key) {
                     Ordering::Greater => {
-                        Err(Error::BatchKey("Keys in batch must be sorted".into()))
+                        return Err(Error::BatchKey("Keys in batch must be sorted".into()));
                     }
-                    Ordering::Equal => Err(Error::BatchKey("Keys in batch must be unique".into())),
+                    Ordering::Equal => {
+                        return Err(Error::BatchKey("Keys in batch must be unique".into()));
+                    }
                     _ => (),
                 }
             }
@@ -242,7 +244,9 @@ impl Merk {
 
         self.use_tree_mut(|maybe_tree| {
             let tree = match maybe_tree {
-                None => Err(Error::ProofError("Cannot create proof for empty tree")),
+                None => {
+                    return Err(Error::ProofError("Cannot create proof for empty tree"));
+                }
                 Some(tree) => tree,
             };
 
@@ -430,7 +434,9 @@ fn fetch_node(db: &rocksdb::DB, key: &[u8]) -> Result<Option<Tree>> {
 
 fn fetch_existing_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
     match fetch_node(db, key)? {
-        None => Err(Error::KeyError(key.into())),
+        None => {
+            return Err(Error::KeyError(key.into()));
+        }
         Some(node) => Ok(node),
     }
 }
