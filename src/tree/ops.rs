@@ -78,7 +78,9 @@ where
         let mid_index = batch.len() / 2;
         let (mid_key, mid_op) = &batch[mid_index];
         let mid_value = match mid_op {
-            Delete => bail!("Tried to delete non-existent key {:?}", mid_key),
+            Delete => {
+                return Err(Error::KeyDeleteError(mid_key));
+            }
             Put(value) => value,
         };
 
