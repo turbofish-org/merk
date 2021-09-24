@@ -56,7 +56,9 @@ impl<'a> ChunkProducer<'a> {
     /// `producer.len()`.
     pub fn chunk(&mut self, index: usize) -> Result<Vec<u8>> {
         if index >= self.len() {
-            bail!("Chunk index out-of-bounds");
+            Err(MyError::IndexOutOfBounds(
+                "Chunk index out-of-bounds".into(),
+            ));
         }
 
         self.index = index;
