@@ -2,6 +2,8 @@ pub use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    RocksDBError(#[from] rocksdb::Error),
     #[error("Index OoB Error: {0}")]
     IndexOutOfBounds(String),
     #[error("Fetch Error: {0}")]
