@@ -36,6 +36,8 @@ pub enum Error {
     UnexpectedNodeError(String),
     #[error("Attach Error: ")]
     AttachError(String),
+    #[error("Tried to delete non-existent key {}")]
+    KeyDeleteError(String),
     #[error("Stack Underflow")]
     StackUnderflow,
     #[error("Unknown Error")]
