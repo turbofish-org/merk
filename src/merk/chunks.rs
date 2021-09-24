@@ -6,7 +6,6 @@ use crate::proofs::{chunk::get_next_chunk, Node, Op};
 
 use crate::{Error, Result};
 use ed::Encode;
-use failure::bail;
 use rocksdb::DBRawIterator;
 
 /// A `ChunkProducer` allows the creation of chunk proofs, used for trustlessly
