@@ -2,8 +2,6 @@ pub use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error(transparent)]
-    FailureError(#[from] failure::Error),
     #[error("Index OoB Error: {0}")]
     IndexOutOfBounds(String),
     #[error("Fetch Error: {0}")]
