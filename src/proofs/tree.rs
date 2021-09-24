@@ -265,7 +265,7 @@ where
                     // keys should always increase
                     if let Some(last_key) = &maybe_last_key {
                         if key <= last_key {
-                            bail!("Incorrect key ordering");
+                            return Err(Error::KeyError("Incorrect key ordering"));
                         }
                     }
 
@@ -281,7 +281,9 @@ where
     }
 
     if stack.len() != 1 {
-        bail!("Expected proof to result in exactly one stack item");
+        return Err(Error::ProofError(
+            "Expected proof to result in exactly on stack item",
+        ));
     }
 
     Ok(stack.pop().unwrap())
