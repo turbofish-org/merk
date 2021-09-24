@@ -155,7 +155,7 @@ impl<'a> Range<'a> {
         };
 
         if excluded_data {
-            bail!("Proof is missing data for query");
+            Err(Error::QueryError("Proof is missing data for query"))
         }
 
         Ok(())
