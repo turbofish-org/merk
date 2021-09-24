@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use ed::{Decode, Encode, Terminated};
 
 use super::{Node, Op};
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::tree::HASH_LENGTH;
 
 impl Encode for Op {
