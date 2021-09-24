@@ -36,6 +36,8 @@ pub enum Error {
     AttachError(String),
     #[error("Tried to delete non-existent key {}")]
     KeyDeleteError(String),
+    #[error(transparent)]
+    IOError(#[from] std::io::Error),
     #[error("Stack Underflow")]
     StackUnderflow,
     #[error("Unknown Error")]
