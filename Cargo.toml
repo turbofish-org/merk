@@ -8,6 +8,9 @@ license = "MIT"
 
 [dependencies]
 
+[dependencies.thiserror]
+version = "1.0.29"
+
 [dependencies.time]
 version = "0.1.42"
 optional = true
