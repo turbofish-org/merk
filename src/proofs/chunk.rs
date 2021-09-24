@@ -3,7 +3,6 @@ use {
     super::tree::{execute, Tree as ProofTree},
     crate::tree::Hash,
     crate::tree::Tree,
-    failure::bail,
     rocksdb::DBRawIterator,
 };
 
