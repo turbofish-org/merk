@@ -1,7 +1,6 @@
 use std::io::{Read, Write};
 
 use ed::{Decode, Encode, Terminated};
-use failure::bail;
 
 use super::{Node, Op};
 use crate::error::Result;
