@@ -46,7 +46,7 @@ impl Restorer {
         stated_length: usize,
     ) -> Result<Self> {
         if db_path.as_ref().exists() {
-            bail!("The given path already exists");
+            Err(Error::PathError("The given path already exists"))
         }
 
         Ok(Self {
