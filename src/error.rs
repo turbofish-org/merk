@@ -20,7 +20,7 @@ pub enum Error {
     PathError(String),
     #[error("Chunk Processing Error: {0}")]
     ChunkProcessingError(String),
-    #[error("Proof did not match expected hash\n\tExpected: {0}\n\tActual: {1}")]
+    #[error("Proof did not match expected hash\n\tExpected: {0:?}\n\tActual: {1:?}")]
     ProofHashMismatch([u8; 32], [u8; 32]),
     #[error("Proof Error: {0}")]
     ProofError(String),
