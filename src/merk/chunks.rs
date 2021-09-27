@@ -106,7 +106,7 @@ impl<'a> ChunkProducer<'a> {
         self.index += 1;
 
         let chunk = get_next_chunk(&mut self.raw_iter, end_key_slice)?;
-        chunk.encode()
+        Ok(chunk.encode()?)
     }
 }
 
