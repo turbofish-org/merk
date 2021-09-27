@@ -93,7 +93,7 @@ impl<'a> ChunkProducer<'a> {
                 ));
             }
             self.index += 1;
-            return self.trunk.encode();
+            return Ok(self.trunk.encode()?);
         }
 
         if self.index >= self.len() {
