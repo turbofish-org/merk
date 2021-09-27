@@ -36,8 +36,8 @@ pub enum Error {
     UnexpectedNodeError(String),
     #[error("Attach Error: {0}")]
     AttachError(String),
-    #[error("Tried to delete non-existent key {0}")]
-    KeyDeleteError(String),
+    #[error("Tried to delete non-existent key {0:?}")]
+    KeyDeleteError(Vec<u8>),
     #[error(transparent)]
     IOError(#[from] std::io::Error),
     #[error("Stack Underflow")]
