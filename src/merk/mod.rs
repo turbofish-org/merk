@@ -437,7 +437,7 @@ fn fetch_node(db: &rocksdb::DB, key: &[u8]) -> Result<Option<Tree>> {
 fn fetch_existing_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
     match fetch_node(db, key)? {
         None => {
-            return Err(Error::KeyError(key.into()));
+            return Err(Error::KeyError(format!("{:?}", key)));
         }
         Some(node) => Ok(node),
     }
