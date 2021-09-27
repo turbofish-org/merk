@@ -178,16 +178,11 @@ pub(crate) fn verify_leaf<I: Iterator<Item = Result<Op>>>(
 ) -> Result<ProofTree> {
     let tree = execute(ops, false, |node| match node {
         Node::KV(_, _) => Ok(()),
-        _ => {
-            return Err(Error::Tree("Leaf chunks must contain full subtree".into()));
-        }
+        _ => Err(Error::Tree("Leaf chunks must contain full subtree".into())),
     })?;
 
     if tree.hash() != expected_hash {
-        return Err(Error::HashMismatch(
-            expected_hash.into(),
-            tree.hash().into(),
-        ));
+        return Err(Error::HashMismatch(expected_hash, tree.hash()));
     }
 
     Ok(tree)
@@ -235,20 +230,16 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
         } else if !leftmost {
             match tree.node {
                 Node::Hash(_) => Ok(()),
-                _ => {
-                    return Err(Error::UnexpectedNode(
-                        "Expected trunk leaves to contain Hash nodes".into(),
-                    ));
-                }
+                _ => Err(Error::UnexpectedNode(
+                    "Expected trunk leaves to contain Hash nodes".into(),
+                )),
             }
         } else {
             match &tree.node {
                 Node::KVHash(_) => Ok(()),
-                _ => {
-                    return Err(Error::UnexpectedNode(
-                        "Expected leftmost trunk leaf to contain KVHash node".into(),
-                    ))
-                }
+                _ => Err(Error::UnexpectedNode(
+                    "Expected leftmost trunk leaf to contain KVHash node".into(),
+                )),
             }
         }
     }

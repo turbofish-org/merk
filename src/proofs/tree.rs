@@ -240,9 +240,7 @@ where
 
     fn try_pop(stack: &mut Vec<Tree>) -> Result<Tree> {
         match stack.pop() {
-            None => {
-                return Err(Error::StackUnderflow);
-            }
+            None => Err(Error::StackUnderflow),
             Some(tree) => Ok(tree),
         }
     }
