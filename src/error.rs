@@ -3,6 +3,8 @@ pub use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error(transparent)]
+    EdError(#[from] ed::Error),
+    #[error(transparent)]
     RocksDBError(#[from] rocksdb::Error),
     #[error("Index OoB Error: {0}")]
     IndexOutOfBounds(String),
