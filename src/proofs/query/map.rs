@@ -24,7 +24,7 @@ impl MapBuilder {
         match node {
             Node::KV(key, value) => {
                 if let Some((prev_key, _)) = self.0.entries.last_key_value() {
-                    if key > prev_key {
+                    if key <= prev_key {
                         return Err(Error::KeyError(
                             "Expected nodes to be in increasing key order".into(),
                         ));
