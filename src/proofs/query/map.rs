@@ -267,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Proof is missing data for query")]
+    #[should_panic(expected = "MissingData")]
     fn map_get_missing_absence_proof() {
         let mut builder = MapBuilder::new();
         builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
@@ -289,7 +289,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Proof is missing data for query")]
+    #[should_panic(expected = "MissingData")]
     fn range_abridged() {
         let mut builder = MapBuilder::new();
         builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
@@ -317,7 +317,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Proof is missing data for query")]
+    #[should_panic(expected = "MissingData")]
     fn range_lower_unbounded_map_non_contiguous() {
         let mut builder = MapBuilder::new();
         builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
