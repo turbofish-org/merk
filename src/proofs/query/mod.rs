@@ -7,7 +7,6 @@ use super::tree::execute;
 use super::{Decoder, Node};
 use crate::error::{Error, Result};
 use crate::tree::{Fetch, Hash, Link, RefWalker};
-use failure::bail;
 use std::cmp::{max, min, Ordering};
 use std::collections::BTreeSet;
 use std::ops::{Range, RangeInclusive};
