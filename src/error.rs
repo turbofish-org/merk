@@ -21,7 +21,7 @@ pub enum Error {
     #[error("Chunk Processing Error: {0}")]
     ChunkProcessingError(String),
     #[error("Proof did not match expected hash\n\tExpected: {0}\n\tActual: {1}")]
-    ProofHashMismatch(String, String),
+    ProofHashMismatch([u8; 32], [u8; 32]),
     #[error("Proof Error: {0}")]
     ProofError(String),
     #[error("Leaf Chunk proof did not match expected hash\n\tExpected: {0}\n\tActual: {1}")]
