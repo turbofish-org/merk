@@ -24,8 +24,8 @@ pub enum Error {
     ProofHashMismatch([u8; 32], [u8; 32]),
     #[error("Proof Error: {0}")]
     ProofError(String),
-    #[error("Leaf Chunk proof did not match expected hash\n\tExpected: {0}\n\tActual: {1}")]
-    LeafChunkHashMismatch(String, String),
+    #[error("Leaf Chunk proof did not match expected hash\n\tExpected: {0:?}\n\tActual: {1:?}")]
+    LeafChunkHashMismatch([u8; 32], [u8; 32]),
     #[error("Query Error: {0}")]
     QueryError(String),
     #[error("Bound Error: {0}")]
