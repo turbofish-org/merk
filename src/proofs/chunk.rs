@@ -179,9 +179,7 @@ pub(crate) fn verify_leaf<I: Iterator<Item = Result<Op>>>(
     let tree = execute(ops, false, |node| match node {
         Node::KV(_, _) => Ok(()),
         _ => {
-            return Err(Error::TreeError(
-                "Leaf chunks must contain full subtree".into(),
-            ));
+            return Err(Error::Tree("Leaf chunks must contain full subtree".into()));
         }
     })?;
 
@@ -205,7 +203,7 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
         Ok(match tree.child(true) {
             Some(child) => {
                 if let Node::Hash(_) = child.tree.node {
-                    return Err(Error::UnexpectedNodeError(
+                    return Err(Error::UnexpectedNode(
                         "Expected height proof to only contain KV and KVHash nodes".into(),
                     ));
                 }
@@ -227,7 +225,7 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
             match tree.node {
                 Node::KV(_, _) => {}
                 _ => {
-                    return Err(Error::UnexpectedNodeError(
+                    return Err(Error::UnexpectedNode(
                         "Expected trunk inner nodes to contain keys and values".into(),
                     ));
                 }
@@ -238,7 +236,7 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
             match tree.node {
                 Node::Hash(_) => Ok(()),
                 _ => {
-                    return Err(Error::UnexpectedNodeError(
+                    return Err(Error::UnexpectedNode(
                         "Expected trunk leaves to contain Hash nodes".into(),
                     ));
                 }
@@ -247,7 +245,7 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
             match &tree.node {
                 Node::KVHash(_) => Ok(()),
                 _ => {
-                    return Err(Error::UnexpectedNodeError(
+                    return Err(Error::UnexpectedNode(
                         "Expected leftmost trunk leaf to contain KVHash node".into(),
                     ))
                 }
@@ -266,9 +264,7 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
 
     if trunk_height < MIN_TRUNK_HEIGHT {
         if !kv_only {
-            return Err(Error::TreeError(
-                "Leaf chunks must contain full subtree".into(),
-            ));
+            return Err(Error::Tree("Leaf chunks must contain full subtree".into()));
         }
     } else {
         verify_completeness(&tree, trunk_height, true)?;

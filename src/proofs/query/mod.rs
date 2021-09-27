@@ -405,7 +405,7 @@ pub fn verify_query(
                         // cannot verify lower bound - we have an abridged
                         // tree so we cannot tell what the preceding key was
                         Some(_) => {
-                            return Err(Error::BoundError(
+                            return Err(Error::Bound(
                                 "Cannot verify lower bound of queried range".into(),
                             ));
                         }
@@ -439,7 +439,7 @@ pub fn verify_query(
         } else if in_range {
             // we encountered a queried range but the proof was abridged (saw a
             // non-KV push), we are missing some part of the range
-            return Err(Error::QueryError("Proof is missing data for query".into()));
+            return Err(Error::Query("Proof is missing data for query".into()));
         }
 
         last_push = Some(node.clone());
@@ -457,7 +457,7 @@ pub fn verify_query(
             // proof contains abridged data so we cannot verify absence of
             // remaining query items
             _ => {
-                return Err(Error::QueryError("Proof is missing data for query".into()));
+                return Err(Error::Query("Proof is missing data for query".into()));
             }
         }
     }

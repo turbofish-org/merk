@@ -3,45 +3,45 @@ pub use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Attach Error: {0}")]
-    AttachError(String),
+    Attach(String),
     #[error("Batch Key Error: {0}")]
     BatchKey(String),
     #[error("Bound Error: {0}")]
-    BoundError(String),
+    Bound(String),
     #[error("Chunk Processing Error: {0}")]
-    ChunkProcessingError(String),
+    ChunkProcessing(String),
     #[error(transparent)]
-    EdError(#[from] ed::Error),
+    Ed(#[from] ed::Error),
     #[error("Fetch Error: {0}")]
-    FetchError(String),
+    Fetch(String),
     #[error("Index OoB Error: {0}")]
     IndexOutOfBounds(String),
     #[error(transparent)]
-    IOError(#[from] std::io::Error),
+    IO(#[from] std::io::Error),
     #[error("Tried to delete non-existent key {0:?}")]
-    KeyDeleteError(Vec<u8>),
+    KeyDelete(Vec<u8>),
     #[error("Key Error: {0}")]
-    KeyError(String),
+    Key(String),
     #[error("Key not found: {0}")]
     KeyNotFound(String),
     #[error("Leaf Chunk proof did not match expected hash\n\tExpected: {0:?}\n\tActual: {1:?}")]
     LeafChunkHashMismatch([u8; 32], [u8; 32]),
     #[error("Path Error: {0}")]
-    PathError(String),
+    Path(String),
     #[error("Proof Error: {0}")]
-    ProofError(String),
+    Proof(String),
     #[error("Proof did not match expected hash\n\tExpected: {0:?}\n\tActual: {1:?}")]
     ProofHashMismatch([u8; 32], [u8; 32]),
     #[error("Query Error: {0}")]
-    QueryError(String),
+    Query(String),
     #[error(transparent)]
-    RocksDBError(#[from] rocksdb::Error),
+    RocksDB(#[from] rocksdb::Error),
     #[error("Stack Underflow")]
     StackUnderflow,
     #[error("Tree Error: {0}")]
-    TreeError(String),
+    Tree(String),
     #[error("Unexpected Node Error: {0}")]
-    UnexpectedNodeError(String),
+    UnexpectedNode(String),
     #[error("Unknown Error")]
     Unknown,
 }

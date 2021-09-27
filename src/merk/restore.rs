@@ -45,7 +45,7 @@ impl Restorer {
         stated_length: usize,
     ) -> Result<Self> {
         if db_path.as_ref().exists() {
-            return Err(Error::PathError("The given path already exists".into()));
+            return Err(Error::Path("The given path already exists".into()));
         }
 
         Ok(Self {
@@ -79,7 +79,7 @@ impl Restorer {
     /// to 0).
     pub fn finalize(mut self) -> Result<Merk> {
         if self.remaining_chunks().is_none() || self.remaining_chunks().unwrap() != 0 {
-            return Err(Error::ChunkProcessingError(
+            return Err(Error::ChunkProcessing(
                 "Called finalize before all chunks were processed".into(),
             ));
         }

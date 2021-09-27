@@ -245,9 +245,7 @@ impl Merk {
         self.use_tree_mut(|maybe_tree| {
             let tree = match maybe_tree {
                 None => {
-                    return Err(Error::ProofError(
-                        "Cannot create proof for empty tree".into(),
-                    ));
+                    return Err(Error::Proof("Cannot create proof for empty tree".into()));
                 }
                 Some(tree) => tree,
             };
@@ -437,7 +435,7 @@ fn fetch_node(db: &rocksdb::DB, key: &[u8]) -> Result<Option<Tree>> {
 fn fetch_existing_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
     match fetch_node(db, key)? {
         None => {
-            return Err(Error::KeyError(format!("{:?}", key)));
+            return Err(Error::Key(format!("{:?}", key)));
         }
         Some(node) => Ok(node),
     }
