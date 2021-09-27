@@ -27,7 +27,7 @@ pub use walk::{Fetch, RefWalker, Walker};
 
 /// The fields of the `Tree` type, stored on the heap.
 #[derive(Encode, Decode)]
-struct TreeInner {
+pub struct TreeInner {
     left: Option<Link>,
     right: Option<Link>,
     kv: KV,
