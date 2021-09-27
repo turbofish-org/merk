@@ -82,7 +82,7 @@ impl Terminated for Op {}
 
 impl Op {
     fn encode_into<W: Write>(&self, dest: &mut W) -> Result<()> {
-        Encode::encode_into(self, dest)
+        Ok(Encode::encode_into(self, dest)?)
     }
 
     fn encoding_length(&self) -> usize {
@@ -90,7 +90,7 @@ impl Op {
     }
 
     pub fn decode(bytes: &[u8]) -> Result<Self> {
-        Decode::decode(bytes)
+        Ok(Decode::decode(bytes)?)
     }
 }
 
