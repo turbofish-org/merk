@@ -155,7 +155,7 @@ impl<'a> Range<'a> {
         };
 
         if excluded_data {
-            return Err(Error::Query("Proof is missing data for query".into()));
+            return Err(Error::MissingData);
         }
 
         Ok(())
@@ -192,7 +192,7 @@ impl<'a> Iterator for Range<'a> {
         // if nodes weren't contiguous, we cannot verify that we have all values
         // in the desired range
         if !skip_exclusion_check && !contiguous {
-            return Some(Err(Error::Query("Proof is missing data for query".into())));
+            return Some(Err(Error::MissingData));
         }
 
         // passed checks, return entry

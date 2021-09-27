@@ -26,12 +26,12 @@ pub enum Error {
     Key(String),
     #[error("Key not found: {0}")]
     KeyNotFound(String),
+    #[error("Proof is missing data for query")]
+    MissingData,
     #[error("Path Error: {0}")]
     Path(String),
     #[error("Proof Error: {0}")]
     Proof(String),
-    #[error("Query Error: {0}")]
-    Query(String),
     #[error(transparent)]
     RocksDB(#[from] rocksdb::Error),
     #[error("Stack Underflow")]
