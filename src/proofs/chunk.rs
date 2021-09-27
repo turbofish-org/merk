@@ -184,7 +184,7 @@ pub(crate) fn verify_leaf<I: Iterator<Item = Result<Op>>>(
     })?;
 
     if tree.hash() != expected_hash {
-        return Err(Error::LeafChunkHashMismatch(
+        return Err(Error::HashMismatch(
             expected_hash.into(),
             tree.hash().into(),
         ));

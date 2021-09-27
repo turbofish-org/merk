@@ -14,6 +14,8 @@ pub enum Error {
     Ed(#[from] ed::Error),
     #[error("Fetch Error: {0}")]
     Fetch(String),
+    #[error("Proof did not match expected hash\n\tExpected: {0:?}\n\tActual: {1:?}")]
+    HashMismatch([u8; 32], [u8; 32]),
     #[error("Index OoB Error: {0}")]
     IndexOutOfBounds(String),
     #[error(transparent)]
@@ -24,14 +26,10 @@ pub enum Error {
     Key(String),
     #[error("Key not found: {0}")]
     KeyNotFound(String),
-    #[error("Leaf Chunk proof did not match expected hash\n\tExpected: {0:?}\n\tActual: {1:?}")]
-    LeafChunkHashMismatch([u8; 32], [u8; 32]),
     #[error("Path Error: {0}")]
     Path(String),
     #[error("Proof Error: {0}")]
     Proof(String),
-    #[error("Proof did not match expected hash\n\tExpected: {0:?}\n\tActual: {1:?}")]
-    ProofHashMismatch([u8; 32], [u8; 32]),
     #[error("Query Error: {0}")]
     Query(String),
     #[error(transparent)]
