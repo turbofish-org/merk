@@ -78,7 +78,7 @@ where
         let (mid_key, mid_op) = &batch[mid_index];
         let mid_value = match mid_op {
             Delete => {
-                return Err(Error::KeyDeleteError(mid_key.into()));
+                return Err(Error::KeyDeleteError(mid_key.clone()));
             }
             Put(value) => value,
         };
