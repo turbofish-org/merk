@@ -188,7 +188,7 @@ impl Merk {
             .take()
             .map(|tree| Walker::new(tree, self.source()));
 
-        let (maybe_tree, deleted_keys) = Walker::apply_to(maybe_walker, batch)?;
+        let (maybe_tree, deleted_keys) = Walker::apply_to(maybe_walker, batch, self.source())?;
         self.tree.set(maybe_tree);
 
         // commit changes to db

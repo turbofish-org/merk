@@ -35,7 +35,7 @@ pub fn assert_tree_invariants(tree: &Tree) {
 
 pub fn apply_memonly_unchecked(tree: Tree, batch: &Batch) -> Tree {
     let walker = Walker::<PanicSource>::new(tree, PanicSource {});
-    let mut tree = Walker::<PanicSource>::apply_to(Some(walker), batch)
+    let mut tree = Walker::<PanicSource>::apply_to(Some(walker), batch, PanicSource {})
         .expect("apply failed")
         .0
         .expect("expected tree");
@@ -51,7 +51,7 @@ pub fn apply_memonly(tree: Tree, batch: &Batch) -> Tree {
 
 pub fn apply_to_memonly(maybe_tree: Option<Tree>, batch: &Batch) -> Option<Tree> {
     let maybe_walker = maybe_tree.map(|tree| Walker::<PanicSource>::new(tree, PanicSource {}));
-    Walker::<PanicSource>::apply_to(maybe_walker, batch)
+    Walker::<PanicSource>::apply_to(maybe_walker, batch, PanicSource {})
         .expect("apply failed")
         .0
         .map(|mut tree| {
