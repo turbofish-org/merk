@@ -93,7 +93,7 @@ jobs:
     - name: Set RUSTFLAGS
       run: export RUSTFLAGS="-Zinstrument-coverage"
     - name: Set LLVM_PROFILE_FILE
-      run: export LLVM_PROFILE_FILE=“default-%m.profraw"
+      run: export LLVM_PROFILE_FILE="default-%m.profraw"
     - name: Run Tests
       uses: actions-rs/cargo@v1
       with:
