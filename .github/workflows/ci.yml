@@ -57,7 +57,7 @@ jobs:
       with:
           command: test
           args: --verbose
-      
+
   test-all-features:
     runs-on: ubuntu-latest
     steps:
@@ -103,7 +103,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: profdata
-          args: -- merge -sparse default.profraw -o default.profdata
+          args: -- merge -sparse -text default-*.profraw -o default.txt
     - name: Generate LCOV Report
       uses: actions-rs/cargo@v1
       with:
