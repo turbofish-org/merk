@@ -96,8 +96,8 @@ jobs:
           command: test
           args: --all-features --tests
       env:
-          RUSTFLAGS: "-Z instrument-coverage"
-          LLVM_PROFILE_FILE: "default-%m.profraw"
+          RUSTFLAGS: -Z instrument-coverage
+          LLVM_PROFILE_FILE: default-%m.profraw
 
     - name: Merge Profile Data
       uses: actions-rs/cargo@v1
