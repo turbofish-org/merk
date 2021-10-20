@@ -85,16 +85,30 @@ jobs:
           toolchain: nightly
           components: llvm-tools-preview
           override: true
-    - name: Install Coverage Tooling
+    - name: Install Binary Utilities
       uses: actions-rs/cargo@v1
       with:
           command: install
-          args: cargo-llvm-cov
-    - name: Run Coverage
+          args: cargo-binutils
+    - name: Set RUSTFLAGS
+      run: export RUSTFLAGS="-Zinstrument-coverage"
+    - name: Set LLVM_PROFILE_FILE
+      run: export LLVM_PROFILE_FILE=“default-%m.profraw"
+    - name: Run Tests
       uses: actions-rs/cargo@v1
       with:
-          command: llvm-cov
-          args: --all-features --workspace --lcov --output-path lcov.info
+          command: test
+          args: --all-features --tests
+    - name: Merge Profile Data
+      uses: actions-rs/cargo@v1
+      with:
+          command: profdata
+          args: -- merge -sparse default.profraw -o default.profdata
+    - name: Generate LCOV Report
+      uses: actions-rs/cargo@v1
+      with:
+          command: cov
+          args: cargo cov -- export --instr-profile=default.profdata --object target/debug/deps/merk-% --format=lcov >> lcov.info
     - name: Upload to codecov.io
       uses: codecov/codecov-action@v1
       with:
