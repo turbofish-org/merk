@@ -90,15 +90,14 @@ jobs:
       with:
           command: install
           args: cargo-binutils
-    - name: Set RUSTFLAGS
-      run: export RUSTFLAGS="-Zinstrument-coverage"
-    - name: Set LLVM_PROFILE_FILE
-      run: export LLVM_PROFILE_FILE="default-%m.profraw"
     - name: Run Tests
       uses: actions-rs/cargo@v1
       with:
+          RUSTFLAGS: "-Z instrument-coverage"
+          LLVM_PROFILE_FILE: "default-%m.profraw"
           command: test
           args: --all-features --tests
+
     - name: Merge Profile Data
       uses: actions-rs/cargo@v1
       with:
