@@ -217,12 +217,12 @@ impl Tree {
 
         let slot = self.slot_mut(left);
 
-        if slot.is_some() {
-            panic!(
-                "Tried to attach to {} tree slot, but it is already Some",
-                side_to_str(left)
-            );
-        }
+        assert!(
+            !slot.is_some(),
+            "Tried to attach to {} tree slot, but it is already Some",
+            side_to_str(left)
+        );
+
         *slot = Link::maybe_from_modified_tree(maybe_child);
 
         self
