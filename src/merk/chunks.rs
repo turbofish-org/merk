@@ -95,9 +95,7 @@ impl<'a> ChunkProducer<'a> {
             return self.trunk.encode();
         }
 
-        if self.index >= self.len() {
-            panic!("Called next_chunk after end");
-        }
+        assert!(!(self.index >= self.len()), "Called next_chunk after end");
 
         let end_key = self.chunk_boundaries.get(self.index - 1);
         let end_key_slice = end_key.as_ref().map(|k| k.as_slice());
