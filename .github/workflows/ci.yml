@@ -75,29 +75,31 @@ jobs:
           args: --verbose --all-features
 
   coverage:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Use Nightly
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: nightly
-          override: true
-    - name: Install Coverage Tooling
-      uses: actions-rs/cargo@v1
-      with:
-          command: install
-          args: cargo-tarpaulin
-    - name: Run Coverage
-      uses: actions-rs/cargo@v1
-      with:
-          command: tarpaulin
-          args: -v --out Xml
-    - name: Upload to codecov.io
-      uses: codecov/codecov-action@v1
-      with:
-          fail_ci_if_error: true    
+      runs-on: ubuntu-latest
+      steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Use Nightly
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            components: llvm-tools-preview
+            override: true
+      - name: Install Coverage Tooling
+        uses: actions-rs/cargo@v1
+        with:
+            command: install
+            args: cargo-llvm-cov
+      - name: Run Coverage
+        uses: actions-rs/cargo@v1
+        with:
+            command: llvm-cov
+            args: --all-features --workspace --lcov --output-path lcov.info
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1
+        with:
+            files: lcov.info
+            fail_ci_if_error: true
 
   format:
     runs-on: ubuntu-latest
