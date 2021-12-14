@@ -51,12 +51,13 @@ where
     pub fn apply_to(
         maybe_tree: Option<Self>,
         batch: &Batch,
+        source: S,
     ) -> Result<(Option<Tree>, LinkedList<Vec<u8>>)> {
         let (maybe_walker, deleted_keys) = if batch.is_empty() {
             (maybe_tree, LinkedList::default())
         } else {
             match maybe_tree {
-                None => return Ok((Self::build(batch)?, LinkedList::default())),
+                None => return Ok((Self::build(batch, source)?, LinkedList::default())),
                 Some(tree) => tree.apply(batch)?,
             }
         };
@@ -65,11 +66,10 @@ where
         Ok((maybe_tree, deleted_keys))
     }
 
-    /// Builds a `Tree` from a batch of inserts. Fails if the batch contains a
-    /// `Delete` operation.
+    /// Builds a `Tree` from a batch of operations.
     ///
     /// Keys in batch must be sorted and unique.
-    fn build(batch: &Batch) -> Result<Option<Tree>> {
+    fn build(batch: &Batch, source: S) -> Result<Option<Tree>> {
         if batch.is_empty() {
             return Ok(None);
         }
@@ -78,8 +78,16 @@ where
         let (mid_key, mid_op) = &batch[mid_index];
         let mid_value = match mid_op {
             Delete => {
-                return Err(Error::KeyDelete(mid_key.clone()));
-            }
+              let left_batch = &batch[..mid_index];
+              let right_batch = &batch[mid_index + 1..];
+
+              let maybe_tree = Self::build(left_batch, source.clone())?.map(|tree| Self::new(tree, source.clone()));
+              let maybe_tree = match maybe_tree {
+                Some(tree) => tree.apply(right_batch)?.0,
+                None => Self::build(right_batch, source.clone())?.map(|tree| Self::new(tree, source.clone())),
+              };
+              return Ok(maybe_tree.map(|tree| tree.into()));
+            },
             Put(value) => value,
         };
 
@@ -115,11 +123,11 @@ where
                     let maybe_tree = self.remove()?;
 
                     let (maybe_tree, mut deleted_keys) =
-                        Self::apply_to(maybe_tree, &batch[..index])?;
+                        Self::apply_to(maybe_tree, &batch[..index], source.clone())?;
                     let maybe_walker = wrap(maybe_tree);
 
                     let (maybe_tree, mut deleted_keys_right) =
-                        Self::apply_to(maybe_walker, &batch[index + 1..])?;
+                        Self::apply_to(maybe_walker, &batch[index + 1..], source.clone())?;
                     let maybe_walker = wrap(maybe_tree);
 
                     deleted_keys.append(&mut deleted_keys_right);
@@ -161,8 +169,9 @@ where
         let mut deleted_keys = LinkedList::default();
 
         let tree = if !left_batch.is_empty() {
+            let source = self.clone_source();
             self.walk(true, |maybe_left| {
-                let (maybe_left, mut deleted_keys_left) = Self::apply_to(maybe_left, left_batch)?;
+                let (maybe_left, mut deleted_keys_left) = Self::apply_to(maybe_left, left_batch, source)?;
                 deleted_keys.append(&mut deleted_keys_left);
                 Ok(maybe_left)
             })?
@@ -171,9 +180,10 @@ where
         };
 
         let tree = if !right_batch.is_empty() {
+            let source = tree.clone_source();
             tree.walk(false, |maybe_right| {
                 let (maybe_right, mut deleted_keys_right) =
-                    Self::apply_to(maybe_right, right_batch)?;
+                    Self::apply_to(maybe_right, right_batch, source)?;
                 deleted_keys.append(&mut deleted_keys_right);
                 Ok(maybe_right)
             })?
@@ -341,7 +351,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
     fn delete_non_existent() {
         let batch = [(b"foo2".to_vec(), Op::Delete)];
         let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
@@ -401,7 +410,7 @@ mod test {
     #[test]
     fn apply_empty_none() {
         let (maybe_tree, deleted_keys) =
-            Walker::<PanicSource>::apply_to(None, &vec![]).expect("apply_to failed");
+            Walker::<PanicSource>::apply_to(None, &vec![], PanicSource {}).expect("apply_to failed");
         assert!(maybe_tree.is_none());
         assert!(deleted_keys.is_empty());
     }
@@ -410,7 +419,7 @@ mod test {
     fn insert_empty_single() {
         let batch = vec![(vec![0], Op::Put(vec![1]))];
         let (maybe_tree, deleted_keys) =
-            Walker::<PanicSource>::apply_to(None, &batch).expect("apply_to failed");
+            Walker::<PanicSource>::apply_to(None, &batch, PanicSource {}).expect("apply_to failed");
         let tree = maybe_tree.expect("expected tree");
         assert_eq!(tree.key(), &[0]);
         assert_eq!(tree.value(), &[1]);
