@@ -1,7 +1,6 @@
 use super::{Node, Op};
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::tree::{kv_hash, node_hash, Hash, NULL_HASH};
-use failure::bail;
 
 /// Contains a tree's child node and its hash. The hash can always be assumed to
 /// be up-to-date.
@@ -114,7 +113,9 @@ impl Tree {
     /// already a child attached to this side.
     pub(crate) fn attach(&mut self, left: bool, child: Tree) -> Result<()> {
         if self.child(left).is_some() {
-            bail!("Tried to attach to left child, but it is already Some");
+            return Err(Error::Attach(
+                "Tried to attach to left child, but it is already Some".into(),
+            ));
         }
 
         self.height = self.height.max(child.height + 1);
@@ -239,7 +240,7 @@ where
 
     fn try_pop(stack: &mut Vec<Tree>) -> Result<Tree> {
         match stack.pop() {
-            None => bail!("Stack underflow"),
+            None => Err(Error::StackUnderflow),
             Some(tree) => Ok(tree),
         }
     }
@@ -261,7 +262,7 @@ where
                     // keys should always increase
                     if let Some(last_key) = &maybe_last_key {
                         if key <= last_key {
-                            bail!("Incorrect key ordering");
+                            return Err(Error::Key("Incorrect key ordering".into()));
                         }
                     }
 
@@ -277,7 +278,9 @@ where
     }
 
     if stack.len() != 1 {
-        bail!("Expected proof to result in exactly one stack item");
+        return Err(Error::Proof(
+            "Expected proof to result in exactly on stack item".into(),
+        ));
     }
 
     Ok(stack.pop().unwrap())

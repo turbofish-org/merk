@@ -5,9 +5,8 @@ use {super::Op, std::collections::LinkedList};
 
 use super::tree::execute;
 use super::{Decoder, Node};
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::tree::{Fetch, Hash, Link, RefWalker};
-use failure::bail;
 use std::cmp::{max, min, Ordering};
 use std::collections::BTreeSet;
 use std::ops::{Range, RangeInclusive};
@@ -345,11 +344,7 @@ pub fn verify(bytes: &[u8], expected_hash: Hash) -> Result<Map> {
     let root = execute(ops, true, |node| map_builder.insert(node))?;
 
     if root.hash() != expected_hash {
-        bail!(
-            "Proof did not match expected hash\n\tExpected: {:?}\n\tActual: {:?}",
-            expected_hash,
-            root.hash()
-        );
+        return Err(Error::HashMismatch(expected_hash, root.hash()));
     }
 
     Ok(map_builder.build())
@@ -407,7 +402,9 @@ pub fn verify_query(
                         // cannot verify lower bound - we have an abridged
                         // tree so we cannot tell what the preceding key was
                         Some(_) => {
-                            bail!("Cannot verify lower bound of queried range");
+                            return Err(Error::Bound(
+                                "Cannot verify lower bound of queried range".into(),
+                            ));
                         }
                     }
                 }
@@ -439,7 +436,7 @@ pub fn verify_query(
         } else if in_range {
             // we encountered a queried range but the proof was abridged (saw a
             // non-KV push), we are missing some part of the range
-            bail!("Proof is missing data for query");
+            return Err(Error::MissingData);
         }
 
         last_push = Some(node.clone());
@@ -456,16 +453,14 @@ pub fn verify_query(
 
             // proof contains abridged data so we cannot verify absence of
             // remaining query items
-            _ => bail!("Proof is missing data for query"),
+            _ => {
+                return Err(Error::MissingData);
+            }
         }
     }
 
     if root.hash() != expected_hash {
-        bail!(
-            "Proof did not match expected hash\n\tExpected: {:?}\n\tActual: {:?}",
-            expected_hash,
-            root.hash()
-        );
+        return Err(Error::HashMismatch(expected_hash, root.hash()));
     }
 
     Ok(output)

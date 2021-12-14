@@ -8,6 +8,9 @@ license = "MIT"
 
 [dependencies]
 
+[dependencies.thiserror]
+version = "1.0.29"
+
 [dependencies.time]
 version = "0.1.42"
 optional = true
@@ -33,7 +36,8 @@ version = "0.1.6"
 optional = true
 
 [dependencies.ed]
-version = "0.1.6"
+git = "https://github.com/nomic-io/ed"
+rev = "dd28e9f9e7c97827dde943ee8decfcdf25b3cc83"
 optional = true
 
 [dependencies.blake3]

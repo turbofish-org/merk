@@ -4,9 +4,8 @@
 use super::Merk;
 use crate::proofs::{chunk::get_next_chunk, Node, Op};
 
-use crate::Result;
+use crate::{Error, Result};
 use ed::Encode;
-use failure::bail;
 use rocksdb::DBRawIterator;
 
 /// A `ChunkProducer` allows the creation of chunk proofs, used for trustlessly
@@ -56,7 +55,7 @@ impl<'a> ChunkProducer<'a> {
     /// `producer.len()`.
     pub fn chunk(&mut self, index: usize) -> Result<Vec<u8>> {
         if index >= self.len() {
-            bail!("Chunk index out-of-bounds");
+            return Err(Error::IndexOutOfBounds("Chunk index out-of-bounds".into()));
         }
 
         self.index = index;
@@ -89,10 +88,12 @@ impl<'a> ChunkProducer<'a> {
     fn next_chunk(&mut self) -> Result<Vec<u8>> {
         if self.index == 0 {
             if self.trunk.is_empty() {
-                bail!("Attempted to fetch chunk on empty tree");
+                return Err(Error::Fetch(
+                    "Attempted to fetch chunk on empty tree".into(),
+                ));
             }
             self.index += 1;
-            return self.trunk.encode();
+            return Ok(self.trunk.encode()?);
         }
 
         assert!(!(self.index >= self.len()), "Called next_chunk after end");
@@ -103,7 +104,7 @@ impl<'a> ChunkProducer<'a> {
         self.index += 1;
 
         let chunk = get_next_chunk(&mut self.raw_iter, end_key_slice)?;
-        chunk.encode()
+        Ok(chunk.encode()?)
     }
 }
 

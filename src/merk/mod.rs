@@ -6,10 +6,9 @@ use std::cmp::Ordering;
 use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
-use failure::bail;
 use rocksdb::{checkpoint::Checkpoint, ColumnFamilyDescriptor, WriteBatch};
 
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::proofs::{encode_into, query::QueryItem, Query};
 use crate::tree::{Batch, Commit, Fetch, Hash, Link, Op, RefWalker, Tree, Walker, NULL_HASH};
 
@@ -149,8 +148,12 @@ impl Merk {
         for (key, _) in batch.iter() {
             if let Some(prev_key) = maybe_prev_key {
                 match prev_key.cmp(key) {
-                    Ordering::Greater => bail!("Keys in batch must be sorted"),
-                    Ordering::Equal => bail!("Keys in batch must be unique"),
+                    Ordering::Greater => {
+                        return Err(Error::BatchKey("Keys in batch must be sorted".into()));
+                    }
+                    Ordering::Equal => {
+                        return Err(Error::BatchKey("Keys in batch must be unique".into()));
+                    }
                     _ => (),
                 }
             }
@@ -241,7 +244,9 @@ impl Merk {
 
         self.use_tree_mut(|maybe_tree| {
             let tree = match maybe_tree {
-                None => bail!("Cannot create proof for empty tree"),
+                None => {
+                    return Err(Error::Proof("Cannot create proof for empty tree".into()));
+                }
                 Some(tree) => tree,
             };
 
@@ -429,7 +434,9 @@ fn fetch_node(db: &rocksdb::DB, key: &[u8]) -> Result<Option<Tree>> {
 
 fn fetch_existing_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
     match fetch_node(db, key)? {
-        None => bail!("key not found: {:?}", key),
+        None => {
+            return Err(Error::Key(format!("{:?}", key)));
+        }
         Some(node) => Ok(node),
     }
 }
