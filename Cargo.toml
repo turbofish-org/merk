@@ -2,7 +2,7 @@
 name = "merk"
 description = "Merkle key/value store"
 version = "1.0.0"
-authors = ["Matt Bell <mappum@gmail.com>"]
+authors = ["guanlonghuang <jace833@pm.me>"]
 edition = "2018"
 license = "MIT"
 
