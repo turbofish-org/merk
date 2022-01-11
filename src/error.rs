@@ -32,6 +32,7 @@ pub enum Error {
     Path(String),
     #[error("Proof Error: {0}")]
     Proof(String),
+    #[cfg(feature = "full")]
     #[error(transparent)]
     RocksDB(#[from] rocksdb::Error),
     #[error("Stack Underflow")]
