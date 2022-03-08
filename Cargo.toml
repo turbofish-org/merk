@@ -50,9 +50,7 @@ features = ["small_rng"]
 optional = true
 
 [dependencies.rocksdb]
-git = "https://github.com/rust-rocksdb/rust-rocksdb"
-version = "0.16.0"
-rev = "v0.16.0"
+version = "0.18"
 default-features = false
 optional = true
 
