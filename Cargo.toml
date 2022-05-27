@@ -70,8 +70,7 @@ full = ["rand",
         "byteorder",
         "failure",
         "ed",
-        "blake3",
-        "jemallocator"
+        "blake3"
 ]
 verify = ["ed",
           "failure",

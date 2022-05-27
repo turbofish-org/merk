@@ -2,7 +2,7 @@
 #![feature(trivial_bounds)]
 
 #[global_allocator]
-#[cfg(feature = "full")]
+#[cfg(feature = "jemallocator")]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 #[cfg(feature = "full")]
