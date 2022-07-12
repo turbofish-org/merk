@@ -17,14 +17,13 @@ pub fn kv_hash(key: &[u8], value: &[u8]) -> Hash {
     // TODO: result instead of panic
     // TODO: make generic to allow other hashers
     let mut hasher = blake3::Hasher::new();
-    // panics if key is longer than 255!
-    let key_length = u8::try_from(key.len()).expect("key must be less than 256 bytes");
-    hasher.update(&key_length.to_be_bytes());
+
+    let key_length = u32::try_from(key.len()).expect("key must be less than 2^32 bytes");
+    hasher.update(&key_length.to_le_bytes());
     hasher.update(key);
 
-    // panics if value is longer than 65535!
-    let val_length = u16::try_from(value.len()).expect("value must be less than 65,536 bytes");
-    hasher.update(&val_length.to_be_bytes());
+    let val_length = u32::try_from(value.len()).expect("value must be less than 2^32 bytes");
+    hasher.update(&val_length.to_le_bytes());
     hasher.update(value);
 
     let res = hasher.finalize();
