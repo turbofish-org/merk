@@ -21,6 +21,7 @@ pub fn kv_hash(key: &[u8], value: &[u8]) -> Hash {
     // TODO: result instead of panic
     // TODO: make generic to allow other hashers
     let mut hasher = Hasher::new();
+    hasher.update(&[0]);
 
     let key_length = u32::try_from(key.len()).expect("key must be less than 2^32 bytes");
     hasher.update(&key_length.to_le_bytes());
@@ -41,6 +42,7 @@ pub fn kv_hash(key: &[u8], value: &[u8]) -> Hash {
 pub fn node_hash(kv: &Hash, left: &Hash, right: &Hash) -> Hash {
     // TODO: make generic to allow other hashers
     let mut hasher = Hasher::new();
+    hasher.update(&[1]);
     hasher.update(kv);
     hasher.update(left);
     hasher.update(right);
