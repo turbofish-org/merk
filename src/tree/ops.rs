@@ -120,18 +120,20 @@ where
                         maybe_tree.map(|tree| Self::new(tree, source.clone()))
                     };
                     let key = self.tree().key().to_vec();
-                    let maybe_tree = self.remove()?;
 
                     let (maybe_tree, mut deleted_keys) =
-                        Self::apply_to(maybe_tree, &batch[..index], source.clone())?;
+                        Self::apply_to(Some(self), &batch[..index], source.clone())?;
                     let maybe_walker = wrap(maybe_tree);
+
+                    deleted_keys.push_back(key);
 
                     let (maybe_tree, mut deleted_keys_right) =
                         Self::apply_to(maybe_walker, &batch[index + 1..], source.clone())?;
                     let maybe_walker = wrap(maybe_tree);
 
                     deleted_keys.append(&mut deleted_keys_right);
-                    deleted_keys.push_back(key);
+
+                    let maybe_walker = maybe_walker.unwrap().remove()?;
 
                     return Ok((maybe_walker, deleted_keys));
                 }
