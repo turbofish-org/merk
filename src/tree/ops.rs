@@ -475,4 +475,20 @@ mod test {
         assert_eq!(tree.child(true).expect("expected child").key(), &[31]);
         assert_eq!(tree.child(false).expect("expected child").key(), &[79]);
     }
+
+    #[test]
+    fn delete_recursive_large() {
+        let tree = make_tree_seq(2_500);
+
+        let mut batch = vec![];
+        for i in 500..2_000 {
+            batch.push(del_entry(i));
+        }
+
+        let (maybe_walker, deleted_keys) = Walker::new(tree, PanicSource {})
+            .apply(&batch)
+            .expect("apply errored");
+        maybe_walker.expect("should be Some");
+        assert_eq!(deleted_keys.len(), 1_500);
+    }
 }
