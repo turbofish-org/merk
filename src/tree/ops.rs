@@ -78,16 +78,18 @@ where
         let (mid_key, mid_op) = &batch[mid_index];
         let mid_value = match mid_op {
             Delete => {
-              let left_batch = &batch[..mid_index];
-              let right_batch = &batch[mid_index + 1..];
+                let left_batch = &batch[..mid_index];
+                let right_batch = &batch[mid_index + 1..];
 
-              let maybe_tree = Self::build(left_batch, source.clone())?.map(|tree| Self::new(tree, source.clone()));
-              let maybe_tree = match maybe_tree {
-                Some(tree) => tree.apply(right_batch)?.0,
-                None => Self::build(right_batch, source.clone())?.map(|tree| Self::new(tree, source.clone())),
-              };
-              return Ok(maybe_tree.map(|tree| tree.into()));
-            },
+                let maybe_tree = Self::build(left_batch, source.clone())?
+                    .map(|tree| Self::new(tree, source.clone()));
+                let maybe_tree = match maybe_tree {
+                    Some(tree) => tree.apply(right_batch)?.0,
+                    None => Self::build(right_batch, source.clone())?
+                        .map(|tree| Self::new(tree, source.clone())),
+                };
+                return Ok(maybe_tree.map(|tree| tree.into()));
+            }
             Put(value) => value,
         };
 
@@ -173,7 +175,8 @@ where
         let tree = if !left_batch.is_empty() {
             let source = self.clone_source();
             self.walk(true, |maybe_left| {
-                let (maybe_left, mut deleted_keys_left) = Self::apply_to(maybe_left, left_batch, source)?;
+                let (maybe_left, mut deleted_keys_left) =
+                    Self::apply_to(maybe_left, left_batch, source)?;
                 deleted_keys.append(&mut deleted_keys_left);
                 Ok(maybe_left)
             })?
@@ -412,7 +415,8 @@ mod test {
     #[test]
     fn apply_empty_none() {
         let (maybe_tree, deleted_keys) =
-            Walker::<PanicSource>::apply_to(None, &vec![], PanicSource {}).expect("apply_to failed");
+            Walker::<PanicSource>::apply_to(None, &vec![], PanicSource {})
+                .expect("apply_to failed");
         assert!(maybe_tree.is_none());
         assert!(deleted_keys.is_empty());
     }
