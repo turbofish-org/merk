@@ -136,6 +136,9 @@ where
                     deleted_keys.append(&mut deleted_keys_right);
 
                     let maybe_walker = maybe_walker.unwrap().remove()?;
+                    // let (maybe_tree, _) =
+                    //     Self::apply_to(maybe_walker, &[(key, Delete)], source.clone())?;
+                    // let maybe_walker = wrap(maybe_tree);
 
                     return Ok((maybe_walker, deleted_keys));
                 }
@@ -297,7 +300,7 @@ where
 mod test {
     use super::*;
     use crate::test_utils::{
-        apply_memonly, assert_tree_invariants, del_entry, make_tree_seq, seq_key,
+        apply_memonly, assert_tree_invariants, del_entry, make_tree_seq, put_entry, seq_key,
     };
     use crate::tree::*;
 
@@ -408,8 +411,42 @@ mod test {
             .expect("apply errored");
         maybe_walker.expect("should be Some");
         let mut deleted_keys: Vec<&Vec<u8>> = deleted_keys.iter().collect();
-        deleted_keys.sort_by(|a, b| a.cmp(&b));
+        deleted_keys.sort();
         assert_eq!(deleted_keys, vec![&seq_key(7), &seq_key(9)]);
+    }
+
+    #[test]
+    fn rebalanced_delete() {
+        let tree = make_tree_seq(7);
+
+        let walker = Walker::new(tree, PanicSource {})
+            .apply(&[(vec![0; 20], Delete)])
+            .expect("apply errored")
+            .0
+            .unwrap();
+
+        let batch = [
+            put_entry(0),
+            put_entry(1),
+            put_entry(2),
+            put_entry(3),
+            del_entry(4),
+            del_entry(5),
+            del_entry(6),
+        ];
+        let (maybe_walker, deleted_keys) = walker.apply(&batch).expect("apply errored");
+        let walker = maybe_walker.expect("should be Some");
+
+        let mut deleted_keys: Vec<&Vec<u8>> = deleted_keys.iter().collect();
+        deleted_keys.sort();
+        assert_eq!(deleted_keys, vec![&seq_key(4), &seq_key(5), &seq_key(6)]);
+
+        let mut iter = walker.tree().iter();
+        assert_eq!(iter.next().unwrap().0, seq_key(0));
+        assert_eq!(iter.next().unwrap().0, seq_key(1));
+        assert_eq!(iter.next().unwrap().0, seq_key(2));
+        assert_eq!(iter.next().unwrap().0, seq_key(3));
+        assert!(iter.next().is_none());
     }
 
     #[test]
