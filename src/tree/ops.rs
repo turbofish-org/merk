@@ -116,30 +116,28 @@ where
                 // TODO: take vec from batch so we don't need to clone
                 Put(value) => self.with_value(value.to_vec()),
                 Delete => {
-                    // TODO: we shouldn't have to do this as 2 different calls to apply
                     let source = self.clone_source();
-                    let wrap = |maybe_tree: Option<Tree>| {
-                        maybe_tree.map(|tree| Self::new(tree, source.clone()))
-                    };
                     let key = self.tree().key().to_vec();
 
-                    let (maybe_tree, mut deleted_keys) =
-                        Self::apply_to(Some(self), &batch[..index], source.clone())?;
-                    let maybe_walker = wrap(maybe_tree);
+                    let (walker, maybe_left) = self.detach(true)?;
+                    let (walker, maybe_right) = walker.detach(false)?;
+
+                    let (maybe_left, mut deleted_keys) =
+                        Self::apply_to(maybe_left, &batch[..index], source.clone())?;
 
                     deleted_keys.push_back(key);
 
-                    let (maybe_tree, mut deleted_keys_right) =
-                        Self::apply_to(maybe_walker, &batch[index + 1..], source.clone())?;
-                    let maybe_walker = wrap(maybe_tree);
-
+                    let (maybe_right, mut deleted_keys_right) =
+                        Self::apply_to(maybe_right, &batch[index + 1..], source)?;
                     deleted_keys.append(&mut deleted_keys_right);
 
-                    let maybe_walker = maybe_walker.unwrap().remove()?;
-                    // let (maybe_tree, _) =
-                    //     Self::apply_to(maybe_walker, &[(key, Delete)], source.clone())?;
-                    // let maybe_walker = wrap(maybe_tree);
-
+                    let maybe_walker = walker
+                        .attach(true, maybe_left)
+                        .attach(false, maybe_right)
+                        .remove()?
+                        .map(|w| w.maybe_balance())
+                        .transpose()?;
+ 
                     return Ok((maybe_walker, deleted_keys));
                 }
             }
