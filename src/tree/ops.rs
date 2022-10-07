@@ -1,5 +1,5 @@
 use super::{Fetch, Link, Tree, Walker};
-use crate::error::{Error, Result};
+use crate::error::Result;
 use std::collections::LinkedList;
 use std::fmt;
 use Op::*;
