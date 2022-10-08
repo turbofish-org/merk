@@ -214,6 +214,57 @@ impl Merk {
         Ok(())
     }
 
+    /// Completely rebuilds the tree, keeping all the same stored keys and
+    /// values.
+    pub fn repair(self) -> Result<Self> {
+        use rocksdb::IteratorMode;
+
+        let path = self.path.clone();
+
+        let create_path = |suffix| {
+            let mut tmp_path = path.clone();
+            let tmp_file_name =
+                format!("{}-{}", path.file_name().unwrap().to_str().unwrap(), suffix);
+            tmp_path.set_file_name(tmp_file_name);
+            tmp_path
+        };
+
+        let tmp_path = create_path("repair1");
+        let tmp = Merk::open(&tmp_path)?;
+        tmp.destroy()?;
+
+        // TODO: split up batch
+        let mut node = Tree::new(vec![], vec![]);
+        let batch: Vec<_> = self
+            .db
+            .iterator(IteratorMode::Start)
+            .map(|(key, node_bytes)| {
+                node.decode_into(vec![], &node_bytes);
+                (key.to_vec(), Op::Put(node.value().to_vec()))
+            })
+            .collect();
+
+        let aux_cf = self.db.cf_handle(AUX_CF_NAME).unwrap();
+        let aux: Vec<_> = self
+            .db
+            .iterator_cf(aux_cf, IteratorMode::Start)
+            .map(|(key, value)| (key.to_vec(), Op::Put(value.to_vec())))
+            .collect();
+
+        drop(self);
+
+        let mut tmp = Self::open(&tmp_path)?;
+        tmp.apply(&batch, &aux)?;
+        drop(tmp);
+
+        let tmp_path2 = create_path("repair2");
+        std::fs::rename(&path, &tmp_path2)?;
+        std::fs::rename(&tmp_path, &path)?;
+        std::fs::remove_dir_all(&tmp_path2)?;
+
+        Self::open(path)
+    }
+
     /// Creates a Merkle proof for the list of queried keys. For each key in the
     /// query, if the key is found in the store then the value will be proven to
     /// be in the tree. For each key in the query that does not exist in the
@@ -728,6 +779,36 @@ mod test {
             merk_iter.next();
             checkpoint_iter.next();
         }
+
+        std::fs::remove_dir_all(&path).unwrap();
+    }
+
+    #[test]
+    fn repair() {
+        let path = thread::current().name().unwrap().to_owned();
+        let mut merk = Merk::open(&path).expect("failed to open merk");
+
+        merk.apply(&make_batch_seq(0..100), &[])
+            .expect("apply failed");
+
+        let merk = merk.repair().unwrap();
+        merk.walk(|mut maybe_walker| {
+            fn recurse(maybe_walker: &mut Option<RefWalker<MerkSource>>) {
+                if let Some(walker) = maybe_walker {
+                    recurse(&mut walker.walk(true).unwrap());
+                    recurse(&mut walker.walk(false).unwrap());
+                }
+            }
+            recurse(&mut maybe_walker);
+
+            let walker = maybe_walker.unwrap();
+            let exp_value = put_entry_value();
+            for (i, (key, value)) in walker.tree().iter().enumerate() {
+                let exp_key = seq_key(i as u64);
+                assert_eq!(key, exp_key);
+                assert_eq!(value, exp_value);
+            }
+        });
 
         std::fs::remove_dir_all(&path).unwrap();
     }

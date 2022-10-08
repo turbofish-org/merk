@@ -69,8 +69,12 @@ pub fn seq_key(n: u64) -> Vec<u8> {
     key
 }
 
+pub fn put_entry_value() -> Vec<u8> {
+    vec![123; 60]
+}
+
 pub fn put_entry(n: u64) -> BatchEntry {
-    (seq_key(n), Op::Put(vec![123; 60]))
+    (seq_key(n), Op::Put(put_entry_value()))
 }
 
 pub fn del_entry(n: u64) -> BatchEntry {
