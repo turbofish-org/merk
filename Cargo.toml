@@ -66,3 +66,6 @@ full = ["rand",
         "ed"]
 verify = ["ed",
           "failure"]
+
+[dev-dependencies]
+tempdir = "0.3.7"
