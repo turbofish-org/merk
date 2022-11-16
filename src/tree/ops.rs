@@ -137,7 +137,7 @@ where
                         .remove()?
                         .map(|w| w.maybe_balance())
                         .transpose()?;
- 
+
                     return Ok((maybe_walker, deleted_keys));
                 }
             }

@@ -29,7 +29,7 @@ pub struct Merk {
     pub(crate) tree: Cell<Option<Tree>>,
     pub(crate) db: rocksdb::DB,
     pub(crate) path: PathBuf,
-    max_levels_in_memory:u8,
+    max_levels_in_memory: u8,
 }
 
 pub type UseTreeMutResult = Result<Vec<(Vec<u8>, Option<Vec<u8>>)>>;
@@ -44,7 +44,7 @@ impl Merk {
 
     /// Opens a store with the specified file path and the given options. If no
     /// store exists at that path, one will be created.
-    pub fn open_opt<P>(path: P, db_opts: rocksdb::Options, levels:u8) -> Result<Merk>
+    pub fn open_opt<P>(path: P, db_opts: rocksdb::Options, levels: u8) -> Result<Merk>
     where
         P: AsRef<Path>,
     {
@@ -56,7 +56,7 @@ impl Merk {
             tree: Cell::new(None),
             db,
             path: path_buf,
-            max_levels_in_memory: levels
+            max_levels_in_memory: levels,
         };
         merk.load_root()?;
 
@@ -529,7 +529,7 @@ mod test {
         if let Ok(merk) = Merk::open_opt(path, opts, 20) {
             assert_eq!(20, merk.get_max_levels_in_memory());
             merk.destroy().unwrap();
-        }else {
+        } else {
             assert!(false);
         }
     }
