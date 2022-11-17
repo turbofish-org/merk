@@ -29,6 +29,7 @@ pub struct Merk {
     pub(crate) tree: Cell<Option<Tree>>,
     pub(crate) db: rocksdb::DB,
     pub(crate) path: PathBuf,
+    max_levels_in_memory: u8,
 }
 
 pub type UseTreeMutResult = Result<Vec<(Vec<u8>, Option<Vec<u8>>)>>;
@@ -38,12 +39,12 @@ impl Merk {
     /// path, one will be created.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Merk> {
         let db_opts = Merk::default_db_opts();
-        Merk::open_opt(path, db_opts)
+        Merk::open_opt(path, db_opts, 100)
     }
 
     /// Opens a store with the specified file path and the given options. If no
     /// store exists at that path, one will be created.
-    pub fn open_opt<P>(path: P, db_opts: rocksdb::Options) -> Result<Merk>
+    pub fn open_opt<P>(path: P, db_opts: rocksdb::Options, levels: u8) -> Result<Merk>
     where
         P: AsRef<Path>,
     {
@@ -55,6 +56,7 @@ impl Merk {
             tree: Cell::new(None),
             db,
             path: path_buf,
+            max_levels_in_memory: levels,
         };
         merk.load_root()?;
 
@@ -79,6 +81,11 @@ impl Merk {
         opts.set_log_level(rocksdb::LogLevel::Warn);
 
         opts
+    }
+
+    #[inline]
+    pub fn get_max_levels_in_memory(&self) -> u8 {
+        self.max_levels_in_memory
     }
 
     /// Gets an auxiliary value.
@@ -329,8 +336,7 @@ impl Merk {
         let mut to_batch = self.use_tree_mut(|maybe_tree| -> UseTreeMutResult {
             // TODO: concurrent commit
             if let Some(tree) = maybe_tree {
-                // TODO: configurable committer
-                let mut committer = MerkCommitter::new(tree.height(), 100);
+                let mut committer = MerkCommitter::new(tree.height(), self.max_levels_in_memory);
                 tree.commit(&mut committer)?;
 
                 // update pointer to root node
@@ -505,7 +511,7 @@ mod test {
     use crate::test_utils::*;
     use crate::Op;
     use std::thread;
-
+    use tempdir::TempDir;
     // TODO: Close and then reopen test
 
     fn assert_invariants(merk: &TempMerk) {
@@ -516,12 +522,24 @@ mod test {
     }
 
     #[test]
+    fn test_configure_the_levels() {
+        let tmp_dir = TempDir::new("example").unwrap();
+        let path = tmp_dir.path().to_owned();
+        let opts = Merk::default_db_opts();
+        if let Ok(merk) = Merk::open_opt(path, opts, 20) {
+            assert_eq!(20, merk.get_max_levels_in_memory());
+            merk.destroy().unwrap();
+        } else {
+            assert!(false);
+        }
+    }
+
+    #[test]
     fn simple_insert_apply() {
         let batch_size = 20;
 
         let path = thread::current().name().unwrap().to_owned();
         let mut merk = TempMerk::open(path).expect("failed to open merk");
-
         let batch = make_batch_seq(0..batch_size);
         merk.apply(&batch, &[]).expect("apply failed");
 
