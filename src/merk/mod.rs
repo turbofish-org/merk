@@ -1,5 +1,6 @@
 pub mod chunks;
 pub mod restore;
+pub mod snapshot;
 
 use std::cell::Cell;
 use std::cmp::Ordering;
@@ -7,10 +8,15 @@ use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
 use rocksdb::{checkpoint::Checkpoint, ColumnFamilyDescriptor, WriteBatch};
+use rocksdb::{DBAccess, DB};
 
 use crate::error::{Error, Result};
 use crate::proofs::{encode_into, query::QueryItem, Query};
-use crate::tree::{Batch, Commit, Fetch, Hash, Link, Op, RefWalker, Tree, Walker, NULL_HASH};
+use crate::tree::{
+    Batch, Commit, Fetch, GetResult, Hash, Link, Op, RefWalker, Tree, Walker, NULL_HASH,
+};
+
+use self::snapshot::Snapshot;
 
 const ROOT_KEY_KEY: &[u8] = b"root";
 const AUX_CF_NAME: &str = "aux";
@@ -51,14 +57,11 @@ impl Merk {
         path_buf.push(path);
         let db = rocksdb::DB::open_cf_descriptors(&db_opts, &path_buf, column_families())?;
 
-        let mut merk = Merk {
-            tree: Cell::new(None),
+        Ok(Merk {
+            tree: Cell::new(load_root(&db)?),
             db,
             path: path_buf,
-        };
-        merk.load_root()?;
-
-        Ok(merk)
+        })
     }
 
     pub fn default_db_opts() -> rocksdb::Options {
@@ -94,31 +97,9 @@ impl Merk {
     /// should be a fast operation and has almost no tree overhead.
     pub fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         self.use_tree(|maybe_tree| {
-            let mut cursor = match maybe_tree {
-                None => return Ok(None), // empty tree
-                Some(tree) => tree,
-            };
-
-            loop {
-                if key == cursor.key() {
-                    return Ok(Some(cursor.value().to_vec()));
-                }
-
-                let left = key < cursor.key();
-                let link = match cursor.link(left) {
-                    None => return Ok(None), // not found
-                    Some(link) => link,
-                };
-
-                let maybe_child = link.tree();
-                match maybe_child {
-                    None => break,                 // value is pruned, fall back to fetching from disk
-                    Some(child) => cursor = child, // traverse to child
-                }
-            }
-
-            // TODO: ignore other fields when reading from node bytes
-            fetch_node(&self.db, key).map(|maybe_node| maybe_node.map(|node| node.value().to_vec()))
+            maybe_tree
+                .and_then(|tree| get(tree, self.source(), key).transpose())
+                .transpose()
         })
     }
 
@@ -126,7 +107,7 @@ impl Merk {
     /// proofs can be checked against). If the tree is empty, returns the null
     /// hash (zero-filled).
     pub fn root_hash(&self) -> Hash {
-        self.use_tree(|tree| tree.map_or(NULL_HASH, |tree| tree.hash()))
+        self.use_tree(|maybe_tree| root_hash(maybe_tree))
     }
 
     /// Applies a batch of operations (puts and deletes) to the tree.
@@ -298,22 +279,8 @@ impl Merk {
         Q: Into<QueryItem>,
         I: IntoIterator<Item = Q>,
     {
-        let query_vec: Vec<QueryItem> = query.into_iter().map(Into::into).collect();
-
-        self.use_tree_mut(|maybe_tree| {
-            let tree = match maybe_tree {
-                None => {
-                    return Err(Error::Proof("Cannot create proof for empty tree".into()));
-                }
-                Some(tree) => tree,
-            };
-
-            let mut ref_walker = RefWalker::new(tree, self.source());
-            let (proof, _) = ref_walker.create_proof(query_vec.as_slice())?;
-
-            let mut bytes = Vec::with_capacity(128);
-            encode_into(proof.iter(), &mut bytes);
-            Ok(bytes)
+        self.use_tree_mut(move |maybe_tree| {
+            prove_unchecked(maybe_tree, self.source(), query.into_iter())
         })
     }
 
@@ -390,18 +357,22 @@ impl Merk {
         Merk::open(path)
     }
 
+    pub fn snapshot(&self) -> Result<Snapshot> {
+        Ok(Snapshot::new(self.db.snapshot(), load_root(&self.db)?))
+    }
+
     fn source(&self) -> MerkSource {
         MerkSource { db: &self.db }
     }
 
-    fn use_tree<T>(&self, mut f: impl FnMut(Option<&Tree>) -> T) -> T {
+    fn use_tree<T>(&self, mut f: impl FnOnce(Option<&Tree>) -> T) -> T {
         let tree = self.tree.take();
         let res = f(tree.as_ref());
         self.tree.set(tree);
         res
     }
 
-    fn use_tree_mut<T>(&self, mut f: impl FnMut(Option<&mut Tree>) -> T) -> T {
+    fn use_tree_mut<T>(&self, mut f: impl FnOnce(Option<&mut Tree>) -> T) -> T {
         let mut tree = self.tree.take();
         let res = f(tree.as_mut());
         self.tree.set(tree);
@@ -424,17 +395,12 @@ impl Merk {
     }
 
     pub(crate) fn fetch_node(&self, key: &[u8]) -> Result<Option<Tree>> {
-        fetch_node(&self.db, key)
+        self.source().fetch_by_key(key)
     }
 
     pub(crate) fn load_root(&mut self) -> Result<()> {
-        let internal_cf = self.db.cf_handle(INTERNAL_CF_NAME).unwrap();
-        let tree = self
-            .db
-            .get_pinned_cf(internal_cf, ROOT_KEY_KEY)?
-            .map(|root_key| fetch_existing_node(&self.db, &root_key))
-            .transpose()?;
-        self.tree = Cell::new(tree);
+        let root = load_root(&self.db)?;
+        self.tree = Cell::new(root);
         Ok(())
     }
 }
@@ -445,8 +411,11 @@ pub struct MerkSource<'a> {
 }
 
 impl<'a> Fetch for MerkSource<'a> {
-    fn fetch(&self, link: &Link) -> Result<Tree> {
-        fetch_existing_node(self.db, link.key())
+    fn fetch_by_key(&self, key: &[u8]) -> Result<Option<Tree>> {
+        Ok(self
+            .db
+            .get_pinned(key)?
+            .map(|bytes| Tree::decode(key.to_vec(), &bytes)))
     }
 }
 
@@ -481,22 +450,42 @@ impl Commit for MerkCommitter {
     }
 }
 
-fn fetch_node(db: &rocksdb::DB, key: &[u8]) -> Result<Option<Tree>> {
-    let bytes = db.get_pinned(key)?;
-    if let Some(bytes) = bytes {
-        Ok(Some(Tree::decode(key.to_vec(), &bytes)))
-    } else {
-        Ok(None)
-    }
+pub fn get<F: Fetch>(tree: &Tree, source: F, key: &[u8]) -> Result<Option<Vec<u8>>> {
+    Ok(match tree.get_value(key)? {
+        GetResult::Found(value) => Some(value),
+        GetResult::NotFound => None,
+        GetResult::Pruned => source.fetch_by_key(key)?.map(|node| node.value().to_vec()),
+    })
 }
 
-fn fetch_existing_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
-    match fetch_node(db, key)? {
-        None => {
-            return Err(Error::Key(format!("{:?}", key)));
-        }
-        Some(node) => Ok(node),
-    }
+fn root_hash(maybe_tree: Option<&Tree>) -> Hash {
+    maybe_tree.map_or(NULL_HASH, |tree| tree.hash())
+}
+
+fn prove_unchecked<Q, I, F>(maybe_tree: Option<&mut Tree>, source: F, query: I) -> Result<Vec<u8>>
+where
+    Q: Into<QueryItem>,
+    I: IntoIterator<Item = Q>,
+    F: Fetch + Send + Clone,
+{
+    let query_vec: Vec<QueryItem> = query.into_iter().map(Into::into).collect();
+
+    let tree =
+        maybe_tree.ok_or_else(|| Error::Proof("Cannot create proof for empty tree".into()))?;
+
+    let mut ref_walker = RefWalker::new(tree, source);
+    let (proof, _) = ref_walker.create_proof(query_vec.as_slice())?;
+
+    let mut bytes = Vec::with_capacity(128);
+    encode_into(proof.iter(), &mut bytes);
+    Ok(bytes)
+}
+
+fn load_root(db: &DB) -> Result<Option<Tree>> {
+    let internal_cf = db.cf_handle(INTERNAL_CF_NAME).unwrap();
+    db.get_pinned_cf(internal_cf, ROOT_KEY_KEY)?
+        .map(|key| MerkSource { db }.fetch_by_key_expect(key.to_vec().as_slice()))
+        .transpose()
 }
 
 #[cfg(test)]

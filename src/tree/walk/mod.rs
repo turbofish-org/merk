@@ -153,8 +153,8 @@ mod test {
     struct MockSource {}
 
     impl Fetch for MockSource {
-        fn fetch(&self, link: &Link) -> Result<Tree> {
-            Ok(Tree::new(link.key().to_vec(), b"foo".to_vec()))
+        fn fetch_by_key(&self, key: &[u8]) -> Result<Option<Tree>> {
+            Ok(Some(Tree::new(key.to_vec(), b"foo".to_vec())))
         }
     }
 

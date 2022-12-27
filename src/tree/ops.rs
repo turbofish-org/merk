@@ -33,9 +33,10 @@ pub type Batch = [BatchEntry];
 /// which always keeps the state in memory.
 #[derive(Clone)]
 pub struct PanicSource {}
+
 impl Fetch for PanicSource {
-    fn fetch(&self, _link: &Link) -> Result<Tree> {
-        unreachable!("'fetch' should not have been called")
+    fn fetch_by_key(&self, key: &[u8]) -> Result<Option<Tree>> {
+        unreachable!()
     }
 }
 
@@ -137,7 +138,7 @@ where
                         .remove()?
                         .map(|w| w.maybe_balance())
                         .transpose()?;
- 
+
                     return Ok((maybe_walker, deleted_keys));
                 }
             }
