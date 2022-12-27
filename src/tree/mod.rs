@@ -401,6 +401,34 @@ impl Tree {
 
         Ok(())
     }
+
+    pub fn get_value(&self, key: &[u8]) -> Result<GetResult> {
+        let mut cursor = self;
+
+        loop {
+            if key == cursor.key() {
+                return Ok(GetResult::Found(cursor.value().to_vec()));
+            }
+
+            let left = key < cursor.key();
+            let link = match cursor.link(left) {
+                None => return Ok(GetResult::NotFound), // not found
+                Some(link) => link,
+            };
+
+            let maybe_child = link.tree();
+            match maybe_child {
+                None => return Ok(GetResult::Pruned), // value is pruned, caller will have to fetch from disk
+                Some(child) => cursor = child,        // traverse to child
+            }
+        }
+    }
+}
+
+pub enum GetResult {
+    Found(Vec<u8>),
+    Pruned,
+    NotFound,
 }
 
 pub fn side_to_str(left: bool) -> &'static str {
