@@ -16,7 +16,7 @@ use crate::tree::{
     Batch, Commit, Fetch, GetResult, Hash, Link, Op, RefWalker, Tree, Walker, NULL_HASH,
 };
 
-use self::snapshot::Snapshot;
+pub use self::snapshot::Snapshot;
 
 const ROOT_KEY_KEY: &[u8] = b"root";
 const AUX_CF_NAME: &str = "aux";
