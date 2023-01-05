@@ -1,6 +1,6 @@
 use super::hash::{kv_hash, Hash, HASH_LENGTH, NULL_HASH};
 use ed::{Decode, Encode, Result};
-use std::io::{Read, Write};
+use std::{io::{Read, Write}, num::TryFromIntError};
 
 // TODO: maybe use something similar to Vec but without capacity field,
 //       (should save 16 bytes per entry). also, maybe a shorter length
@@ -17,10 +17,8 @@ pub struct KV {
 impl KV {
     /// Creates a new `KV` with the given key and value and computes its hash.
     #[inline]
-    pub fn new(key: Vec<u8>, value: Vec<u8>) -> Self {
-        // TODO: length checks?
-        let hash = kv_hash(key.as_slice(), value.as_slice());
-        KV { key, value, hash }
+    pub fn new(key: Vec<u8>, value: Vec<u8>) -> std::result::Result<Self, TryFromIntError> {
+        kv_hash(key.as_slice(), value.as_slice()).map(|hash| KV { key, value, hash })
     }
 
     /// Creates a new `KV` with the given key, value, and hash. The hash is not
@@ -33,11 +31,10 @@ impl KV {
     /// Replaces the `KV`'s value with the given value, updates the hash, and
     /// returns the modified `KV`.
     #[inline]
-    pub fn with_value(mut self, value: Vec<u8>) -> Self {
-        // TODO: length check?
+    pub fn with_value(mut self, value: Vec<u8>) -> std::result::Result<Self, TryFromIntError> {
         self.value = value;
-        self.hash = kv_hash(self.key(), self.value());
-        self
+        self.hash = kv_hash(self.key(), self.value())?;
+        Ok(self)
     }
 
     /// Returns the key as a slice.
@@ -110,20 +107,22 @@ mod test {
     use super::*;
 
     #[test]
-    fn new_kv() {
+    fn new_kv() -> Result<(), TryFromIntError> {
         let kv = KV::new(vec![1, 2, 3], vec![4, 5, 6]);
 
         assert_eq!(kv.key(), &[1, 2, 3]);
         assert_eq!(kv.value(), &[4, 5, 6]);
-        assert_ne!(kv.hash(), &super::super::hash::NULL_HASH);
+        assert_ne!(kv.hash()?, &super::super::hash::NULL_HASH);
+        Ok(())
     }
 
     #[test]
-    fn with_value() {
+    fn with_value() -> Result<(), TryFromIntError> {
         let kv = KV::new(vec![1, 2, 3], vec![4, 5, 6]).with_value(vec![7, 8, 9]);
 
         assert_eq!(kv.key(), &[1, 2, 3]);
         assert_eq!(kv.value(), &[7, 8, 9]);
-        assert_ne!(kv.hash(), &super::super::hash::NULL_HASH);
+        assert_ne!(kv.hash()?, &super::super::hash::NULL_HASH);
+        Ok(())
     }
 }

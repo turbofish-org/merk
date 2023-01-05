@@ -18,6 +18,8 @@ pub enum Error {
     HashMismatch([u8; 32], [u8; 32]),
     #[error("Index OoB Error: {0}")]
     IndexOutOfBounds(String),
+    #[error("Integer conversion error: {0}")]
+    IntegerConversionError(#[from] std::num::TryFromIntError),
     #[error(transparent)]
     IO(#[from] std::io::Error),
     #[error("Tried to delete non-existent key {0:?}")]

@@ -47,14 +47,16 @@ impl Tree {
     /// Creates a new `Tree` with the given key and value, and no children.
     ///
     /// Hashes the key/value pair and initializes the `kv_hash` field.
-    pub fn new(key: Vec<u8>, value: Vec<u8>) -> Self {
-        Tree {
-            inner: Box::new(TreeInner {
-                kv: KV::new(key, value),
-                left: None,
-                right: None,
-            }),
-        }
+    pub fn new(key: Vec<u8>, value: Vec<u8>) -> Result<Self> {
+        KV::new(key, value).map_err(Into::into).map(|kv|
+            Tree {
+                inner: Box::new(TreeInner {
+                    kv,
+                    left: None,
+                    right: None,
+                }),
+            }
+        )
     }
 
     /// Creates a `Tree` by supplying all the raw struct fields (mainly useful
@@ -307,9 +309,9 @@ impl Tree {
     /// Replaces the root node's value with the given value and returns the
     /// modified `Tree`.
     #[inline]
-    pub fn with_value(mut self, value: Vec<u8>) -> Self {
-        self.inner.kv = self.inner.kv.with_value(value);
-        self
+    pub fn with_value(mut self, value: Vec<u8>) -> Result<Self> {
+        self.inner.kv = self.inner.kv.with_value(value)?;
+        Ok(self)
     }
 
     // TODO: add compute_hashes method

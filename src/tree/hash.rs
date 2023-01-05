@@ -1,5 +1,5 @@
 use sha2::{Digest, Sha512_256};
-use std::convert::TryFrom;
+use std::{convert::TryFrom, num::TryFromIntError};
 
 /// The hash algorithm used for both KV hashes and node hashes.
 pub type Hasher = Sha512_256;
@@ -17,24 +17,25 @@ pub type Hash = [u8; HASH_LENGTH];
 ///
 /// **NOTE:** This will panic if the key is longer than 255 bytes, or the value
 /// is longer than 65,535 bytes.
-pub fn kv_hash(key: &[u8], value: &[u8]) -> Hash {
+pub fn kv_hash(key: &[u8], value: &[u8]) -> Result<Hash, TryFromIntError> {
     // TODO: result instead of panic
     // TODO: make generic to allow other hashers
     let mut hasher = Hasher::new();
     hasher.update(&[0]);
 
-    let key_length = u32::try_from(key.len()).expect("key must be less than 2^32 bytes");
-    hasher.update(&key_length.to_le_bytes());
-    hasher.update(key);
+    u32::try_from(key.len()).and_then(|key| u32::try_from(value.len()).map(|value| (key, value)))
+    .map(|(key_length, val_length)| {
+        hasher.update(&key_length.to_le_bytes());
+        hasher.update(key);
 
-    let val_length = u32::try_from(value.len()).expect("value must be less than 2^32 bytes");
-    hasher.update(&val_length.to_le_bytes());
-    hasher.update(value);
+        hasher.update(&val_length.to_le_bytes());
+        hasher.update(value);
 
-    let res = hasher.finalize();
-    let mut hash: Hash = Default::default();
-    hash.copy_from_slice(&res[..]);
-    hash
+        let res = hasher.finalize();
+        let mut hash: Hash = Default::default();
+        hash.copy_from_slice(&res[..]);
+        hash
+    })
 }
 
 /// Hashes a node based on the hash of its key/value pair, the hash of its left

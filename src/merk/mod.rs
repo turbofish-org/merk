@@ -215,7 +215,7 @@ impl Merk {
         tmp.destroy()?;
 
         // TODO: split up batch
-        let mut node = Tree::new(vec![], vec![]);
+        let mut node = Tree::new(vec![], vec![])?;
         let batch: Vec<_> = self
             .db
             .iterator(IteratorMode::Start)

@@ -125,7 +125,7 @@ where
 pub(crate) fn get_next_chunk(iter: &mut DBRawIterator, end_key: Option<&[u8]>) -> Result<Vec<Op>> {
     let mut chunk = Vec::with_capacity(512);
     let mut stack = Vec::with_capacity(32);
-    let mut node = Tree::new(vec![], vec![]);
+    let mut node = Tree::new(vec![], vec![])?;
 
     while iter.valid() {
         let key = iter.key().unwrap();
@@ -181,8 +181,8 @@ pub(crate) fn verify_leaf<I: Iterator<Item = Result<Op>>>(
         _ => Err(Error::Tree("Leaf chunks must contain full subtree".into())),
     })?;
 
-    if tree.hash() != expected_hash {
-        return Err(Error::HashMismatch(expected_hash, tree.hash()));
+    if tree.hash()? != expected_hash {
+        return Err(Error::HashMismatch(expected_hash, tree.hash()?));
     }
 
     Ok(tree)

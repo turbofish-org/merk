@@ -60,6 +60,25 @@ impl<T> Owner<T> {
         return_value
     }
 
+    /// Takes temporary ownership of the contained value by passing it to `f`.
+    /// The function must return a value of the same type (the same value, or a
+    /// new value to take its place).
+    ///
+    /// Like `own`, but with a fallible operation.
+    ///
+    /// # Example
+    /// ```
+    /// # use merk::owner::Owner;
+    /// let mut owner = Owner::new(123);
+    /// let converted = owner.own_fallible(|n| u32::try_from(n))?;
+    /// ```
+    pub fn own_fallible<E, F: FnOnce(T) -> Result<T, E>>(&mut self, f: F) -> Result<(), E> {
+        let old_value = unwrap(self.inner.take());
+        let new_value = f(old_value)?;
+        self.inner = Some(new_value);
+        Ok(())
+    }
+
     /// Sheds the `Owner` container and returns the value it contained.
     pub fn into_inner(mut self) -> T {
         unwrap(self.inner.take())

@@ -128,9 +128,9 @@ where
     }
 
     /// Similar to `Tree#with_value`.
-    pub fn with_value(mut self, value: Vec<u8>) -> Self {
-        self.tree.own(|t| t.with_value(value));
-        self
+    pub fn with_value(mut self, value: Vec<u8>) -> Result<Self> {
+        self.tree.own_fallible(|t| t.with_value(value))?;
+        Ok(self)
     }
 }
 
