@@ -8,12 +8,12 @@ use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
 use rocksdb::{checkpoint::Checkpoint, ColumnFamilyDescriptor, WriteBatch};
-use rocksdb::{DBAccess, DB};
+use rocksdb::DB;
 
 use crate::error::{Error, Result};
 use crate::proofs::{encode_into, query::QueryItem, Query};
 use crate::tree::{
-    Batch, Commit, Fetch, GetResult, Hash, Link, Op, RefWalker, Tree, Walker, NULL_HASH,
+    Batch, Commit, Fetch, GetResult, Hash, Op, RefWalker, Tree, Walker, NULL_HASH,
 };
 
 pub use self::snapshot::Snapshot;
@@ -365,14 +365,14 @@ impl Merk {
         MerkSource { db: &self.db }
     }
 
-    fn use_tree<T>(&self, mut f: impl FnOnce(Option<&Tree>) -> T) -> T {
+    fn use_tree<T>(&self, f: impl FnOnce(Option<&Tree>) -> T) -> T {
         let tree = self.tree.take();
         let res = f(tree.as_ref());
         self.tree.set(tree);
         res
     }
 
-    fn use_tree_mut<T>(&self, mut f: impl FnOnce(Option<&mut Tree>) -> T) -> T {
+    fn use_tree_mut<T>(&self, f: impl FnOnce(Option<&mut Tree>) -> T) -> T {
         let mut tree = self.tree.take();
         let res = f(tree.as_mut());
         self.tree.set(tree);

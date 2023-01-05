@@ -1,4 +1,4 @@
-use super::{Fetch, Link, Tree, Walker};
+use super::{Fetch, Tree, Walker};
 use crate::error::Result;
 use std::collections::LinkedList;
 use std::fmt;
@@ -35,7 +35,7 @@ pub type Batch = [BatchEntry];
 pub struct PanicSource {}
 
 impl Fetch for PanicSource {
-    fn fetch_by_key(&self, key: &[u8]) -> Result<Option<Tree>> {
+    fn fetch_by_key(&self, _: &[u8]) -> Result<Option<Tree>> {
         unreachable!()
     }
 }

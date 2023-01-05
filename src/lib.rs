@@ -1,4 +1,3 @@
-#![feature(map_first_last)]
 #![feature(trivial_bounds)]
 
 #[global_allocator]
