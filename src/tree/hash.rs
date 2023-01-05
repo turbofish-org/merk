@@ -23,19 +23,20 @@ pub fn kv_hash(key: &[u8], value: &[u8]) -> Result<Hash, TryFromIntError> {
     let mut hasher = Hasher::new();
     hasher.update(&[0]);
 
-    u32::try_from(key.len()).and_then(|key| u32::try_from(value.len()).map(|value| (key, value)))
-    .map(|(key_length, val_length)| {
-        hasher.update(&key_length.to_le_bytes());
-        hasher.update(key);
+    u32::try_from(key.len())
+        .and_then(|key| u32::try_from(value.len()).map(|value| (key, value)))
+        .map(|(key_length, val_length)| {
+            hasher.update(&key_length.to_le_bytes());
+            hasher.update(key);
 
-        hasher.update(&val_length.to_le_bytes());
-        hasher.update(value);
+            hasher.update(&val_length.to_le_bytes());
+            hasher.update(value);
 
-        let res = hasher.finalize();
-        let mut hash: Hash = Default::default();
-        hash.copy_from_slice(&res[..]);
-        hash
-    })
+            let res = hasher.finalize();
+            let mut hash: Hash = Default::default();
+            hash.copy_from_slice(&res[..]);
+            hash
+        })
 }
 
 /// Hashes a node based on the hash of its key/value pair, the hash of its left

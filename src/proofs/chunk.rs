@@ -331,8 +331,8 @@ mod tests {
     }
 
     #[test]
-    fn one_node_tree_trunk_roundtrip() {
-        let mut tree = BaseTree::new(vec![0], vec![]);
+    fn one_node_tree_trunk_roundtrip() -> Result<()> {
+        let mut tree = BaseTree::new(vec![0], vec![])?;
         tree.commit(&mut NoopCommit {}).unwrap();
 
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
@@ -344,15 +344,16 @@ mod tests {
         assert_eq!(counts.hash, 0);
         assert_eq!(counts.kv, 1);
         assert_eq!(counts.kvhash, 0);
+        Ok(())
     }
 
     #[test]
-    fn two_node_right_heavy_tree_trunk_roundtrip() {
+    fn two_node_right_heavy_tree_trunk_roundtrip() -> Result<()> {
         // 0
         //  \
         //   1
         let mut tree =
-            BaseTree::new(vec![0], vec![]).attach(false, Some(BaseTree::new(vec![1], vec![])));
+            BaseTree::new(vec![0], vec![])?.attach(false, Some(BaseTree::new(vec![1], vec![])?));
         tree.commit(&mut NoopCommit {}).unwrap();
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
         let (proof, has_more) = walker.create_trunk_proof().unwrap();
@@ -363,15 +364,16 @@ mod tests {
         assert_eq!(counts.hash, 0);
         assert_eq!(counts.kv, 2);
         assert_eq!(counts.kvhash, 0);
+        Ok(())
     }
 
     #[test]
-    fn two_node_left_heavy_tree_trunk_roundtrip() {
+    fn two_node_left_heavy_tree_trunk_roundtrip() -> Result<()> {
         //   1
         //  /
         // 0
         let mut tree =
-            BaseTree::new(vec![1], vec![]).attach(true, Some(BaseTree::new(vec![0], vec![])));
+            BaseTree::new(vec![1], vec![])?.attach(true, Some(BaseTree::new(vec![0], vec![])?));
         tree.commit(&mut NoopCommit {}).unwrap();
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
         let (proof, has_more) = walker.create_trunk_proof().unwrap();
@@ -382,16 +384,17 @@ mod tests {
         assert_eq!(counts.hash, 0);
         assert_eq!(counts.kv, 2);
         assert_eq!(counts.kvhash, 0);
+        Ok(())
     }
 
     #[test]
-    fn three_node_tree_trunk_roundtrip() {
+    fn three_node_tree_trunk_roundtrip() -> Result<()> {
         //   1
         //  / \
         // 0   2
-        let mut tree = BaseTree::new(vec![1], vec![])
-            .attach(true, Some(BaseTree::new(vec![0], vec![])))
-            .attach(false, Some(BaseTree::new(vec![2], vec![])));
+        let mut tree = BaseTree::new(vec![1], vec![])?
+            .attach(true, Some(BaseTree::new(vec![0], vec![])?))
+            .attach(false, Some(BaseTree::new(vec![2], vec![])?));
         tree.commit(&mut NoopCommit {}).unwrap();
 
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
@@ -403,6 +406,7 @@ mod tests {
         assert_eq!(counts.hash, 0);
         assert_eq!(counts.kv, 3);
         assert_eq!(counts.kvhash, 0);
+        Ok(())
     }
 
     #[test]

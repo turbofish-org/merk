@@ -35,7 +35,9 @@ impl From<Node> for Tree {
 impl PartialEq for Tree {
     /// Checks equality for the root hashes of the two trees.
     fn eq(&self, other: &Self) -> bool {
-        self.hash().and_then(|this_hash| other.hash().map(|other_hash| this_hash == other_hash)).unwrap_or_default()
+        self.hash()
+            .and_then(|this_hash| other.hash().map(|other_hash| this_hash == other_hash))
+            .unwrap_or_default()
     }
 }
 
@@ -49,7 +51,9 @@ impl Tree {
         match &self.node {
             Node::Hash(hash) => Ok(*hash),
             Node::KVHash(kv_hash) => Ok(compute_hash(self, *kv_hash)),
-            Node::KV(key, value) => kv_hash(key.as_slice(), value.as_slice()).map(|kv_hash| compute_hash(self, kv_hash)).map_err(Into::into)
+            Node::KV(key, value) => kv_hash(key.as_slice(), value.as_slice())
+                .map(|kv_hash| compute_hash(self, kv_hash))
+                .map_err(Into::into),
         }
     }
 
@@ -246,12 +250,26 @@ where
         match op? {
             Op::Parent => {
                 let (mut parent, child) = (try_pop(&mut stack)?, try_pop(&mut stack)?);
-                parent.attach(true, if collapse { child.try_into_hash()? } else { child })?;
+                parent.attach(
+                    true,
+                    if collapse {
+                        child.try_into_hash()?
+                    } else {
+                        child
+                    },
+                )?;
                 stack.push(parent);
             }
             Op::Child => {
                 let (child, mut parent) = (try_pop(&mut stack)?, try_pop(&mut stack)?);
-                parent.attach(false, if collapse { child.try_into_hash()? } else { child })?;
+                parent.attach(
+                    false,
+                    if collapse {
+                        child.try_into_hash()?
+                    } else {
+                        child
+                    },
+                )?;
                 stack.push(parent);
             }
             Op::Push(node) => {

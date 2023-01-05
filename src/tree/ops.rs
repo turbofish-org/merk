@@ -304,9 +304,9 @@ mod test {
     use crate::tree::*;
 
     #[test]
-    fn simple_insert() {
+    fn simple_insert() -> Result<()> {
         let batch = [(b"foo2".to_vec(), Op::Put(b"bar2".to_vec()))];
-        let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
+        let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec())?;
         let (maybe_walker, deleted_keys) = Walker::new(tree, PanicSource {})
             .apply(&batch)
             .expect("apply errored");
@@ -314,12 +314,13 @@ mod test {
         assert_eq!(walker.tree().key(), b"foo");
         assert_eq!(walker.into_inner().child(false).unwrap().key(), b"foo2");
         assert!(deleted_keys.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn simple_update() {
+    fn simple_update() -> Result<()> {
         let batch = [(b"foo".to_vec(), Op::Put(b"bar2".to_vec()))];
-        let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
+        let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec())?;
         let (maybe_walker, deleted_keys) = Walker::new(tree, PanicSource {})
             .apply(&batch)
             .expect("apply errored");
@@ -329,10 +330,11 @@ mod test {
         assert!(walker.tree().link(true).is_none());
         assert!(walker.tree().link(false).is_none());
         assert!(deleted_keys.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn simple_delete() {
+    fn simple_delete() -> Result<()> {
         let batch = [(b"foo2".to_vec(), Op::Delete)];
         let tree = Tree::from_fields(
             b"foo".to_vec(),
@@ -342,7 +344,7 @@ mod test {
             Some(Link::Loaded {
                 hash: [123; 32],
                 child_heights: (0, 0),
-                tree: Tree::new(b"foo2".to_vec(), b"bar2".to_vec()),
+                tree: Tree::new(b"foo2".to_vec(), b"bar2".to_vec())?,
             }),
         );
         let (maybe_walker, deleted_keys) = Walker::new(tree, PanicSource {})
@@ -355,25 +357,28 @@ mod test {
         assert!(walker.tree().link(false).is_none());
         assert_eq!(deleted_keys.len(), 1);
         assert_eq!(*deleted_keys.front().unwrap(), b"foo2");
+        Ok(())
     }
 
     #[test]
-    fn delete_non_existent() {
+    fn delete_non_existent() -> Result<()> {
         let batch = [(b"foo2".to_vec(), Op::Delete)];
-        let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
+        let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec())?;
         Walker::new(tree, PanicSource {}).apply(&batch).unwrap();
+        Ok(())
     }
 
     #[test]
-    fn delete_only_node() {
+    fn delete_only_node() -> Result<()> {
         let batch = [(b"foo".to_vec(), Op::Delete)];
-        let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec());
+        let tree = Tree::new(b"foo".to_vec(), b"bar".to_vec())?;
         let (maybe_walker, deleted_keys) = Walker::new(tree, PanicSource {})
             .apply(&batch)
             .expect("apply errored");
         assert!(maybe_walker.is_none());
         assert_eq!(deleted_keys.len(), 1);
         assert_eq!(deleted_keys.front().unwrap(), b"foo");
+        Ok(())
     }
 
     #[test]
@@ -470,28 +475,30 @@ mod test {
     }
 
     #[test]
-    fn insert_root_single() {
-        let tree = Tree::new(vec![5], vec![123]);
+    fn insert_root_single() -> Result<()> {
+        let tree = Tree::new(vec![5], vec![123])?;
         let batch = vec![(vec![6], Op::Put(vec![123]))];
         let tree = apply_memonly(tree, &batch);
         assert_eq!(tree.key(), &[5]);
         assert!(tree.child(true).is_none());
         assert_eq!(tree.child(false).expect("expected child").key(), &[6]);
+        Ok(())
     }
 
     #[test]
-    fn insert_root_double() {
-        let tree = Tree::new(vec![5], vec![123]);
+    fn insert_root_double() -> Result<()> {
+        let tree = Tree::new(vec![5], vec![123])?;
         let batch = vec![(vec![4], Op::Put(vec![123])), (vec![6], Op::Put(vec![123]))];
         let tree = apply_memonly(tree, &batch);
         assert_eq!(tree.key(), &[5]);
         assert_eq!(tree.child(true).expect("expected child").key(), &[4]);
         assert_eq!(tree.child(false).expect("expected child").key(), &[6]);
+        Ok(())
     }
 
     #[test]
-    fn insert_rebalance() {
-        let tree = Tree::new(vec![5], vec![123]);
+    fn insert_rebalance() -> Result<()> {
+        let tree = Tree::new(vec![5], vec![123])?;
 
         let batch = vec![(vec![6], Op::Put(vec![123]))];
         let tree = apply_memonly(tree, &batch);
@@ -502,11 +509,12 @@ mod test {
         assert_eq!(tree.key(), &[6]);
         assert_eq!(tree.child(true).expect("expected child").key(), &[5]);
         assert_eq!(tree.child(false).expect("expected child").key(), &[7]);
+        Ok(())
     }
 
     #[test]
-    fn insert_100_sequential() {
-        let mut tree = Tree::new(vec![0], vec![123]);
+    fn insert_100_sequential() -> Result<()> {
+        let mut tree = Tree::new(vec![0], vec![123])?;
 
         for i in 0..100 {
             let batch = vec![(vec![i + 1], Op::Put(vec![123]))];
@@ -516,6 +524,7 @@ mod test {
         assert_eq!(tree.key(), &[63]);
         assert_eq!(tree.child(true).expect("expected child").key(), &[31]);
         assert_eq!(tree.child(false).expect("expected child").key(), &[79]);
+        Ok(())
     }
 
     #[test]

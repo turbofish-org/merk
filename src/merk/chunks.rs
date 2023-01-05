@@ -180,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    fn generate_and_verify_chunks() {
+    fn generate_and_verify_chunks() -> Result<()> {
         let mut merk = TempMerk::new().unwrap();
         let batch = make_batch_seq(1..10_000);
         merk.apply(batch.as_slice(), &[]).unwrap();
@@ -191,14 +191,15 @@ mod tests {
         let ops = Decoder::new(chunk.as_slice());
         let (trunk, height) = verify_trunk(ops).unwrap();
         assert_eq!(height, 14);
-        assert_eq!(trunk.hash(), merk.root_hash());
+        assert_eq!(trunk.hash()?, merk.root_hash());
 
         assert_eq!(trunk.layer(7).count(), 128);
 
         for (chunk, node) in chunks.zip(trunk.layer(height / 2)) {
             let ops = Decoder::new(chunk.as_slice());
-            verify_leaf(ops, node.hash()).unwrap();
+            verify_leaf(ops, node.hash()?).unwrap();
         }
+        Ok(())
     }
 
     #[test]

@@ -312,31 +312,33 @@ mod test {
     use super::*;
 
     #[test]
-    fn from_modified_tree() {
-        let tree = Tree::new(vec![0], vec![1]);
+    fn from_modified_tree() -> std::result::Result<(), &'static str> {
+        let tree = Tree::new(vec![0], vec![1]).map_err(|_| "tree construction failed")?;
         let link = Link::from_modified_tree(tree);
         assert!(link.is_modified());
         assert_eq!(link.height(), 1);
         assert_eq!(link.tree().expect("expected tree").key(), &[0]);
         if let Link::Modified { pending_writes, .. } = link {
             assert_eq!(pending_writes, 1);
+            Ok(())
         } else {
-            panic!("Expected Link::Modified");
+            Err("Expected Link::Modified")
         }
     }
 
     #[test]
-    fn maybe_from_modified_tree() {
+    fn maybe_from_modified_tree() -> std::result::Result<(), crate::error::Error> {
         let link = Link::maybe_from_modified_tree(None);
         assert!(link.is_none());
 
-        let tree = Tree::new(vec![0], vec![1]);
+        let tree = Tree::new(vec![0], vec![1])?;
         let link = Link::maybe_from_modified_tree(Some(tree));
         assert!(link.expect("expected link").is_modified());
+        Ok(())
     }
 
     #[test]
-    fn types() {
+    fn types() -> std::result::Result<(), crate::error::Error> {
         let hash = NULL_HASH;
         let child_heights = (0, 0);
         let pending_writes = 1;
@@ -351,17 +353,17 @@ mod test {
         let modified = Link::Modified {
             pending_writes,
             child_heights,
-            tree: tree(),
+            tree: tree()?,
         };
         let uncommitted = Link::Uncommitted {
             hash,
             child_heights,
-            tree: tree(),
+            tree: tree()?,
         };
         let loaded = Link::Loaded {
             hash,
             child_heights,
-            tree: tree(),
+            tree: tree()?,
         };
 
         assert!(reference.is_reference());
@@ -396,17 +398,22 @@ mod test {
         assert_eq!(loaded.hash(), &[0; 32]);
         assert_eq!(loaded.height(), 1);
         assert!(loaded.into_reference().is_reference());
+        Ok(())
     }
 
     #[test]
-    #[should_panic]
-    fn modified_hash() {
-        Link::Modified {
-            pending_writes: 1,
-            child_heights: (1, 1),
-            tree: Tree::new(vec![0], vec![1]),
+    fn modified_hash() -> std::result::Result<(), ()> {
+        match Tree::new(vec![0], vec![1])
+            .map(|tree| Link::Modified {
+                pending_writes: 1,
+                child_heights: (1, 1),
+                tree,
+            })
+            .map(|link| link.hash().to_vec())
+        {
+            Ok(_) => Err(()),
+            Err(_) => Ok(()),
         }
-        .hash();
     }
 
     #[test]
@@ -415,7 +422,7 @@ mod test {
         Link::Modified {
             pending_writes: 1,
             child_heights: (1, 1),
-            tree: Tree::new(vec![0], vec![1]),
+            tree: Tree::new(vec![0], vec![1]).expect("tree construction failed"),
         }
         .into_reference();
     }
@@ -426,7 +433,7 @@ mod test {
         Link::Uncommitted {
             hash: [1; 32],
             child_heights: (1, 1),
-            tree: Tree::new(vec![0], vec![1]),
+            tree: Tree::new(vec![0], vec![1]).expect("tree construction failed"),
         }
         .into_reference();
     }

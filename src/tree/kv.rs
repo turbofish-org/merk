@@ -1,6 +1,9 @@
 use super::hash::{kv_hash, Hash, HASH_LENGTH, NULL_HASH};
 use ed::{Decode, Encode, Result};
-use std::{io::{Read, Write}, num::TryFromIntError};
+use std::{
+    io::{Read, Write},
+    num::TryFromIntError,
+};
 
 // TODO: maybe use something similar to Vec but without capacity field,
 //       (should save 16 bytes per entry). also, maybe a shorter length
@@ -107,22 +110,22 @@ mod test {
     use super::*;
 
     #[test]
-    fn new_kv() -> Result<(), TryFromIntError> {
-        let kv = KV::new(vec![1, 2, 3], vec![4, 5, 6]);
+    fn new_kv() -> std::result::Result<(), TryFromIntError> {
+        let kv = KV::new(vec![1, 2, 3], vec![4, 5, 6])?;
 
         assert_eq!(kv.key(), &[1, 2, 3]);
         assert_eq!(kv.value(), &[4, 5, 6]);
-        assert_ne!(kv.hash()?, &super::super::hash::NULL_HASH);
+        assert_ne!(kv.hash(), &super::super::hash::NULL_HASH);
         Ok(())
     }
 
     #[test]
-    fn with_value() -> Result<(), TryFromIntError> {
-        let kv = KV::new(vec![1, 2, 3], vec![4, 5, 6]).with_value(vec![7, 8, 9]);
+    fn with_value() -> std::result::Result<(), TryFromIntError> {
+        let kv = KV::new(vec![1, 2, 3], vec![4, 5, 6])?.with_value(vec![7, 8, 9])?;
 
         assert_eq!(kv.key(), &[1, 2, 3]);
         assert_eq!(kv.value(), &[7, 8, 9]);
-        assert_ne!(kv.hash()?, &super::super::hash::NULL_HASH);
+        assert_ne!(kv.hash(), &super::super::hash::NULL_HASH);
         Ok(())
     }
 }

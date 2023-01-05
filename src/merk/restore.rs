@@ -111,7 +111,7 @@ impl Restorer {
                 // TODO: encode tree node without cloning key/value
                 Node::KV(key, value) => match Tree::new(key.clone(), value.clone()) {
                     Ok(node) => (key, node),
-                    Err(_) => return
+                    Err(_) => return,
                 },
                 _ => return,
             };

@@ -7,14 +7,12 @@ use std::cmp::Ordering;
 use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
-use rocksdb::{checkpoint::Checkpoint, ColumnFamilyDescriptor, WriteBatch};
 use rocksdb::DB;
+use rocksdb::{checkpoint::Checkpoint, ColumnFamilyDescriptor, WriteBatch};
 
 use crate::error::{Error, Result};
 use crate::proofs::{encode_into, query::QueryItem, Query};
-use crate::tree::{
-    Batch, Commit, Fetch, GetResult, Hash, Op, RefWalker, Tree, Walker, NULL_HASH,
-};
+use crate::tree::{Batch, Commit, Fetch, GetResult, Hash, Op, RefWalker, Tree, Walker, NULL_HASH};
 
 pub use self::snapshot::Snapshot;
 

@@ -40,6 +40,7 @@ impl Tree {
 mod tests {
     use super::super::Link;
     use super::*;
+    use crate::error::Result;
 
     #[test]
     fn encode_leaf_tree() {
@@ -64,7 +65,7 @@ mod tests {
             Some(Link::Modified {
                 pending_writes: 1,
                 child_heights: (123, 124),
-                tree: Tree::new(vec![2], vec![3]),
+                tree: Tree::new(vec![2], vec![3]).unwrap(),
             }),
             None,
         );
@@ -72,7 +73,7 @@ mod tests {
     }
 
     #[test]
-    fn encode_loaded_tree() {
+    fn encode_loaded_tree() -> Result<()> {
         let tree = Tree::from_fields(
             vec![0],
             vec![1],
@@ -80,7 +81,7 @@ mod tests {
             Some(Link::Loaded {
                 hash: [66; 32],
                 child_heights: (123, 124),
-                tree: Tree::new(vec![2], vec![3]),
+                tree: Tree::new(vec![2], vec![3])?,
             }),
             None,
         );
@@ -93,10 +94,11 @@ mod tests {
                 55, 55, 55, 55, 55, 55, 55, 55, 1
             ]
         );
+        Ok(())
     }
 
     #[test]
-    fn encode_uncommitted_tree() {
+    fn encode_uncommitted_tree() -> Result<()> {
         let tree = Tree::from_fields(
             vec![0],
             vec![1],
@@ -104,7 +106,7 @@ mod tests {
             Some(Link::Uncommitted {
                 hash: [66; 32],
                 child_heights: (123, 124),
-                tree: Tree::new(vec![2], vec![3]),
+                tree: Tree::new(vec![2], vec![3])?,
             }),
             None,
         );
@@ -117,6 +119,7 @@ mod tests {
                 55, 55, 55, 55, 55, 55, 55, 55, 1
             ]
         );
+        Ok(())
     }
 
     #[test]
