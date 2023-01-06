@@ -69,6 +69,7 @@ impl<T> Owner<T> {
     /// # Example
     /// ```
     /// # use merk::owner::Owner;
+    /// # use std::convert::TryFrom;
     /// let mut owner = Owner::new(123);
     /// let converted = owner.own_fallible(|n| u32::try_from(n))?;
     /// ```
