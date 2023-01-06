@@ -15,12 +15,11 @@ pub type Hash = [u8; HASH_LENGTH];
 
 /// Hashes a key/value pair.
 ///
-/// **NOTE:** This will panic if the key is longer than 255 bytes, or the value
+/// **NOTE:** This will fail if the key is longer than 255 bytes, or the value
 /// is longer than 65,535 bytes.
-pub fn kv_hash(key: &[u8], value: &[u8]) -> Result<Hash, TryFromIntError> {
-    // TODO: result instead of panic
+pub fn kv_hash<D: Digest>(key: &[u8], value: &[u8]) -> Result<Hash, TryFromIntError> {
     // TODO: make generic to allow other hashers
-    let mut hasher = Hasher::new();
+    let mut hasher = D::new();
     hasher.update(&[0]);
 
     u32::try_from(key.len())

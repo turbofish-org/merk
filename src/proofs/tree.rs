@@ -1,6 +1,6 @@
 use super::{Node, Op};
 use crate::error::{Error, Result};
-use crate::tree::{kv_hash, node_hash, Hash, NULL_HASH};
+use crate::tree::{kv_hash, node_hash, Hash, Hasher, NULL_HASH};
 
 /// Contains a tree's child node and its hash. The hash can always be assumed to
 /// be up-to-date.
@@ -51,7 +51,7 @@ impl Tree {
         match &self.node {
             Node::Hash(hash) => Ok(*hash),
             Node::KVHash(kv_hash) => Ok(compute_hash(self, *kv_hash)),
-            Node::KV(key, value) => kv_hash(key.as_slice(), value.as_slice())
+            Node::KV(key, value) => kv_hash::<Hasher>(key.as_slice(), value.as_slice())
                 .map(|kv_hash| compute_hash(self, kv_hash))
                 .map_err(Into::into),
         }

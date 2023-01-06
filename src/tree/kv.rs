@@ -1,4 +1,4 @@
-use super::hash::{kv_hash, Hash, HASH_LENGTH, NULL_HASH};
+use super::hash::{kv_hash, Hash, Hasher, HASH_LENGTH, NULL_HASH};
 use ed::{Decode, Encode, Result};
 use std::{
     io::{Read, Write},
@@ -21,7 +21,7 @@ impl KV {
     /// Creates a new `KV` with the given key and value and computes its hash.
     #[inline]
     pub fn new(key: Vec<u8>, value: Vec<u8>) -> std::result::Result<Self, TryFromIntError> {
-        kv_hash(key.as_slice(), value.as_slice()).map(|hash| KV { key, value, hash })
+        kv_hash::<Hasher>(key.as_slice(), value.as_slice()).map(|hash| KV { key, value, hash })
     }
 
     /// Creates a new `KV` with the given key, value, and hash. The hash is not
@@ -36,7 +36,7 @@ impl KV {
     #[inline]
     pub fn with_value(mut self, value: Vec<u8>) -> std::result::Result<Self, TryFromIntError> {
         self.value = value;
-        self.hash = kv_hash(self.key(), self.value())?;
+        self.hash = kv_hash::<Hasher>(self.key(), self.value())?;
         Ok(self)
     }
 

@@ -16,7 +16,7 @@ use ed::{Decode, Encode};
 
 use super::error::Result;
 pub use commit::{Commit, NoopCommit};
-pub use hash::{kv_hash, node_hash, Hash, HASH_LENGTH, NULL_HASH};
+pub use hash::{kv_hash, node_hash, Hash, Hasher, HASH_LENGTH, NULL_HASH};
 use kv::KV;
 pub use link::Link;
 pub use ops::{Batch, BatchEntry, Op, PanicSource};
