@@ -402,18 +402,17 @@ mod test {
     }
 
     #[test]
-    fn modified_hash() -> std::result::Result<(), ()> {
-        match Tree::new(vec![0], vec![1])
+    #[should_panic(expected = "Cannot get hash from modified link")]
+    fn modified_hash() {
+        Tree::new(vec![0], vec![1])
             .map(|tree| Link::Modified {
                 pending_writes: 1,
                 child_heights: (1, 1),
                 tree,
             })
             .map(|link| link.hash().to_vec())
-        {
-            Ok(_) => Err(()),
-            Err(_) => Ok(()),
-        }
+            .map(|_| ())
+            .unwrap_or_default()
     }
 
     #[test]
