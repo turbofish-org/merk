@@ -71,7 +71,7 @@ impl<T> Owner<T> {
     /// # use merk::owner::Owner;
     /// # use std::convert::TryFrom;
     /// let mut owner = Owner::new(123);
-    /// let converted = owner.own_fallible(|n| u32::try_from(n))?;
+    /// let converted = owner.own_fallible(|n| u32::try_from(n));
     /// ```
     pub fn own_fallible<E, F: FnOnce(T) -> Result<T, E>>(&mut self, f: F) -> Result<(), E> {
         let old_value = unwrap(self.inner.take());
