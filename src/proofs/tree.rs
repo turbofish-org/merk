@@ -45,7 +45,7 @@ impl Tree {
     /// Gets or computes the hash for this tree node.
     pub fn hash(&self) -> Result<Hash> {
         fn compute_hash(tree: &Tree, kv_hash: Hash) -> Hash {
-            node_hash(&kv_hash, &tree.child_hash(true), &tree.child_hash(false))
+            node_hash::<Hasher>(&kv_hash, &tree.child_hash(true), &tree.child_hash(false))
         }
 
         match &self.node {

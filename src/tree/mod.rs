@@ -155,7 +155,7 @@ impl Tree {
     /// Computes and returns the hash of the root node.
     #[inline]
     pub fn hash(&self) -> Hash {
-        node_hash(
+        node_hash::<Hasher>(
             self.inner.kv.hash(),
             self.child_hash(true),
             self.child_hash(false),
