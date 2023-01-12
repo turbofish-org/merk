@@ -96,7 +96,7 @@ impl<'a> ChunkProducer<'a> {
             return Ok(self.trunk.encode()?);
         }
 
-        assert!(!(self.index >= self.len()), "Called next_chunk after end");
+        assert!(self.index < self.len(), "Called next_chunk after end");
 
         let end_key = self.chunk_boundaries.get(self.index - 1);
         let end_key_slice = end_key.as_ref().map(|k| k.as_slice());
@@ -208,7 +208,7 @@ mod tests {
             .duration_since(std::time::SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path = format!("chunks_from_reopen_{}.db", time);
+        let path = format!("chunks_from_reopen_{time}.db");
 
         let original_chunks = {
             let mut merk = Merk::open(&path).unwrap();

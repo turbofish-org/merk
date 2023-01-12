@@ -22,7 +22,7 @@ impl<'a> Snapshot<'a> {
     pub fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         self.use_tree(|maybe_tree| {
             maybe_tree
-                .and_then(|tree| super::get(&tree, self.source(), key).transpose())
+                .and_then(|tree| super::get(tree, self.source(), key).transpose())
                 .transpose()
         })
     }

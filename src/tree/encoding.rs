@@ -176,8 +176,8 @@ mod tests {
         }) = tree.link(true)
         {
             assert_eq!(*key, [2]);
-            assert_eq!(*child_heights, (123 as u8, 124 as u8));
-            assert_eq!(*hash, [66 as u8; 32]);
+            assert_eq!(*child_heights, (123_u8, 124_u8));
+            assert_eq!(*hash, [66_u8; 32]);
         } else {
             panic!("Expected Link::Reference");
         }

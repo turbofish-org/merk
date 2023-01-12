@@ -15,6 +15,6 @@ pub trait Fetch {
 
     fn fetch_by_key_expect(&self, key: &[u8]) -> Result<Tree> {
         self.fetch_by_key(key)?
-            .ok_or_else(|| Error::Key(format!("Key does not exist: {:?}", key)))
+            .ok_or_else(|| Error::Key(format!("Key does not exist: {key:?}")))
     }
 }

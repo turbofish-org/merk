@@ -16,7 +16,7 @@ impl fmt::Debug for Op {
             f,
             "{}",
             match self {
-                Put(value) => format!("Put({:?})", value),
+                Put(value) => format!("Put({value:?})"),
                 Delete => "Delete".to_string(),
             }
         )
@@ -456,8 +456,7 @@ mod test {
     #[test]
     fn apply_empty_none() {
         let (maybe_tree, deleted_keys) =
-            Walker::<PanicSource>::apply_to(None, &vec![], PanicSource {})
-                .expect("apply_to failed");
+            Walker::<PanicSource>::apply_to(None, &[], PanicSource {}).expect("apply_to failed");
         assert!(maybe_tree.is_none());
         assert!(deleted_keys.is_empty());
     }
