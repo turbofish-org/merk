@@ -2,8 +2,8 @@ use std::cell::Cell;
 
 use crate::{
     proofs::{query::QueryItem, Query},
-    tree::{Fetch, GetResult, RefWalker, Tree, NULL_HASH},
-    Hash, MerkSource, Result,
+    tree::{Fetch, RefWalker, Tree, NULL_HASH},
+    Hash, Result,
 };
 
 pub struct Snapshot<'a> {
@@ -22,7 +22,7 @@ impl<'a> Snapshot<'a> {
     pub fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         self.use_tree(|maybe_tree| {
             maybe_tree
-                .and_then(|tree| super::get(&tree, self.source(), key).transpose())
+                .and_then(|tree| super::get(tree, self.source(), key).transpose())
                 .transpose()
         })
     }
@@ -63,14 +63,14 @@ impl<'a> Snapshot<'a> {
         SnapshotSource(&self.db)
     }
 
-    fn use_tree<T>(&self, mut f: impl FnOnce(Option<&Tree>) -> T) -> T {
+    fn use_tree<T>(&self, f: impl FnOnce(Option<&Tree>) -> T) -> T {
         let tree = self.tree.take();
         let res = f(tree.as_ref());
         self.tree.set(tree);
         res
     }
 
-    fn use_tree_mut<T>(&self, mut f: impl FnOnce(Option<&mut Tree>) -> T) -> T {
+    fn use_tree_mut<T>(&self, f: impl FnOnce(Option<&mut Tree>) -> T) -> T {
         let mut tree = self.tree.take();
         let res = f(tree.as_mut());
         self.tree.set(tree);

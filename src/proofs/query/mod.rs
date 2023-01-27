@@ -343,8 +343,8 @@ pub fn verify(bytes: &[u8], expected_hash: Hash) -> Result<Map> {
 
     let root = execute(ops, true, |node| map_builder.insert(node))?;
 
-    if root.hash() != expected_hash {
-        return Err(Error::HashMismatch(expected_hash, root.hash()));
+    if root.hash()? != expected_hash {
+        return Err(Error::HashMismatch(expected_hash, root.hash()?));
     }
 
     Ok(map_builder.build())
@@ -459,8 +459,8 @@ pub fn verify_query(
         }
     }
 
-    if root.hash() != expected_hash {
-        return Err(Error::HashMismatch(expected_hash, root.hash()));
+    if root.hash()? != expected_hash {
+        return Err(Error::HashMismatch(expected_hash, root.hash()?));
     }
 
     Ok(output)
@@ -475,16 +475,16 @@ mod test {
     use crate::test_utils::make_tree_seq;
     use crate::tree::{NoopCommit, PanicSource, RefWalker, Tree};
 
-    fn make_3_node_tree() -> Tree {
-        let mut tree = Tree::new(vec![5], vec![5])
-            .attach(true, Some(Tree::new(vec![3], vec![3])))
-            .attach(false, Some(Tree::new(vec![7], vec![7])));
+    fn make_3_node_tree() -> Result<Tree> {
+        let mut tree = Tree::new(vec![5], vec![5])?
+            .attach(true, Some(Tree::new(vec![3], vec![3])?))
+            .attach(false, Some(Tree::new(vec![7], vec![7])?));
         tree.commit(&mut NoopCommit {}).expect("commit failed");
-        tree
+        Ok(tree)
     }
 
-    fn verify_keys_test(keys: Vec<Vec<u8>>, expected_result: Vec<Option<Vec<u8>>>) {
-        let mut tree = make_3_node_tree();
+    fn verify_keys_test(keys: Vec<Vec<u8>>, expected_result: Vec<Option<Vec<u8>>>) -> Result<()> {
+        let mut tree = make_3_node_tree()?;
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
 
         let (proof, _) = walker
@@ -519,59 +519,60 @@ mod test {
         for (key, expected_value) in keys.iter().zip(expected_result.iter()) {
             assert_eq!(values.get(key), expected_value.as_ref());
         }
+        Ok(())
     }
 
     #[test]
-    fn root_verify() {
-        verify_keys_test(vec![vec![5]], vec![Some(vec![5])]);
+    fn root_verify() -> Result<()> {
+        verify_keys_test(vec![vec![5]], vec![Some(vec![5])])
     }
 
     #[test]
-    fn single_verify() {
-        verify_keys_test(vec![vec![3]], vec![Some(vec![3])]);
+    fn single_verify() -> Result<()> {
+        verify_keys_test(vec![vec![3]], vec![Some(vec![3])])
     }
 
     #[test]
-    fn double_verify() {
-        verify_keys_test(vec![vec![3], vec![5]], vec![Some(vec![3]), Some(vec![5])]);
+    fn double_verify() -> Result<()> {
+        verify_keys_test(vec![vec![3], vec![5]], vec![Some(vec![3]), Some(vec![5])])
     }
 
     #[test]
-    fn double_verify_2() {
-        verify_keys_test(vec![vec![3], vec![7]], vec![Some(vec![3]), Some(vec![7])]);
+    fn double_verify_2() -> Result<()> {
+        verify_keys_test(vec![vec![3], vec![7]], vec![Some(vec![3]), Some(vec![7])])
     }
 
     #[test]
-    fn triple_verify() {
+    fn triple_verify() -> Result<()> {
         verify_keys_test(
             vec![vec![3], vec![5], vec![7]],
             vec![Some(vec![3]), Some(vec![5]), Some(vec![7])],
-        );
+        )
     }
 
     #[test]
-    fn left_edge_absence_verify() {
-        verify_keys_test(vec![vec![2]], vec![None]);
+    fn left_edge_absence_verify() -> Result<()> {
+        verify_keys_test(vec![vec![2]], vec![None])
     }
 
     #[test]
-    fn right_edge_absence_verify() {
-        verify_keys_test(vec![vec![8]], vec![None]);
+    fn right_edge_absence_verify() -> Result<()> {
+        verify_keys_test(vec![vec![8]], vec![None])
     }
 
     #[test]
-    fn inner_absence_verify() {
-        verify_keys_test(vec![vec![6]], vec![None]);
+    fn inner_absence_verify() -> Result<()> {
+        verify_keys_test(vec![vec![6]], vec![None])
     }
 
     #[test]
-    fn absent_and_present_verify() {
-        verify_keys_test(vec![vec![5], vec![6]], vec![Some(vec![5]), None]);
+    fn absent_and_present_verify() -> Result<()> {
+        verify_keys_test(vec![vec![5], vec![6]], vec![Some(vec![5]), None])
     }
 
     #[test]
-    fn empty_proof() {
-        let mut tree = make_3_node_tree();
+    fn empty_proof() -> Result<()> {
+        let mut tree = make_3_node_tree()?;
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
 
         let (proof, absence) = walker
@@ -609,11 +610,12 @@ mod test {
         encode_into(proof.iter(), &mut bytes);
         let res = verify_query(bytes.as_slice(), &Query::new(), tree.hash()).unwrap();
         assert!(res.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn root_proof() {
-        let mut tree = make_3_node_tree();
+    fn root_proof() -> Result<()> {
+        let mut tree = make_3_node_tree()?;
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
 
         let queryitems = vec![QueryItem::Key(vec![5])];
@@ -650,11 +652,12 @@ mod test {
         }
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
         assert_eq!(res, vec![(vec![5], vec![5])]);
+        Ok(())
     }
 
     #[test]
-    fn leaf_proof() {
-        let mut tree = make_3_node_tree();
+    fn leaf_proof() -> Result<()> {
+        let mut tree = make_3_node_tree()?;
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
 
         let queryitems = vec![QueryItem::Key(vec![3])];
@@ -691,11 +694,12 @@ mod test {
         }
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
         assert_eq!(res, vec![(vec![3], vec![3])]);
+        Ok(())
     }
 
     #[test]
-    fn double_leaf_proof() {
-        let mut tree = make_3_node_tree();
+    fn double_leaf_proof() -> Result<()> {
+        let mut tree = make_3_node_tree()?;
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
 
         let queryitems = vec![QueryItem::Key(vec![3]), QueryItem::Key(vec![7])];
@@ -726,11 +730,12 @@ mod test {
         }
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
         assert_eq!(res, vec![(vec![3], vec![3]), (vec![7], vec![7]),]);
+        Ok(())
     }
 
     #[test]
-    fn all_nodes_proof() {
-        let mut tree = make_3_node_tree();
+    fn all_nodes_proof() -> Result<()> {
+        let mut tree = make_3_node_tree()?;
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
 
         let queryitems = vec![
@@ -762,11 +767,12 @@ mod test {
             res,
             vec![(vec![3], vec![3]), (vec![5], vec![5]), (vec![7], vec![7]),]
         );
+        Ok(())
     }
 
     #[test]
-    fn global_edge_absence_proof() {
-        let mut tree = make_3_node_tree();
+    fn global_edge_absence_proof() -> Result<()> {
+        let mut tree = make_3_node_tree()?;
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
 
         let queryitems = vec![QueryItem::Key(vec![8])];
@@ -803,11 +809,12 @@ mod test {
         }
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
         assert_eq!(res, vec![]);
+        Ok(())
     }
 
     #[test]
-    fn absence_proof() {
-        let mut tree = make_3_node_tree();
+    fn absence_proof() -> Result<()> {
+        let mut tree = make_3_node_tree()?;
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
 
         let queryitems = vec![QueryItem::Key(vec![6])];
@@ -838,21 +845,22 @@ mod test {
         }
         let res = verify_query(bytes.as_slice(), &query, tree.hash()).unwrap();
         assert_eq!(res, vec![]);
+        Ok(())
     }
 
     #[test]
-    fn doc_proof() {
-        let mut tree = Tree::new(vec![5], vec![5])
+    fn doc_proof() -> Result<()> {
+        let mut tree = Tree::new(vec![5], vec![5])?
             .attach(
                 true,
                 Some(
-                    Tree::new(vec![2], vec![2])
-                        .attach(true, Some(Tree::new(vec![1], vec![1])))
+                    Tree::new(vec![2], vec![2])?
+                        .attach(true, Some(Tree::new(vec![1], vec![1])?))
                         .attach(
                             false,
                             Some(
-                                Tree::new(vec![4], vec![4])
-                                    .attach(true, Some(Tree::new(vec![3], vec![3]))),
+                                Tree::new(vec![4], vec![4])?
+                                    .attach(true, Some(Tree::new(vec![3], vec![3])?)),
                             ),
                         ),
                 ),
@@ -860,20 +868,20 @@ mod test {
             .attach(
                 false,
                 Some(
-                    Tree::new(vec![9], vec![9])
+                    Tree::new(vec![9], vec![9])?
                         .attach(
                             true,
                             Some(
-                                Tree::new(vec![7], vec![7])
-                                    .attach(true, Some(Tree::new(vec![6], vec![6])))
-                                    .attach(false, Some(Tree::new(vec![8], vec![8]))),
+                                Tree::new(vec![7], vec![7])?
+                                    .attach(true, Some(Tree::new(vec![6], vec![6])?))
+                                    .attach(false, Some(Tree::new(vec![8], vec![8])?)),
                             ),
                         )
                         .attach(
                             false,
                             Some(
-                                Tree::new(vec![11], vec![11])
-                                    .attach(true, Some(Tree::new(vec![10], vec![10]))),
+                                Tree::new(vec![11], vec![11])?
+                                    .attach(true, Some(Tree::new(vec![10], vec![10])?)),
                             ),
                         ),
                 ),
@@ -948,6 +956,7 @@ mod test {
                 (vec![4], vec![4]),
             ]
         );
+        Ok(())
     }
 
     #[test]
@@ -1403,8 +1412,8 @@ mod test {
     }
 
     #[test]
-    fn verify_ops() {
-        let mut tree = Tree::new(vec![5], vec![5]);
+    fn verify_ops() -> Result<()> {
+        let mut tree = Tree::new(vec![5], vec![5])?;
         tree.commit(&mut NoopCommit {}).expect("commit failed");
 
         let root_hash = tree.hash();
@@ -1422,12 +1431,13 @@ mod test {
             map.get(vec![5].as_slice()).unwrap().unwrap(),
             vec![5].as_slice()
         );
+        Ok(())
     }
 
     #[test]
     #[should_panic(expected = "verify failed")]
     fn verify_ops_mismatched_hash() {
-        let mut tree = Tree::new(vec![5], vec![5]);
+        let mut tree = Tree::new(vec![5], vec![5]).expect("tree construction failed");
         tree.commit(&mut NoopCommit {}).expect("commit failed");
 
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
@@ -1445,7 +1455,7 @@ mod test {
     #[test]
     #[should_panic(expected = "verify failed")]
     fn verify_query_mismatched_hash() {
-        let mut tree = make_3_node_tree();
+        let mut tree = make_3_node_tree().expect("tree construction failed");
         let mut walker = RefWalker::new(&mut tree, PanicSource {});
         let keys = vec![vec![5], vec![7]];
         let (proof, _) = walker

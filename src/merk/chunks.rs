@@ -96,7 +96,7 @@ impl<'a> ChunkProducer<'a> {
             return Ok(self.trunk.encode()?);
         }
 
-        assert!(!(self.index >= self.len()), "Called next_chunk after end");
+        assert!(self.index < self.len(), "Called next_chunk after end");
 
         let end_key = self.chunk_boundaries.get(self.index - 1);
         let end_key_slice = end_key.as_ref().map(|k| k.as_slice());
@@ -180,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    fn generate_and_verify_chunks() {
+    fn generate_and_verify_chunks() -> Result<()> {
         let mut merk = TempMerk::new().unwrap();
         let batch = make_batch_seq(1..10_000);
         merk.apply(batch.as_slice(), &[]).unwrap();
@@ -191,14 +191,15 @@ mod tests {
         let ops = Decoder::new(chunk.as_slice());
         let (trunk, height) = verify_trunk(ops).unwrap();
         assert_eq!(height, 14);
-        assert_eq!(trunk.hash(), merk.root_hash());
+        assert_eq!(trunk.hash()?, merk.root_hash());
 
         assert_eq!(trunk.layer(7).count(), 128);
 
         for (chunk, node) in chunks.zip(trunk.layer(height / 2)) {
             let ops = Decoder::new(chunk.as_slice());
-            verify_leaf(ops, node.hash()).unwrap();
+            verify_leaf(ops, node.hash()?).unwrap();
         }
+        Ok(())
     }
 
     #[test]
@@ -207,7 +208,7 @@ mod tests {
             .duration_since(std::time::SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path = format!("chunks_from_reopen_{}.db", time);
+        let path = format!("chunks_from_reopen_{time}.db");
 
         let original_chunks = {
             let mut merk = Merk::open(&path).unwrap();

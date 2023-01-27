@@ -7,14 +7,12 @@ use std::cmp::Ordering;
 use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
 
+use rocksdb::DB;
 use rocksdb::{checkpoint::Checkpoint, ColumnFamilyDescriptor, WriteBatch};
-use rocksdb::{DBAccess, DB};
 
 use crate::error::{Error, Result};
 use crate::proofs::{encode_into, query::QueryItem, Query};
-use crate::tree::{
-    Batch, Commit, Fetch, GetResult, Hash, Link, Op, RefWalker, Tree, Walker, NULL_HASH,
-};
+use crate::tree::{Batch, Commit, Fetch, GetResult, Hash, Op, RefWalker, Tree, Walker, NULL_HASH};
 
 pub use self::snapshot::Snapshot;
 
@@ -215,7 +213,7 @@ impl Merk {
         tmp.destroy()?;
 
         // TODO: split up batch
-        let mut node = Tree::new(vec![], vec![]);
+        let mut node = Tree::new(vec![], vec![])?;
         let batch: Vec<_> = self
             .db
             .iterator(IteratorMode::Start)
@@ -365,14 +363,14 @@ impl Merk {
         MerkSource { db: &self.db }
     }
 
-    fn use_tree<T>(&self, mut f: impl FnOnce(Option<&Tree>) -> T) -> T {
+    fn use_tree<T>(&self, f: impl FnOnce(Option<&Tree>) -> T) -> T {
         let tree = self.tree.take();
         let res = f(tree.as_ref());
         self.tree.set(tree);
         res
     }
 
-    fn use_tree_mut<T>(&self, mut f: impl FnOnce(Option<&mut Tree>) -> T) -> T {
+    fn use_tree_mut<T>(&self, f: impl FnOnce(Option<&mut Tree>) -> T) -> T {
         let mut tree = self.tree.take();
         let res = f(tree.as_mut());
         self.tree.set(tree);
@@ -549,7 +547,7 @@ mod test {
         let mut merk = TempMerk::open(path).expect("failed to open merk");
 
         for i in 0..(tree_size / batch_size) {
-            println!("i:{}", i);
+            println!("i:{i}");
             let batch = make_batch_rand(batch_size, i);
             merk.apply(&batch, &[]).expect("apply failed");
         }
@@ -635,15 +633,21 @@ mod test {
     fn reopen() {
         fn collect(mut node: RefWalker<MerkSource>, nodes: &mut Vec<Vec<u8>>) {
             nodes.push(node.tree().encode());
-            node.walk(true).unwrap().map(|c| collect(c, nodes));
-            node.walk(false).unwrap().map(|c| collect(c, nodes));
+            node.walk(true)
+                .unwrap()
+                .into_iter()
+                .for_each(|c| collect(c, nodes));
+            node.walk(false)
+                .unwrap()
+                .into_iter()
+                .for_each(|c| collect(c, nodes));
         }
 
         let time = std::time::SystemTime::now()
             .duration_since(std::time::SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path = format!("merk_reopen_{}.db", time);
+        let path = format!("merk_reopen_{time}.db");
 
         let original_nodes = {
             let mut merk = Merk::open(&path).unwrap();
@@ -680,7 +684,7 @@ mod test {
             .duration_since(std::time::SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path = format!("merk_reopen_{}.db", time);
+        let path = format!("merk_reopen_{time}.db");
 
         let original_nodes = {
             let mut merk = Merk::open(&path).unwrap();

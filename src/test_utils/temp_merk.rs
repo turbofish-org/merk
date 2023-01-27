@@ -28,7 +28,7 @@ impl TempMerk {
             .unwrap()
             .as_nanos();
         let mut path = temp_dir();
-        path.push(format!("merk-temp–{}", time));
+        path.push(format!("merk-temp–{time}"));
         path
     }
 }

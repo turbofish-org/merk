@@ -107,13 +107,15 @@ impl Restorer {
         let mut batch = WriteBatch::default();
 
         tree.visit_refs(&mut |proof_node| {
-            let (key, value) = match &proof_node.node {
-                Node::KV(key, value) => (key, value),
+            let (key, mut node) = match &proof_node.node {
+                // TODO: encode tree node without cloning key/value
+                Node::KV(key, value) => match Tree::new(key.clone(), value.clone()) {
+                    Ok(node) => (key, node),
+                    Err(_) => return,
+                },
                 _ => return,
             };
 
-            // TODO: encode tree node without cloning key/value
-            let mut node = Tree::new(key.clone(), value.clone());
             *node.slot_mut(true) = proof_node.left.as_ref().map(Child::as_link);
             *node.slot_mut(false) = proof_node.right.as_ref().map(Child::as_link);
 
@@ -132,8 +134,8 @@ impl Restorer {
     fn process_trunk(&mut self, ops: Decoder) -> Result<usize> {
         let (trunk, height) = verify_trunk(ops)?;
 
-        if trunk.hash() != self.expected_root_hash {
-            return Err(Error::HashMismatch(self.expected_root_hash, trunk.hash()));
+        if trunk.hash()? != self.expected_root_hash {
+            return Err(Error::HashMismatch(self.expected_root_hash, trunk.hash()?));
         }
 
         let root_key = trunk.key().to_vec();
@@ -145,7 +147,7 @@ impl Restorer {
             let leaf_hashes = trunk
                 .layer(trunk_height)
                 .map(|node| node.hash())
-                .collect::<Vec<Hash>>()
+                .collect::<Result<Vec<_>>>()?
                 .into_iter()
                 .peekable();
             self.leaf_hashes = Some(leaf_hashes);
