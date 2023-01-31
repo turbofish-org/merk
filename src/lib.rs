@@ -34,5 +34,3 @@ pub use tree::{Batch, BatchEntry, Hash, Op, PanicSource, HASH_LENGTH};
 pub use proofs::query::verify_query;
 
 pub use proofs::query::verify;
-
-println!("force rebuild");
