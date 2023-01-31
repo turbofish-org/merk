@@ -20,6 +20,18 @@ jobs:
       with:
           toolchain: nightly
           override: true
+    - name: Cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
     - name: Build
       uses: actions-rs/cargo@v1
       with:
@@ -36,6 +48,18 @@ jobs:
       with:
           toolchain: nightly
           override: true
+    - name: Cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
     - name: Build
       uses: actions-rs/cargo@v1
       with:
@@ -52,6 +76,18 @@ jobs:
       with:
           toolchain: nightly
           override: true
+    - name: Cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
     - name: Test
       uses: actions-rs/cargo@v1
       with:
@@ -68,6 +104,18 @@ jobs:
       with:
           toolchain: nightly
           override: true
+    - name: Cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
     - name: Test
       uses: actions-rs/cargo@v1
       with:
@@ -85,6 +133,18 @@ jobs:
             toolchain: nightly
             components: llvm-tools-preview
             override: true
+      - name: Cache
+          uses: actions/cache@v3
+          continue-on-error: false
+          with:
+            path: |
+              ~/.cargo/bin/
+              ~/.cargo/registry/index/
+              ~/.cargo/registry/cache/
+              ~/.cargo/git/db/
+              target/
+            key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            restore-keys: ${{ runner.os }}-cargo-
       - name: Install Coverage Tooling
         uses: actions-rs/cargo@v1
         with:
@@ -112,6 +172,18 @@ jobs:
           toolchain: nightly
           components: rustfmt
           override: true
+    - name: Cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
     - name: Check
       uses: actions-rs/cargo@v1
       with:
@@ -119,7 +191,7 @@ jobs:
           args: --all -- --check
 
   clippy:
-    runs-on: ubuntu-latest 
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -129,7 +201,19 @@ jobs:
           toolchain: nightly
           components: clippy
           override: true
-    - name: Check 
+    - name: Cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+    - name: Check
       uses: actions-rs/clippy-check@v1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
@@ -145,6 +229,18 @@ jobs:
       with:
           toolchain: nightly
           override: true
+    - name: Cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
     - name: Run Benches
       uses: actions-rs/cargo@v1
       with:
