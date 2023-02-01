@@ -38,7 +38,6 @@ impl Merk {
     /// Opens a store with the specified file path. If no store exists at that
     /// path, one will be created.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Merk> {
-        println!("Force cached build");
         let db_opts = Merk::default_db_opts();
         Merk::open_opt(path, db_opts)
     }
