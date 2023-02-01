@@ -87,7 +87,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: cargo-llvm-cov
+          args: --force cargo-llvm-cov
       - name: Run Coverage
         uses: actions-rs/cargo@v1
         with:
