@@ -1,7 +1,7 @@
-#![feature(map_first_last)]
+#![feature(trivial_bounds)]
 
 #[global_allocator]
-#[cfg(feature = "full")]
+#[cfg(feature = "jemallocator")]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 #[cfg(feature = "full")]
@@ -25,7 +25,7 @@ pub mod test_utils;
 pub mod tree;
 
 #[cfg(feature = "full")]
-pub use crate::merk::{chunks, restore, Merk};
+pub use crate::merk::{chunks, restore, Merk, MerkSource, Snapshot};
 
 pub use error::{Error, Result};
 pub use tree::{Batch, BatchEntry, Hash, Op, PanicSource, HASH_LENGTH};

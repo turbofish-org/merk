@@ -10,9 +10,8 @@ use crate::{
         Decoder, Node,
     },
     tree::{Link, RefWalker, Tree},
-    Hash, Result,
+    Error, Hash, Result,
 };
-use failure::bail;
 use rocksdb::WriteBatch;
 use std::iter::Peekable;
 use std::{path::Path, u8};
@@ -46,7 +45,7 @@ impl Restorer {
         stated_length: usize,
     ) -> Result<Self> {
         if db_path.as_ref().exists() {
-            bail!("The given path already exists");
+            return Err(Error::Path("The given path already exists".into()));
         }
 
         Ok(Self {
@@ -80,7 +79,9 @@ impl Restorer {
     /// to 0).
     pub fn finalize(mut self) -> Result<Merk> {
         if self.remaining_chunks().is_none() || self.remaining_chunks().unwrap() != 0 {
-            bail!("Called finalize before all chunks were processed");
+            return Err(Error::ChunkProcessing(
+                "Called finalize before all chunks were processed".into(),
+            ));
         }
 
         if self.trunk_height.unwrap() >= MIN_TRUNK_HEIGHT {
@@ -106,13 +107,15 @@ impl Restorer {
         let mut batch = WriteBatch::default();
 
         tree.visit_refs(&mut |proof_node| {
-            let (key, value) = match &proof_node.node {
-                Node::KV(key, value) => (key, value),
+            let (key, mut node) = match &proof_node.node {
+                // TODO: encode tree node without cloning key/value
+                Node::KV(key, value) => match Tree::new(key.clone(), value.clone()) {
+                    Ok(node) => (key, node),
+                    Err(_) => return,
+                },
                 _ => return,
             };
 
-            // TODO: encode tree node without cloning key/value
-            let mut node = Tree::new(key.clone(), value.clone());
             *node.slot_mut(true) = proof_node.left.as_ref().map(Child::as_link);
             *node.slot_mut(false) = proof_node.right.as_ref().map(Child::as_link);
 
@@ -131,12 +134,8 @@ impl Restorer {
     fn process_trunk(&mut self, ops: Decoder) -> Result<usize> {
         let (trunk, height) = verify_trunk(ops)?;
 
-        if trunk.hash() != self.expected_root_hash {
-            bail!(
-                "Proof did not match expected hash\n\tExpected: {:?}\n\tActual: {:?}",
-                self.expected_root_hash,
-                trunk.hash()
-            );
+        if trunk.hash()? != self.expected_root_hash {
+            return Err(Error::HashMismatch(self.expected_root_hash, trunk.hash()?));
         }
 
         let root_key = trunk.key().to_vec();
@@ -148,7 +147,7 @@ impl Restorer {
             let leaf_hashes = trunk
                 .layer(trunk_height)
                 .map(|node| node.hash())
-                .collect::<Vec<Hash>>()
+                .collect::<Result<Vec<_>>>()?
                 .into_iter()
                 .peekable();
             self.leaf_hashes = Some(leaf_hashes);

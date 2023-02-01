@@ -1,6 +1,5 @@
 use super::super::Node;
-use crate::Result;
-use failure::{bail, ensure, format_err};
+use crate::{Error, Result};
 use std::collections::btree_map;
 use std::collections::BTreeMap;
 use std::ops::{Bound, RangeBounds};
@@ -25,10 +24,11 @@ impl MapBuilder {
         match node {
             Node::KV(key, value) => {
                 if let Some((prev_key, _)) = self.0.entries.last_key_value() {
-                    ensure!(
-                        key > prev_key,
-                        "Expected nodes to be in increasing key order"
-                    );
+                    if key <= prev_key {
+                        return Err(Error::Key(
+                            "Expected nodes to be in increasing key order".into(),
+                        ));
+                    }
                 }
 
                 let value = (self.0.right_edge, value.clone());
@@ -155,7 +155,7 @@ impl<'a> Range<'a> {
         };
 
         if excluded_data {
-            bail!("Proof is missing data for query");
+            return Err(Error::MissingData);
         }
 
         Ok(())
@@ -192,7 +192,7 @@ impl<'a> Iterator for Range<'a> {
         // if nodes weren't contiguous, we cannot verify that we have all values
         // in the desired range
         if !skip_exclusion_check && !contiguous {
-            return Some(Err(format_err!("Proof is missing data for query")));
+            return Some(Err(Error::MissingData));
         }
 
         // passed checks, return entry
@@ -267,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Proof is missing data for query")]
+    #[should_panic(expected = "MissingData")]
     fn map_get_missing_absence_proof() {
         let mut builder = MapBuilder::new();
         builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
@@ -289,7 +289,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Proof is missing data for query")]
+    #[should_panic(expected = "MissingData")]
     fn range_abridged() {
         let mut builder = MapBuilder::new();
         builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
@@ -317,7 +317,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Proof is missing data for query")]
+    #[should_panic(expected = "MissingData")]
     fn range_lower_unbounded_map_non_contiguous() {
         let mut builder = MapBuilder::new();
         builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
