@@ -1,4 +1,4 @@
-name: CI
+name: Test Base
 
 on:
   push:
@@ -15,16 +15,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      # - name: Cache
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: |
-      #       ~/.cargo/bin/
-      #       ~/.cargo/registry/index/
-      #       ~/.cargo/registry/cache/
-      #       ~/.cargo/git/db/
-      #       target/
-      #     key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-base-${{ hashFiles('**/Cargo.lock') }}
       - name: Use Nightly
         uses: actions-rs/toolchain@v1
         with:
@@ -41,16 +41,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      # - name: Cache
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: |
-      #       ~/.cargo/bin/
-      #       ~/.cargo/registry/index/
-      #       ~/.cargo/registry/cache/
-      #       ~/.cargo/git/db/
-      #       target/
-      #     key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-all-features-${{ hashFiles('**/Cargo.lock') }}
       - name: Use Nightly
         uses: actions-rs/toolchain@v1
         with:
@@ -67,16 +67,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      # - name: Cache
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: |
-      #       ~/.cargo/bin/
-      #       ~/.cargo/registry/index/
-      #       ~/.cargo/registry/cache/
-      #       ~/.cargo/git/db/
-      #       target/
-      #     key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}
       - name: Use Nightly
         uses: actions-rs/toolchain@v1
         with:
@@ -104,16 +104,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      # - name: Cache
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: |
-      #       ~/.cargo/bin/
-      #       ~/.cargo/registry/index/
-      #       ~/.cargo/registry/cache/
-      #       ~/.cargo/git/db/
-      #       target/
-      #     key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-base-${{ hashFiles('**/Cargo.lock') }}
       - name: Use Nightly
         uses: actions-rs/toolchain@v1
         with:
@@ -131,16 +131,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      # - name: Cache
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: |
-      #       ~/.cargo/bin/
-      #       ~/.cargo/registry/index/
-      #       ~/.cargo/registry/cache/
-      #       ~/.cargo/git/db/
-      #       target/
-      #     key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-all-features-${{ hashFiles('**/Cargo.lock') }}
       - name: Use Nightly
         uses: actions-rs/toolchain@v1
         with:
@@ -158,16 +158,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      # - name: Cache
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: |
-      #       ~/.cargo/bin/
-      #       ~/.cargo/registry/index/
-      #       ~/.cargo/registry/cache/
-      #       ~/.cargo/git/db/
-      #       target/
-      #     key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-base-${{ hashFiles('**/Cargo.lock') }}
       - name: Use Nightly
         uses: actions-rs/toolchain@v1
         with:
