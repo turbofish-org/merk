@@ -69,8 +69,12 @@ pub fn seq_key(n: u64) -> Vec<u8> {
     key
 }
 
+pub fn put_entry_value() -> Vec<u8> {
+    vec![123; 60]
+}
+
 pub fn put_entry(n: u64) -> BatchEntry {
-    (seq_key(n), Op::Put(vec![123; 60]))
+    (seq_key(n), Op::Put(put_entry_value()))
 }
 
 pub fn del_entry(n: u64) -> BatchEntry {
@@ -120,7 +124,7 @@ pub fn make_tree_rand(node_count: u64, batch_size: u64, initial_seed: u64) -> Tr
     assert!((node_count % batch_size) == 0);
 
     let value = vec![123; 60];
-    let mut tree = Tree::new(vec![0; 20], value);
+    let mut tree = Tree::new(vec![0; 20], value).expect("Tree construction failed");
 
     let mut seed = initial_seed;
 
@@ -143,7 +147,7 @@ pub fn make_tree_seq(node_count: u64) -> Tree {
     };
 
     let value = vec![123; 60];
-    let mut tree = Tree::new(vec![0; 20], value);
+    let mut tree = Tree::new(vec![0; 20], value).expect("Tree construction failed");
 
     let batch_count = node_count / batch_size;
     for i in 0..batch_count {

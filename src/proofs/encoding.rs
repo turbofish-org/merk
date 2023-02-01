@@ -1,7 +1,6 @@
 use std::io::{Read, Write};
 
 use ed::{Decode, Encode, Terminated};
-use failure::bail;
 
 use super::{Node, Op};
 use crate::error::Result;
@@ -72,7 +71,9 @@ impl Decode for Op {
             }
             0x10 => Op::Parent,
             0x11 => Op::Child,
-            _ => bail!("Proof has unexpected value"),
+            byte => {
+                return Err(ed::Error::UnexpectedByte(byte));
+            }
         })
     }
 }
@@ -81,7 +82,7 @@ impl Terminated for Op {}
 
 impl Op {
     fn encode_into<W: Write>(&self, dest: &mut W) -> Result<()> {
-        Encode::encode_into(self, dest)
+        Ok(Encode::encode_into(self, dest)?)
     }
 
     fn encoding_length(&self) -> usize {
@@ -89,7 +90,7 @@ impl Op {
     }
 
     pub fn decode(bytes: &[u8]) -> Result<Self> {
-        Decode::decode(bytes)
+        Ok(Decode::decode(bytes)?)
     }
 }
 

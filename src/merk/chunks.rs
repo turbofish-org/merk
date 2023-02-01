@@ -4,9 +4,8 @@
 use super::Merk;
 use crate::proofs::{chunk::get_next_chunk, Node, Op};
 
-use crate::Result;
+use crate::{Error, Result};
 use ed::Encode;
-use failure::bail;
 use rocksdb::DBRawIterator;
 
 /// A `ChunkProducer` allows the creation of chunk proofs, used for trustlessly
@@ -56,7 +55,7 @@ impl<'a> ChunkProducer<'a> {
     /// `producer.len()`.
     pub fn chunk(&mut self, index: usize) -> Result<Vec<u8>> {
         if index >= self.len() {
-            bail!("Chunk index out-of-bounds");
+            return Err(Error::IndexOutOfBounds("Chunk index out-of-bounds".into()));
         }
 
         self.index = index;
@@ -89,13 +88,15 @@ impl<'a> ChunkProducer<'a> {
     fn next_chunk(&mut self) -> Result<Vec<u8>> {
         if self.index == 0 {
             if self.trunk.is_empty() {
-                bail!("Attempted to fetch chunk on empty tree");
+                return Err(Error::Fetch(
+                    "Attempted to fetch chunk on empty tree".into(),
+                ));
             }
             self.index += 1;
-            return self.trunk.encode();
+            return Ok(self.trunk.encode()?);
         }
 
-        assert!(!(self.index >= self.len()), "Called next_chunk after end");
+        assert!(self.index < self.len(), "Called next_chunk after end");
 
         let end_key = self.chunk_boundaries.get(self.index - 1);
         let end_key_slice = end_key.as_ref().map(|k| k.as_slice());
@@ -103,7 +104,7 @@ impl<'a> ChunkProducer<'a> {
         self.index += 1;
 
         let chunk = get_next_chunk(&mut self.raw_iter, end_key_slice)?;
-        chunk.encode()
+        Ok(chunk.encode()?)
     }
 }
 
@@ -179,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    fn generate_and_verify_chunks() {
+    fn generate_and_verify_chunks() -> Result<()> {
         let mut merk = TempMerk::new().unwrap();
         let batch = make_batch_seq(1..10_000);
         merk.apply(batch.as_slice(), &[]).unwrap();
@@ -190,14 +191,15 @@ mod tests {
         let ops = Decoder::new(chunk.as_slice());
         let (trunk, height) = verify_trunk(ops).unwrap();
         assert_eq!(height, 14);
-        assert_eq!(trunk.hash(), merk.root_hash());
+        assert_eq!(trunk.hash()?, merk.root_hash());
 
         assert_eq!(trunk.layer(7).count(), 128);
 
         for (chunk, node) in chunks.zip(trunk.layer(height / 2)) {
             let ops = Decoder::new(chunk.as_slice());
-            verify_leaf(ops, node.hash()).unwrap();
+            verify_leaf(ops, node.hash()?).unwrap();
         }
+        Ok(())
     }
 
     #[test]
@@ -206,7 +208,7 @@ mod tests {
             .duration_since(std::time::SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path = format!("chunks_from_reopen_{}.db", time);
+        let path = format!("chunks_from_reopen_{time}.db");
 
         let original_chunks = {
             let mut merk = Merk::open(&path).unwrap();

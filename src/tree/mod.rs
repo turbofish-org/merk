@@ -16,7 +16,7 @@ use ed::{Decode, Encode};
 
 use super::error::Result;
 pub use commit::{Commit, NoopCommit};
-pub use hash::{kv_hash, node_hash, Hash, HASH_LENGTH, NULL_HASH};
+pub use hash::{kv_hash, node_hash, Hash, Hasher, HASH_LENGTH, NULL_HASH};
 use kv::KV;
 pub use link::Link;
 pub use ops::{Batch, BatchEntry, Op, PanicSource};
@@ -27,7 +27,7 @@ pub use walk::{Fetch, RefWalker, Walker};
 
 /// The fields of the `Tree` type, stored on the heap.
 #[derive(Encode, Decode)]
-struct TreeInner {
+pub struct TreeInner {
     left: Option<Link>,
     right: Option<Link>,
     kv: KV,
@@ -47,14 +47,14 @@ impl Tree {
     /// Creates a new `Tree` with the given key and value, and no children.
     ///
     /// Hashes the key/value pair and initializes the `kv_hash` field.
-    pub fn new(key: Vec<u8>, value: Vec<u8>) -> Self {
-        Tree {
+    pub fn new(key: Vec<u8>, value: Vec<u8>) -> Result<Self> {
+        KV::new(key, value).map_err(Into::into).map(|kv| Tree {
             inner: Box::new(TreeInner {
-                kv: KV::new(key, value),
+                kv,
                 left: None,
                 right: None,
             }),
-        }
+        })
     }
 
     /// Creates a `Tree` by supplying all the raw struct fields (mainly useful
@@ -155,7 +155,7 @@ impl Tree {
     /// Computes and returns the hash of the root node.
     #[inline]
     pub fn hash(&self) -> Hash {
-        node_hash(
+        node_hash::<Hasher>(
             self.inner.kv.hash(),
             self.child_hash(true),
             self.child_hash(false),
@@ -307,9 +307,9 @@ impl Tree {
     /// Replaces the root node's value with the given value and returns the
     /// modified `Tree`.
     #[inline]
-    pub fn with_value(mut self, value: Vec<u8>) -> Self {
-        self.inner.kv = self.inner.kv.with_value(value);
-        self
+    pub fn with_value(mut self, value: Vec<u8>) -> Result<Self> {
+        self.inner.kv = self.inner.kv.with_value(value)?;
+        Ok(self)
     }
 
     // TODO: add compute_hashes method
@@ -401,6 +401,34 @@ impl Tree {
 
         Ok(())
     }
+
+    pub fn get_value(&self, key: &[u8]) -> Result<GetResult> {
+        let mut cursor = self;
+
+        loop {
+            if key == cursor.key() {
+                return Ok(GetResult::Found(cursor.value().to_vec()));
+            }
+
+            let left = key < cursor.key();
+            let link = match cursor.link(left) {
+                None => return Ok(GetResult::NotFound), // not found
+                Some(link) => link,
+            };
+
+            let maybe_child = link.tree();
+            match maybe_child {
+                None => return Ok(GetResult::Pruned), // value is pruned, caller will have to fetch from disk
+                Some(child) => cursor = child,        // traverse to child
+            }
+        }
+    }
+}
+
+pub enum GetResult {
+    Found(Vec<u8>),
+    Pruned,
+    NotFound,
 }
 
 pub fn side_to_str(left: bool) -> &'static str {
@@ -416,10 +444,11 @@ mod test {
     use super::commit::NoopCommit;
     use super::hash::NULL_HASH;
     use super::Tree;
+    use crate::error::Result;
 
     #[test]
-    fn build_tree() {
-        let tree = Tree::new(vec![1], vec![101]);
+    fn build_tree() -> Result<()> {
+        let tree = Tree::new(vec![1], vec![101])?;
         assert_eq!(tree.key(), &[1]);
         assert_eq!(tree.value(), &[101]);
         assert!(tree.child(true).is_none());
@@ -429,30 +458,38 @@ mod test {
         assert!(tree.child(true).is_none());
         assert!(tree.child(false).is_none());
 
-        let tree = tree.attach(true, Some(Tree::new(vec![2], vec![102])));
+        let tree = tree.attach(true, Some(Tree::new(vec![2], vec![102])?));
         assert_eq!(tree.key(), &[1]);
         assert_eq!(tree.child(true).unwrap().key(), &[2]);
         assert!(tree.child(false).is_none());
 
-        let tree = Tree::new(vec![3], vec![103]).attach(false, Some(tree));
+        let tree = Tree::new(vec![3], vec![103])?.attach(false, Some(tree));
         assert_eq!(tree.key(), &[3]);
         assert_eq!(tree.child(false).unwrap().key(), &[1]);
         assert!(tree.child(true).is_none());
+        Ok(())
     }
 
     #[should_panic]
     #[test]
     fn attach_existing() {
         Tree::new(vec![0], vec![1])
-            .attach(true, Some(Tree::new(vec![2], vec![3])))
-            .attach(true, Some(Tree::new(vec![4], vec![5])));
+            .expect("tree construction failed")
+            .attach(
+                true,
+                Some(Tree::new(vec![2], vec![3]).expect("tree construction failed")),
+            )
+            .attach(
+                true,
+                Some(Tree::new(vec![4], vec![5]).expect("tree construction failed")),
+            );
     }
 
     #[test]
-    fn modify() {
-        let tree = Tree::new(vec![0], vec![1])
-            .attach(true, Some(Tree::new(vec![2], vec![3])))
-            .attach(false, Some(Tree::new(vec![4], vec![5])));
+    fn modify() -> Result<()> {
+        let tree = Tree::new(vec![0], vec![1])?
+            .attach(true, Some(Tree::new(vec![2], vec![3])?))
+            .attach(false, Some(Tree::new(vec![4], vec![5])?));
 
         let tree = tree.walk(true, |left_opt| {
             assert_eq!(left_opt.as_ref().unwrap().key(), &[2]);
@@ -460,10 +497,10 @@ mod test {
         });
         assert!(tree.child(true).is_none());
         assert!(tree.child(false).is_some());
-
+        let fixed_tree = Some(Tree::new(vec![2], vec![3])?);
         let tree = tree.walk(true, |left_opt| {
             assert!(left_opt.is_none());
-            Some(Tree::new(vec![2], vec![3]))
+            fixed_tree
         });
         assert_eq!(tree.link(true).unwrap().key(), &[2]);
 
@@ -473,11 +510,13 @@ mod test {
         });
         assert!(tree.child(true).is_some());
         assert!(tree.child(false).is_none());
+        Ok(())
     }
 
     #[test]
-    fn child_and_link() {
-        let mut tree = Tree::new(vec![0], vec![1]).attach(true, Some(Tree::new(vec![2], vec![3])));
+    fn child_and_link() -> Result<()> {
+        let mut tree =
+            Tree::new(vec![0], vec![1])?.attach(true, Some(Tree::new(vec![2], vec![3])?));
         assert!(tree.link(true).expect("expected link").is_modified());
         assert!(tree.child(true).is_some());
         assert!(tree.link(false).is_none());
@@ -487,61 +526,62 @@ mod test {
         assert!(tree.link(true).expect("expected link").is_stored());
         assert!(tree.child(true).is_some());
 
-        // tree.link(true).prune(true);
-        // assert!(tree.link(true).expect("expected link").is_pruned());
-        // assert!(tree.child(true).is_none());
-
         let tree = tree.walk(true, |_| None);
         assert!(tree.link(true).is_none());
         assert!(tree.child(true).is_none());
+        Ok(())
     }
 
     #[test]
-    fn child_hash() {
-        let mut tree = Tree::new(vec![0], vec![1]).attach(true, Some(Tree::new(vec![2], vec![3])));
+    fn child_hash() -> Result<()> {
+        let mut tree =
+            Tree::new(vec![0], vec![1])?.attach(true, Some(Tree::new(vec![2], vec![3])?));
         tree.commit(&mut NoopCommit {}).expect("commit failed");
         assert_eq!(
             tree.child_hash(true),
             &[
-                129, 244, 14, 250, 8, 103, 198, 160, 114, 224, 141, 13, 165, 59, 12, 142, 0, 143,
-                74, 63, 39, 6, 51, 151, 50, 121, 148, 186, 49, 196, 170, 27
+                114, 93, 76, 193, 9, 87, 168, 251, 191, 152, 173, 130, 33, 46, 251, 13, 179, 15,
+                209, 218, 113, 72, 118, 83, 206, 100, 36, 49, 156, 239, 102, 205
             ]
         );
         assert_eq!(tree.child_hash(false), &NULL_HASH);
+        Ok(())
     }
 
     #[test]
-    fn hash() {
-        let tree = Tree::new(vec![0], vec![1]);
+    fn hash() -> Result<()> {
+        let tree = Tree::new(vec![0], vec![1])?;
         assert_eq!(
             tree.hash(),
             [
-                230, 116, 239, 59, 53, 95, 1, 20, 79, 227, 238, 105, 236, 240, 55, 23, 114, 121,
-                149, 82, 209, 118, 17, 13, 178, 42, 108, 167, 159, 171, 245, 173
+                36, 100, 183, 19, 15, 225, 83, 239, 215, 167, 216, 53, 52, 30, 234, 176, 74, 197,
+                161, 7, 102, 226, 181, 251, 145, 100, 74, 179, 253, 222, 183, 117
             ]
         );
+        Ok(())
     }
 
     #[test]
-    fn child_pending_writes() {
-        let tree = Tree::new(vec![0], vec![1]);
+    fn child_pending_writes() -> Result<()> {
+        let tree = Tree::new(vec![0], vec![1])?;
         assert_eq!(tree.child_pending_writes(true), 0);
         assert_eq!(tree.child_pending_writes(false), 0);
 
-        let tree = tree.attach(true, Some(Tree::new(vec![2], vec![3])));
+        let tree = tree.attach(true, Some(Tree::new(vec![2], vec![3])?));
         assert_eq!(tree.child_pending_writes(true), 1);
         assert_eq!(tree.child_pending_writes(false), 0);
+        Ok(())
     }
 
     #[test]
-    fn height_and_balance() {
-        let tree = Tree::new(vec![0], vec![1]);
+    fn height_and_balance() -> Result<()> {
+        let tree = Tree::new(vec![0], vec![1])?;
         assert_eq!(tree.height(), 1);
         assert_eq!(tree.child_height(true), 0);
         assert_eq!(tree.child_height(false), 0);
         assert_eq!(tree.balance_factor(), 0);
 
-        let tree = tree.attach(true, Some(Tree::new(vec![2], vec![3])));
+        let tree = tree.attach(true, Some(Tree::new(vec![2], vec![3])?));
         assert_eq!(tree.height(), 2);
         assert_eq!(tree.child_height(true), 1);
         assert_eq!(tree.child_height(false), 0);
@@ -553,13 +593,16 @@ mod test {
         assert_eq!(tree.child_height(true), 0);
         assert_eq!(tree.child_height(false), 1);
         assert_eq!(tree.balance_factor(), 1);
+        Ok(())
     }
 
     #[test]
-    fn commit() {
-        let mut tree = Tree::new(vec![0], vec![1]).attach(false, Some(Tree::new(vec![2], vec![3])));
+    fn commit() -> Result<()> {
+        let mut tree =
+            Tree::new(vec![0], vec![1])?.attach(false, Some(Tree::new(vec![2], vec![3])?));
         tree.commit(&mut NoopCommit {}).expect("commit failed");
 
         assert!(tree.link(false).expect("expected link").is_stored());
+        Ok(())
     }
 }
