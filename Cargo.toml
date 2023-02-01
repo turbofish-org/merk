@@ -7,7 +7,6 @@ edition = "2018"
 license = "MIT"
 
 [dependencies]
-hashbrown = "0.13.2"
 thiserror= "1.0.31"
 sha2 = "0.10.2"
 
@@ -56,10 +55,10 @@ optional = true
 
 [features]
 default = ["full", "verify"]
-full = ["rand", 
-        "rocksdb", 
-        "time", 
-        "hex", 
+full = ["rand",
+        "rocksdb",
+        "time",
+        "hex",
         "colored",
         "num_cpus",
         "byteorder",
