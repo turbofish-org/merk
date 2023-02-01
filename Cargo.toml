@@ -7,6 +7,7 @@ edition = "2018"
 license = "MIT"
 
 [dependencies]
+hashbrown = "0.13.2"
 
 [dependencies.time]
 version = "0.1.42"
@@ -59,19 +60,5 @@ optional = true
 
 [features]
 default = ["full", "verify"]
-full = ["rand", 
-        "rocksdb", 
-        "time", 
-        "hex", 
-        "colored",
-        "num_cpus",
-        "byteorder",
-        "failure",
-        "ed",
-        "blake3",
-        "jemallocator"
-]
-verify = ["ed",
-          "failure",
-          "blake3"
-]
+full = ["rand", "rocksdb", "time", "hex", "colored", "num_cpus", "byteorder", "failure", "ed", "blake3", "jemallocator"]
+verify = ["ed", "failure", "blake3"]
