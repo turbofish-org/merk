@@ -2,151 +2,178 @@ name: CI
 
 on:
   push:
-    branches: [ master, develop ]
+    branches: [master, develop]
   pull_request:
-    branches: [ master, develop ]
+    branches: [master, develop]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-base:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Use Nightly
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: nightly
-          override: true
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-          command: build
-          args: --verbose
-
-  build-all-features:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Use Nightly
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: nightly
-          override: true
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-          command: build
-          args: --verbose --all-features
-
   test-base:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Use Nightly
-      uses: actions-rs/toolchain@v1
-      with:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-base-${{ hashFiles('**/Cargo.lock') }}
+      - name: Use Nightly
+        uses: actions-rs/toolchain@v1
+        with:
           toolchain: nightly
           override: true
-    - name: Test
-      uses: actions-rs/cargo@v1
-      with:
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
           command: test
           args: --verbose
 
   test-all-features:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Use Nightly
-      uses: actions-rs/toolchain@v1
-      with:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-all-features-${{ hashFiles('**/Cargo.lock') }}
+      - name: Use Nightly
+        uses: actions-rs/toolchain@v1
+        with:
           toolchain: nightly
           override: true
-    - name: Test
-      uses: actions-rs/cargo@v1
-      with:
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
           command: test
           args: --verbose --all-features
 
   coverage:
-      runs-on: ubuntu-latest
-      steps:
+    runs-on: ubuntu-latest
+    steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}
       - name: Use Nightly
         uses: actions-rs/toolchain@v1
         with:
-            toolchain: nightly
-            components: llvm-tools-preview
-            override: true
+          toolchain: nightly
+          components: llvm-tools-preview
+          override: true
       - name: Install Coverage Tooling
         uses: actions-rs/cargo@v1
         with:
-            command: install
-            args: cargo-llvm-cov
+          command: install
+          args: --force cargo-llvm-cov
       - name: Run Coverage
         uses: actions-rs/cargo@v1
         with:
-            command: llvm-cov
-            args: --all-features --workspace --lcov --output-path lcov.info
+          command: llvm-cov
+          args: --all-features --workspace --lcov --output-path lcov.info
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v1
         with:
-            files: lcov.info
-            fail_ci_if_error: true
+          files: lcov.info
+          fail_ci_if_error: true
 
   format:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Use Nightly
-      uses: actions-rs/toolchain@v1
-      with:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-format-${{ hashFiles('**/Cargo.lock') }}
+      - name: Use Nightly
+        uses: actions-rs/toolchain@v1
+        with:
           toolchain: nightly
           components: rustfmt
           override: true
-    - name: Check
-      uses: actions-rs/cargo@v1
-      with:
+      - name: Check
+        uses: actions-rs/cargo@v1
+        with:
           command: fmt
           args: --all -- --check
 
   clippy:
-    runs-on: ubuntu-latest 
+    runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Use Nightly
-      uses: actions-rs/toolchain@v1
-      with:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
+      - name: Use Nightly
+        uses: actions-rs/toolchain@v1
+        with:
           toolchain: nightly
           components: clippy
           override: true
-    - name: Check 
-      uses: actions-rs/clippy-check@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        args: --all-features -- -D warnings
+      - name: Check
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features -- -D warnings
 
   benches:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Use Nightly
-      uses: actions-rs/toolchain@v1
-      with:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-benches-${{ hashFiles('**/Cargo.lock') }}
+      - name: Use Nightly
+        uses: actions-rs/toolchain@v1
+        with:
           toolchain: nightly
           override: true
-    - name: Run Benches
-      uses: actions-rs/cargo@v1
-      with:
+      - name: Run Benches
+        uses: actions-rs/cargo@v1
+        with:
           command: bench
-

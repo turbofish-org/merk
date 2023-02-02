@@ -55,10 +55,10 @@ optional = true
 
 [features]
 default = ["full", "verify"]
-full = ["rand", 
-        "rocksdb", 
-        "time", 
-        "hex", 
+full = ["rand",
+        "rocksdb",
+        "time",
+        "hex",
         "colored",
         "num_cpus",
         "byteorder",
