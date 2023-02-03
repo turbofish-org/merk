@@ -30,7 +30,7 @@ jobs:
             ~/.cargo/git/db/
             ~/.cargo/registry/src/**/librocksdb-sys-*
             target/
-          key: ${{ runner.os }}-test-base-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-test-base-${{ hashFiles('Cargo.toml') }}
       - name: Test
         uses: actions-rs/cargo@v1
         with:
@@ -57,7 +57,7 @@ jobs:
             ~/.cargo/git/db/
             ~/.cargo/registry/src/**/librocksdb-sys-*
             target/
-          key: ${{ runner.os }}-test-all-features-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-test-all-features-${{ hashFiles('Cargo.toml') }}
       - name: Test
         uses: actions-rs/cargo@v1
         with:
@@ -85,7 +85,7 @@ jobs:
             ~/.cargo/git/db/
             ~/.cargo/registry/src/**/librocksdb-sys-*
             target/
-          key: ${{ runner.os }}-coverage-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-coverage-${{ hashFiles('Cargo.toml') }}
       - name: Install Coverage Tooling
         uses: actions-rs/cargo@v1
         with:
@@ -140,7 +140,7 @@ jobs:
             ~/.cargo/git/db/
             ~/.cargo/registry/src/**/librocksdb-sys-*
             target/
-          key: ${{ runner.os }}-clippy-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-clippy-${{ hashFiles('Cargo.toml') }}
       - name: Check
         uses: actions-rs/clippy-check@v1
         with:
@@ -167,7 +167,7 @@ jobs:
             ~/.cargo/git/db/
             ~/.cargo/registry/src/**/librocksdb-sys-*
             target/
-          key: ${{ runner.os }}-benches-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-benches-${{ hashFiles('Cargo.toml') }}
       - name: Run Benches
         uses: actions-rs/cargo@v1
         with:
