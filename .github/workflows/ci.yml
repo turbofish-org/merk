@@ -20,6 +20,8 @@ jobs:
         with:
           toolchain: nightly-2022-11-18
           override: true
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
       - name: Test
         uses: actions-rs/cargo@v1
         with:
@@ -36,6 +38,8 @@ jobs:
         with:
           toolchain: nightly-2022-11-18
           override: true
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
       - name: Test
         uses: actions-rs/cargo@v1
         with:
@@ -53,6 +57,8 @@ jobs:
           toolchain: nightly-2022-11-18
           components: llvm-tools-preview
           override: true
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
       - name: Install Coverage Tooling
         uses: actions-rs/cargo@v1
         with:
@@ -97,6 +103,8 @@ jobs:
           toolchain: nightly-2022-11-18
           components: clippy
           override: true
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
       - name: Check
         uses: actions-rs/clippy-check@v1
         with:
@@ -113,6 +121,8 @@ jobs:
         with:
           toolchain: nightly-2022-11-18
           override: true
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
       - name: Run Benches
         uses: actions-rs/cargo@v1
         with:
