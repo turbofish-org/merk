@@ -14,7 +14,7 @@ use std::cmp::max;
 
 use ed::{Decode, Encode};
 
-use super::error::Result;
+use super::error::{Error, Result};
 pub use commit::{Commit, NoopCommit};
 pub use hash::{kv_hash, node_hash, Hash, Hasher, HASH_LENGTH, NULL_HASH};
 use kv::KV;
@@ -380,16 +380,17 @@ impl Tree {
     /// `Link::Loaded`).
     #[inline]
     pub fn load<S: Fetch>(&mut self, left: bool, source: &S) -> Result<()> {
-        // TODO: return Err instead of panic?
-        let link = self.link(left).expect("Expected link");
+        let link = self.link(left).ok_or(Error::MissingLink)?;
         let (child_heights, hash) = match link {
             Link::Reference {
                 child_heights,
                 hash,
                 ..
-            } => (child_heights, hash),
-            _ => panic!("Expected Some(Link::Reference)"),
-        };
+            } => Ok((child_heights, hash)),
+            Link::Modified { .. } | Link::Uncommitted { .. } | Link::Loaded { .. } => {
+                Err(Error::MissingLinkReference)
+            }
+        }?;
 
         let tree = source.fetch(link)?;
         debug_assert_eq!(tree.key(), link.key());
