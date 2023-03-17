@@ -45,6 +45,25 @@ impl Merk {
         Merk::open_opt(path, db_opts)
     }
 
+    pub fn open_readonly<P: AsRef<Path>>(path: P) -> Result<Merk> {
+        let db_opts = Merk::default_db_opts();
+
+        let mut path_buf = PathBuf::new();
+        path_buf.push(path);
+        let db = rocksdb::DB::open_cf_descriptors_read_only(
+            &db_opts,
+            &path_buf,
+            column_families(),
+            false,
+        )?;
+
+        Ok(Merk {
+            tree: Cell::new(load_root(&db)?),
+            db,
+            path: path_buf,
+        })
+    }
+
     /// Opens a store with the specified file path and the given options. If no
     /// store exists at that path, one will be created.
     pub fn open_opt<P>(path: P, db_opts: rocksdb::Options) -> Result<Merk>
