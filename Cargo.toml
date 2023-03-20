@@ -44,7 +44,7 @@ features = ["small_rng"]
 optional = true
 
 [dependencies.rocksdb]
-version = "0.18.0"
+version = "0.20.1"
 default-features = false
 optional = true
 

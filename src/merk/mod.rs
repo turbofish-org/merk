@@ -216,21 +216,19 @@ impl Merk {
 
         // TODO: split up batch
         let mut node = Tree::new(vec![], vec![]);
-        let batch: Vec<_> = self
-            .db
-            .iterator(IteratorMode::Start)
-            .map(|(key, node_bytes)| {
-                node.decode_into(vec![], &node_bytes);
-                (key.to_vec(), Op::Put(node.value().to_vec()))
-            })
-            .collect();
+        let mut batch = vec![];
+        for res in self.db.iterator(IteratorMode::Start) {
+            let (key, node_bytes) = res?;
+            node.decode_into(vec![], &node_bytes);
+            batch.push((key.to_vec(), Op::Put(node.value().to_vec())));
+        }
 
         let aux_cf = self.db.cf_handle(AUX_CF_NAME).unwrap();
-        let aux: Vec<_> = self
-            .db
-            .iterator_cf(aux_cf, IteratorMode::Start)
-            .map(|(key, value)| (key.to_vec(), Op::Put(value.to_vec())))
-            .collect();
+        let mut aux = vec![];
+        for res in self.db.iterator_cf(aux_cf, IteratorMode::Start) {
+            let (key, value) = res?;
+            aux.push((key.to_vec(), Op::Put(value.to_vec())));
+        }
 
         drop(self);
 
