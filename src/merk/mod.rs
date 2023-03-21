@@ -431,9 +431,7 @@ impl MerkCommitter {
             levels,
         }
     }
-}
 
-impl Commit for MerkCommitter {
     fn write(&mut self, tree: &Tree) -> Result<()> {
         let mut buf = Vec::with_capacity(tree.encoding_length());
         tree.encode_into(&mut buf);
@@ -445,6 +443,58 @@ impl Commit for MerkCommitter {
         // keep N top levels of tree
         let prune = (self.height - tree.height()) >= self.levels;
         (prune, prune)
+    }
+}
+
+impl Commit for MerkCommitter {
+    fn commit(&mut self, tree: &mut Tree) -> Result<()> {
+        tree.try_modify_link(true, |link| {
+            if let Link::Modified {
+                mut tree,
+                child_heights,
+                ..
+            } = link
+            {
+                self.commit(&mut tree)?;
+                return Ok(Link::Loaded {
+                    hash: tree.hash(),
+                    tree,
+                    child_heights,
+                });
+            }
+
+            Ok(link)
+        })?;
+
+        tree.try_modify_link(false, |link| {
+            if let Link::Modified {
+                mut tree,
+                child_heights,
+                ..
+            } = link
+            {
+                self.commit(&mut tree)?;
+                return Ok(Link::Loaded {
+                    hash: tree.hash(),
+                    tree,
+                    child_heights,
+                });
+            }
+
+            Ok(link)
+        })?;
+
+        self.write(tree)?;
+
+        let (prune_left, prune_right) = self.prune(tree);
+        if prune_left {
+            tree.prune(true);
+        }
+        if prune_right {
+            tree.prune(false);
+        }
+
+        Ok(())
     }
 }
 

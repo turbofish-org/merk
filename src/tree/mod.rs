@@ -122,6 +122,34 @@ impl Tree {
         }
     }
 
+    #[inline]
+    pub fn modify_link(&mut self, left: bool, f: impl FnOnce(Link) -> Link) {
+        if left {
+            self.inner.left = self.inner.left.take().map(f);
+        } else {
+            self.inner.right = self.inner.right.take().map(f);
+        }
+    }
+
+    #[inline]
+    pub fn try_modify_link(
+        &mut self,
+        left: bool,
+        f: impl FnOnce(Link) -> Result<Link>,
+    ) -> Result<()> {
+        if left {
+            self.inner.left = self.inner.left.take().map(f).transpose()?;
+        } else {
+            self.inner.right = self.inner.right.take().map(f).transpose()?;
+        }
+        Ok(())
+    }
+
+    #[inline]
+    pub fn prune(&mut self, left: bool) {
+        self.modify_link(left, Link::into_reference)
+    }
+
     /// Returns a reference to the root node's child on the given side, if any.
     /// If there is no child, returns `None`.
     #[inline]
@@ -316,63 +344,9 @@ impl Tree {
 
     /// Called to finalize modifications to a tree, recompute its hashes, and
     /// write the updated nodes to a backing store.
-    ///
-    /// Traverses through the tree, computing hashes for all modified links and
-    /// replacing them with `Link::Loaded` variants, writes out all changes to
-    /// the given `Commit` object's `write` method, and calls the its `prune`
-    /// method to test whether or not to keep or prune nodes from memory.
     #[inline]
     pub fn commit<C: Commit>(&mut self, c: &mut C) -> Result<()> {
-        // TODO: make this method less ugly
-        // TODO: call write in-order for better performance in writing batch to db?
-
-        if let Some(Link::Modified { .. }) = self.inner.left {
-            if let Some(Link::Modified {
-                mut tree,
-                child_heights,
-                ..
-            }) = self.inner.left.take()
-            {
-                tree.commit(c)?;
-                self.inner.left = Some(Link::Loaded {
-                    hash: tree.hash(),
-                    tree,
-                    child_heights,
-                });
-            } else {
-                unreachable!()
-            }
-        }
-
-        if let Some(Link::Modified { .. }) = self.inner.right {
-            if let Some(Link::Modified {
-                mut tree,
-                child_heights,
-                ..
-            }) = self.inner.right.take()
-            {
-                tree.commit(c)?;
-                self.inner.right = Some(Link::Loaded {
-                    hash: tree.hash(),
-                    tree,
-                    child_heights,
-                });
-            } else {
-                unreachable!()
-            }
-        }
-
-        c.write(self)?;
-
-        let (prune_left, prune_right) = c.prune(self);
-        if prune_left {
-            self.inner.left = self.inner.left.take().map(|link| link.into_reference());
-        }
-        if prune_right {
-            self.inner.right = self.inner.right.take().map(|link| link.into_reference());
-        }
-
-        Ok(())
+        c.commit(self)
     }
 
     /// Fetches the child on the given side using the given data source, and
