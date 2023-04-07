@@ -411,7 +411,16 @@ mod tests {
         assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 3][..], &[1][..]));
         assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 4][..], &[2][..]));
         assert!(range.next().is_none());
+        assert!(range.next_back().is_none());
         assert!(range.next().is_none());
+    }
+
+    #[test]
+    fn range_empty() {
+        let map = MapBuilder::new().build();
+        let mut range = map.range(..);
+        assert!(range.next().is_none());
+        assert!(range.next_back().is_none());
     }
 
     #[test]
@@ -426,7 +435,7 @@ mod tests {
 
         let mut range = map.range(..&[1u8, 2, 5][..]);
         range.next().unwrap().unwrap();
-        assert_eq!(range.next().unwrap().unwrap(), (&[1][..], &[1][..]));
+        range.next().unwrap().unwrap();
     }
 
     #[test]
@@ -452,6 +461,76 @@ mod tests {
         let mut range = map.range(..);
         assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 3][..], &[1][..]));
         assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 4][..], &[2][..]));
+        assert!(range.next().is_none());
+    }
+
+    #[test]
+    #[should_panic(expected = "MissingData")]
+    fn range_abridged_rev() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
+        builder.insert(&Node::Hash([0; HASH_LENGTH])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
+
+        let map = builder.build();
+        let mut range = map.range(&[1u8, 2, 3][..]..=&[1u8, 2, 4][..]).rev();
+        assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 4][..], &[2][..]));
+        range.next().unwrap().unwrap();
+    }
+
+    #[test]
+    fn range_ok_rev() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 5], vec![3])).unwrap();
+
+        let map = builder.build();
+        let mut range = map.range(&[1u8, 2, 3][..]..&[1u8, 2, 5][..]).rev();
+        assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 4][..], &[2][..]));
+        assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 3][..], &[1][..]));
+        assert!(range.next().is_none());
+        assert!(range.next_back().is_none());
+    }
+
+    #[test]
+    #[should_panic(expected = "MissingData")]
+    fn range_upper_unbounded_map_non_contiguous() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
+        builder.insert(&Node::Hash([1; HASH_LENGTH])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 4], vec![1])).unwrap();
+
+        let map = builder.build();
+
+        let mut range = map.range(&[1u8, 2, 3][..]..).rev();
+        range.next().unwrap().unwrap();
+        range.next().unwrap().unwrap();
+    }
+
+    #[test]
+    fn range_reach_proof_end_rev() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
+
+        let map = builder.build();
+        let mut range = map.range(..&[1u8, 2, 5][..]).rev();
+        assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 4][..], &[2][..]));
+        assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 3][..], &[1][..]));
+        assert!(range.next().is_none());
+    }
+
+    #[test]
+    fn range_unbounded_rev() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
+
+        let map = builder.build();
+        let mut range = map.range(..).rev();
+        assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 4][..], &[2][..]));
+        assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 3][..], &[1][..]));
         assert!(range.next().is_none());
     }
 }
