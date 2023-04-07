@@ -2,6 +2,7 @@ use super::super::Node;
 use crate::{Error, Result};
 use std::collections::btree_map;
 use std::collections::BTreeMap;
+use std::iter::Peekable;
 use std::ops::{Bound, RangeBounds};
 
 /// `MapBuilder` allows a consumer to construct a `Map` by inserting the nodes
@@ -81,15 +82,29 @@ impl Map {
     /// of keys. If during iteration we encounter a gap in the data (e.g. the
     /// proof did not include all nodes within the range), the iterator will
     /// yield an error.
-    pub fn range<'a, R: RangeBounds<&'a [u8]>>(&'a self, bounds: R) -> Range {
-        let start_key = bound_to_inner(bounds.start_bound()).map(|x| (*x).into());
-        let bounds = bounds_to_vec(bounds);
+    pub fn range<'a>(&'a self, bounds: impl RangeBounds<&'a [u8]>) -> Range {
+        let start_bound = bound_to_inner(bounds.start_bound());
+        let end_bound = bound_to_inner(bounds.end_bound());
+        let outer_bounds = (
+            start_bound.map_or(Bound::Unbounded, |k| {
+                self.entries
+                    .range(..=k.to_vec())
+                    .next_back()
+                    .map_or(Bound::Unbounded, |prev| Bound::Included(prev.0.clone()))
+            }),
+            end_bound.map_or(Bound::Unbounded, |k| {
+                self.entries
+                    .range(k.to_vec()..)
+                    .next()
+                    .map_or(Bound::Unbounded, |next| Bound::Included(next.0.clone()))
+            }),
+        );
 
         Range {
             map: self,
-            prev_key: start_key.as_ref().cloned(),
-            start_key,
-            iter: self.entries.range(bounds),
+            bounds: bounds_to_vec(bounds),
+            done: false,
+            iter: self.entries.range(outer_bounds).peekable(),
         }
     }
 }
@@ -111,7 +126,7 @@ fn bound_to_vec(bound: Bound<&&[u8]>) -> Bound<Vec<u8>> {
     }
 }
 
-fn bounds_to_vec<'a, R: RangeBounds<&'a [u8]>>(bounds: R) -> impl RangeBounds<Vec<u8>> {
+fn bounds_to_vec<'a, R: RangeBounds<&'a [u8]>>(bounds: R) -> (Bound<Vec<u8>>, Bound<Vec<u8>>) {
     (
         bound_to_vec(bounds.start_bound()),
         bound_to_vec(bounds.end_bound()),
@@ -123,42 +138,62 @@ fn bounds_to_vec<'a, R: RangeBounds<&'a [u8]>>(bounds: R) -> impl RangeBounds<Ve
 /// include all nodes within the range), the iterator will yield an error.
 pub struct Range<'a> {
     map: &'a Map,
-    start_key: Option<Vec<u8>>,
-    iter: btree_map::Range<'a, Vec<u8>, (bool, Vec<u8>)>,
-    prev_key: Option<Vec<u8>>,
+    bounds: (Bound<Vec<u8>>, Bound<Vec<u8>>),
+    done: bool,
+    iter: Peekable<btree_map::Range<'a, Vec<u8>, (bool, Vec<u8>)>>,
 }
 
 impl<'a> Range<'a> {
-    /// Returns an error if the proof does not properly prove the end of the
-    /// range.
-    fn check_end_bound(&self) -> Result<()> {
-        let excluded_data = match self.prev_key {
-            // unbounded end, ensure proof has not excluded data at global right
-            // edge of tree
-            None => !self.map.right_edge,
-
-            // bounded end (inclusive or exclusive), ensure we had an exact
-            // match or next node is contiguous
-            Some(ref key) => {
-                // get neighboring node to the right (if any)
-                let range = (Bound::Excluded(key.to_vec()), Bound::<Vec<u8>>::Unbounded);
-                let maybe_end_node = self.map.entries.range(range).next();
-
-                match maybe_end_node {
-                    // reached global right edge of tree
-                    None => !self.map.right_edge,
-
-                    // got end node, must be contiguous
-                    Some((_, (contiguous, _))) => !contiguous,
-                }
-            }
-        };
-
-        if excluded_data {
-            return Err(Error::MissingData);
+    fn yield_entry_if_contiguous(
+        &mut self,
+        entry: (&'a Vec<u8>, &'a (bool, Vec<u8>)),
+        forward: bool,
+    ) -> Option<Result<(&'a [u8], &'a [u8])>> {
+        let (_, (contiguous, _)) = entry;
+        if !contiguous {
+            self.done = true;
+            return Some(Err(Error::MissingData));
         }
 
-        Ok(())
+        self.yield_entry(entry, forward)
+    }
+
+    fn yield_entry(
+        &mut self,
+        entry: (&'a Vec<u8>, &'a (bool, Vec<u8>)),
+        forward: bool,
+    ) -> Option<Result<(&'a [u8], &'a [u8])>> {
+        let (key, (_, value)) = entry;
+        if forward {
+            self.bounds.0 = Bound::Excluded(key.clone());
+        } else {
+            self.bounds.1 = Bound::Excluded(key.clone());
+        }
+        Some(Ok((key.as_slice(), value.as_slice())))
+    }
+
+    fn yield_none_if_contiguous(
+        &mut self,
+        contiguous: bool,
+    ) -> Option<Result<(&'a [u8], &'a [u8])>> {
+        self.done = true;
+
+        if !contiguous {
+            return Some(Err(Error::MissingData));
+        }
+
+        None
+    }
+
+    fn yield_next_if_contiguous(&mut self) -> Option<Result<(&'a [u8], &'a [u8])>> {
+        if let Some((_, (contiguous, _))) = self.iter.peek() {
+            if !contiguous {
+                self.done = true;
+                return Some(Err(Error::MissingData));
+            }
+        }
+
+        self.next()
     }
 }
 
@@ -166,37 +201,40 @@ impl<'a> Iterator for Range<'a> {
     type Item = Result<(&'a [u8], &'a [u8])>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let (key, (contiguous, value)) = match self.iter.next() {
-            // no more items, ensure no data was excluded at end of range
-            None => {
-                return match self.check_end_bound() {
-                    Err(err) => Some(Err(err)),
-                    Ok(_) => None,
-                }
-            }
-
-            // got next item, destructure
-            Some((key, (contiguous, value))) => (key, (contiguous, value)),
-        };
-
-        self.prev_key = Some(key.clone());
-
-        // don't check for contiguous nodes if we have an exact match for lower
-        // bound
-        let skip_exclusion_check = if let Some(ref start_key) = self.start_key {
-            start_key == key
-        } else {
-            false
-        };
-
-        // if nodes weren't contiguous, we cannot verify that we have all values
-        // in the desired range
-        if !skip_exclusion_check && !contiguous {
-            return Some(Err(Error::MissingData));
+        if self.done {
+            return None;
         }
 
-        // passed checks, return entry
-        Some(Ok((key.as_slice(), value.as_slice())))
+        let entry = match self.iter.next() {
+            None => return self.yield_none_if_contiguous(self.map.right_edge),
+            Some(entry) => entry,
+        };
+        let (key, (contiguous, _)) = entry;
+
+        let past_start = match bound_to_inner(self.bounds.0.clone()) {
+            None => true,
+            Some(ref start_bound) => key > start_bound,
+        };
+        let at_start = match self.bounds.0 {
+            Bound::Unbounded => true,
+            Bound::Included(ref start_bound) => key == start_bound,
+            Bound::Excluded(_) => false,
+        };
+        let past_end = match self.bounds.1 {
+            Bound::Unbounded => false,
+            Bound::Included(ref end_bound) => key > end_bound,
+            Bound::Excluded(ref end_bound) => key >= end_bound,
+        };
+
+        if past_end {
+            self.yield_none_if_contiguous(*contiguous)
+        } else if past_start {
+            self.yield_entry_if_contiguous(entry, true)
+        } else if at_start {
+            self.yield_entry(entry, true)
+        } else {
+            self.yield_next_if_contiguous()
+        }
     }
 }
 
