@@ -352,6 +352,7 @@ mod tests {
         assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 3][..], &[1][..]));
         assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 4][..], &[2][..]));
         assert!(range.next().is_none());
+        assert!(range.next().is_none());
     }
 
     #[test]
@@ -367,5 +368,31 @@ mod tests {
         let mut range = map.range(..&[1u8, 2, 5][..]);
         range.next().unwrap().unwrap();
         assert_eq!(range.next().unwrap().unwrap(), (&[1][..], &[1][..]));
+    }
+
+    #[test]
+    fn range_reach_proof_end() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
+
+        let map = builder.build();
+        let mut range = map.range(&[1u8, 2, 3][..]..);
+        assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 3][..], &[1][..]));
+        assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 4][..], &[2][..]));
+        assert!(range.next().is_none());
+    }
+
+    #[test]
+    fn range_unbounded() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1, 2, 3], vec![1])).unwrap();
+        builder.insert(&Node::KV(vec![1, 2, 4], vec![2])).unwrap();
+
+        let map = builder.build();
+        let mut range = map.range(..);
+        assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 3][..], &[1][..]));
+        assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 4][..], &[2][..]));
+        assert!(range.next().is_none());
     }
 }
