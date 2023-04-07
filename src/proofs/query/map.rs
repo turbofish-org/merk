@@ -107,6 +107,13 @@ impl Map {
             iter: self.entries.range(outer_bounds).peekable(),
         }
     }
+
+    fn contiguous_right(&self, key: &[u8]) -> bool {
+        self.entries
+            .range((Bound::Excluded(key.to_vec()), Bound::Unbounded))
+            .next()
+            .map_or(self.right_edge, |(_, (contiguous, _))| *contiguous)
+    }
 }
 
 /// Returns `None` for `Bound::Unbounded`, or the inner key value for
@@ -147,9 +154,9 @@ impl<'a> Range<'a> {
     fn yield_entry_if_contiguous(
         &mut self,
         entry: (&'a Vec<u8>, &'a (bool, Vec<u8>)),
+        contiguous: bool,
         forward: bool,
     ) -> Option<Result<(&'a [u8], &'a [u8])>> {
-        let (_, (contiguous, _)) = entry;
         if !contiguous {
             self.done = true;
             return Some(Err(Error::MissingData));
@@ -195,6 +202,18 @@ impl<'a> Range<'a> {
 
         self.next()
     }
+
+    fn yield_next_back_if_contiguous(
+        &mut self,
+        contiguous: bool,
+    ) -> Option<Result<(&'a [u8], &'a [u8])>> {
+        if !contiguous {
+            self.done = true;
+            return Some(Err(Error::MissingData));
+        }
+
+        self.next_back()
+    }
 }
 
 impl<'a> Iterator for Range<'a> {
@@ -229,11 +248,51 @@ impl<'a> Iterator for Range<'a> {
         if past_end {
             self.yield_none_if_contiguous(*contiguous)
         } else if past_start {
-            self.yield_entry_if_contiguous(entry, true)
+            self.yield_entry_if_contiguous(entry, *contiguous, true)
         } else if at_start {
             self.yield_entry(entry, true)
         } else {
             self.yield_next_if_contiguous()
+        }
+    }
+}
+
+impl<'a> DoubleEndedIterator for Range<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+
+        let entry = match self.iter.next_back() {
+            None => return self.yield_none_if_contiguous(self.map.contiguous_right(&[])),
+            Some(entry) => entry,
+        };
+        let (key, (contiguous_l, _)) = entry;
+        let contiguous_r = self.map.contiguous_right(key);
+
+        let past_end = match bound_to_inner(self.bounds.1.clone()) {
+            None => true,
+            Some(ref end_bound) => key < end_bound,
+        };
+        let at_end = match self.bounds.1 {
+            Bound::Unbounded => true,
+            Bound::Included(ref end_bound) => key == end_bound,
+            Bound::Excluded(_) => false,
+        };
+        let past_start = match self.bounds.0 {
+            Bound::Unbounded => false,
+            Bound::Included(ref start_bound) => key < start_bound,
+            Bound::Excluded(ref start_bound) => key <= start_bound,
+        };
+
+        if past_start {
+            self.yield_none_if_contiguous(contiguous_r)
+        } else if past_end {
+            self.yield_entry_if_contiguous(entry, contiguous_r, false)
+        } else if at_end {
+            self.yield_entry(entry, false)
+        } else {
+            self.yield_next_back_if_contiguous(*contiguous_l)
         }
     }
 }
