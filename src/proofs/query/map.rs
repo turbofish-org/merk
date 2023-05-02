@@ -52,6 +52,7 @@ impl MapBuilder {
 /// against a known root hash), and allows a consumer to access the data by
 /// looking up individual keys using the `get` method, or iterating over ranges
 /// using the `range` method.
+#[derive(Clone, Debug)]
 pub struct Map {
     entries: BTreeMap<Vec<u8>, (bool, Vec<u8>)>,
     right_edge: bool,
@@ -105,6 +106,25 @@ impl Map {
             bounds: bounds_to_vec(bounds),
             done: false,
             iter: self.entries.range(outer_bounds).peekable(),
+        }
+    }
+
+    pub fn join(self, other: Map) -> Map {
+        // TODO: join at the partial tree level, joining with only Map data means
+        // data from different joins which happen to be contiguous will be marked
+        // as non-contiguous
+        let mut entries = self.entries.clone();
+        entries.extend(other.entries);
+        for (key, (contiguous, val)) in entries.iter_mut() {
+            if let Some(shadowed) = self.entries.get(key) {
+                assert_eq!(val, &shadowed.1, "Maps have different values",);
+                *contiguous = *contiguous || shadowed.0;
+            }
+        }
+
+        Map {
+            entries,
+            right_edge: self.right_edge || other.right_edge,
         }
     }
 
@@ -531,6 +551,38 @@ mod tests {
         let mut range = map.range(..).rev();
         assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 4][..], &[2][..]));
         assert_eq!(range.next().unwrap().unwrap(), (&[1, 2, 3][..], &[1][..]));
+        assert!(range.next().is_none());
+    }
+
+    #[test]
+    fn map_join() {
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1], vec![1])).unwrap();
+        builder.insert(&Node::KV(vec![2], vec![1])).unwrap();
+        builder.insert(&Node::KV(vec![3], vec![1])).unwrap();
+        builder.insert(&Node::Hash([0; HASH_LENGTH])).unwrap();
+        builder.insert(&Node::KV(vec![5], vec![1])).unwrap();
+        let a = builder.build();
+
+        let mut builder = MapBuilder::new();
+        builder.insert(&Node::KV(vec![1], vec![1])).unwrap();
+        builder.insert(&Node::Hash([0; HASH_LENGTH])).unwrap();
+        builder.insert(&Node::KV(vec![3], vec![1])).unwrap();
+        builder.insert(&Node::KV(vec![4], vec![1])).unwrap();
+        builder.insert(&Node::Hash([0; HASH_LENGTH])).unwrap();
+        let b = builder.build();
+
+        let joined = a.join(b);
+
+        let mut range = joined.range(..=&[4][..]);
+        assert_eq!(range.next().unwrap().unwrap(), (&[1][..], &[1][..]));
+        assert_eq!(range.next().unwrap().unwrap(), (&[2][..], &[1][..]));
+        assert_eq!(range.next().unwrap().unwrap(), (&[3][..], &[1][..]));
+        assert_eq!(range.next().unwrap().unwrap(), (&[4][..], &[1][..]));
+        assert!(range.next().is_none());
+
+        let mut range = joined.range(&[5][..]..);
+        assert_eq!(range.next().unwrap().unwrap(), (&[5][..], &[1][..]));
         assert!(range.next().is_none());
     }
 }
