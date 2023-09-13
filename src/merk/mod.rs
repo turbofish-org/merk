@@ -236,7 +236,8 @@ impl Merk {
         let batch: Vec<_> = self
             .db
             .iterator(IteratorMode::Start)
-            .map(|(key, node_bytes)| {
+            .map(|entry| {
+                let (key, node_bytes) = entry.unwrap(); // TODO
                 node.decode_into(vec![], &node_bytes);
                 (key.to_vec(), Op::Put(node.value().to_vec()))
             })
@@ -246,7 +247,10 @@ impl Merk {
         let aux: Vec<_> = self
             .db
             .iterator_cf(aux_cf, IteratorMode::Start)
-            .map(|(key, value)| (key.to_vec(), Op::Put(value.to_vec())))
+            .map(|entry| {
+                let (key, value) = entry.unwrap(); // TODO
+                (key.to_vec(), Op::Put(value.to_vec()))
+            })
             .collect();
 
         drop(self);
