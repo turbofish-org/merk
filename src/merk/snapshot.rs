@@ -1,4 +1,6 @@
-use std::cell::Cell;
+use std::{cell::Cell, mem::ManuallyDrop};
+
+use ed::{Decode, Encode};
 
 use crate::{
     proofs::{query::QueryItem, Query},
@@ -7,15 +9,23 @@ use crate::{
 };
 
 pub struct Snapshot<'a> {
-    db: rocksdb::Snapshot<'a>,
+    ss: rocksdb::Snapshot<'a>,
     tree: Cell<Option<Tree>>,
 }
 
 impl<'a> Snapshot<'a> {
     pub fn new(db: rocksdb::Snapshot<'a>, tree: Option<Tree>) -> Self {
         Snapshot {
-            db,
+            ss: db,
             tree: Cell::new(tree),
+        }
+    }
+
+    pub fn staticize(self) -> StaticSnapshot {
+        let ss: RocksDBSnapshot = unsafe { std::mem::transmute(self.ss) };
+        StaticSnapshot {
+            tree: self.tree,
+            inner: ss.inner,
         }
     }
 
@@ -56,11 +66,11 @@ impl<'a> Snapshot<'a> {
     }
 
     pub fn raw_iter(&self) -> rocksdb::DBRawIterator {
-        self.db.raw_iterator()
+        self.ss.raw_iterator()
     }
 
     fn source(&self) -> SnapshotSource {
-        SnapshotSource(&self.db)
+        SnapshotSource(&self.ss)
     }
 
     fn use_tree<T>(&self, f: impl FnOnce(Option<&Tree>) -> T) -> T {
@@ -87,5 +97,46 @@ impl<'a> Fetch for SnapshotSource<'a> {
             .0
             .get(key)?
             .map(|bytes| Tree::decode(key.to_vec(), &bytes)))
+    }
+}
+
+pub struct StaticSnapshot {
+    tree: Cell<Option<Tree>>,
+    inner: *const (),
+}
+
+struct RocksDBSnapshot<'a> {
+    db: &'a rocksdb::DB,
+    inner: *const (),
+}
+
+impl StaticSnapshot {
+    pub unsafe fn with_db<'a>(&self, db: &'a rocksdb::DB) -> ManuallyDrop<Snapshot<'a>> {
+        let db_ss = RocksDBSnapshot {
+            db,
+            inner: self.inner,
+        };
+        let db_ss: rocksdb::Snapshot<'a> = std::mem::transmute(db_ss);
+
+        let tree = self.tree.take().unwrap();
+        let tree_clone = Tree::decode(tree.key().to_vec(), tree.encode().as_slice());
+        self.tree.set(Some(tree));
+
+        ManuallyDrop::new(Snapshot {
+            ss: db_ss,
+            tree: Cell::new(Some(tree_clone)),
+        })
+    }
+
+    pub unsafe fn drop<'a>(self, db: &'a rocksdb::DB) {
+        let mut ss = self.with_db(db);
+        ManuallyDrop::drop(&mut ss);
+        std::mem::forget(self);
+    }
+}
+
+impl Drop for StaticSnapshot {
+    fn drop(&mut self) {
+        panic!("StaticSnapshot must be manually dropped");
     }
 }

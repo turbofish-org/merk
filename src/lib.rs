@@ -25,7 +25,7 @@ pub mod test_utils;
 pub mod tree;
 
 #[cfg(feature = "full")]
-pub use crate::merk::{chunks, restore, Merk, MerkSource, Snapshot};
+pub use crate::merk::{chunks, restore, snapshot, Merk, MerkSource, Snapshot};
 
 pub use error::{Error, Result};
 pub use tree::{Batch, BatchEntry, Hash, Op, PanicSource, HASH_LENGTH};

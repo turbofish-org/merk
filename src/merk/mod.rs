@@ -378,6 +378,10 @@ impl Merk {
         Ok(Snapshot::new(self.db.snapshot(), load_root(&self.db)?))
     }
 
+    pub fn db(&self) -> &DB {
+        &self.db
+    }
+
     fn source(&self) -> MerkSource {
         MerkSource { db: &self.db }
     }
