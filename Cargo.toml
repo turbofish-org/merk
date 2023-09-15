@@ -9,6 +9,7 @@ license = "MIT"
 [dependencies]
 thiserror= "1.0.31"
 sha2 = "0.10.2"
+log = "0.4.17"
 
 [dependencies.time]
 version = "0.3.11"
@@ -55,14 +56,5 @@ optional = true
 
 [features]
 default = ["full", "verify"]
-full = ["rand", 
-        "rocksdb", 
-        "time", 
-        "hex", 
-        "colored",
-        "num_cpus",
-        "byteorder",
-        "failure",
-        "ed"]
-verify = ["ed",
-          "failure"]
+full = ["rand", "rocksdb", "time", "hex", "colored", "num_cpus", "byteorder", "failure", "ed"]
+verify = ["ed", "failure"]
