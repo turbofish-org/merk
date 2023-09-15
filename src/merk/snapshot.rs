@@ -1,7 +1,5 @@
 use std::{cell::Cell, mem::ManuallyDrop};
 
-use ed::{Decode, Encode};
-
 use crate::{
     proofs::{query::QueryItem, Query},
     tree::{Fetch, RefWalker, Tree, NULL_HASH},
@@ -118,13 +116,9 @@ impl StaticSnapshot {
         };
         let db_ss: rocksdb::Snapshot<'a> = std::mem::transmute(db_ss);
 
-        let tree = self.tree.take().unwrap();
-        let tree_clone = Tree::decode(tree.key().to_vec(), tree.encode().as_slice());
-        self.tree.set(Some(tree));
-
         ManuallyDrop::new(Snapshot {
             ss: db_ss,
-            tree: Cell::new(Some(tree_clone)),
+            tree: self.clone_tree(),
         })
     }
 
@@ -133,10 +127,29 @@ impl StaticSnapshot {
         ManuallyDrop::drop(&mut ss);
         std::mem::forget(self);
     }
+
+    fn clone_tree(&self) -> Cell<Option<Tree>> {
+        let tree = self.tree.take().unwrap();
+        let tree_clone = Cell::new(Some(Tree::decode(
+            tree.key().to_vec(),
+            tree.encode().as_slice(),
+        )));
+        self.tree.set(Some(tree));
+        tree_clone
+    }
 }
 
 impl Drop for StaticSnapshot {
     fn drop(&mut self) {
-        panic!("StaticSnapshot must be manually dropped");
+        log::debug!("StaticSnapshot must be manually dropped");
+    }
+}
+
+impl Clone for StaticSnapshot {
+    fn clone(&self) -> Self {
+        Self {
+            tree: self.clone_tree(),
+            inner: self.inner,
+        }
     }
 }
