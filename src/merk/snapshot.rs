@@ -24,6 +24,7 @@ impl<'a> Snapshot<'a> {
         StaticSnapshot {
             tree: self.tree,
             inner: ss.inner,
+            should_drop: false,
         }
     }
 
@@ -101,17 +102,18 @@ impl<'a> Fetch for SnapshotSource<'a> {
 pub struct StaticSnapshot {
     tree: Cell<Option<Tree>>,
     inner: *const (),
+    should_drop: bool,
 }
 
 struct RocksDBSnapshot<'a> {
-    db: &'a rocksdb::DB,
+    _db: &'a rocksdb::DB,
     inner: *const (),
 }
 
 impl StaticSnapshot {
     pub unsafe fn with_db<'a>(&self, db: &'a rocksdb::DB) -> ManuallyDrop<Snapshot<'a>> {
         let db_ss = RocksDBSnapshot {
-            db,
+            _db: db,
             inner: self.inner,
         };
         let db_ss: rocksdb::Snapshot<'a> = std::mem::transmute(db_ss);
@@ -122,10 +124,10 @@ impl StaticSnapshot {
         })
     }
 
-    pub unsafe fn drop<'a>(self, db: &'a rocksdb::DB) {
+    pub unsafe fn drop<'a>(mut self, db: &'a rocksdb::DB) {
         let mut ss = self.with_db(db);
         ManuallyDrop::drop(&mut ss);
-        std::mem::forget(self);
+        self.should_drop = true;
     }
 
     fn clone_tree(&self) -> Cell<Option<Tree>> {
@@ -141,7 +143,9 @@ impl StaticSnapshot {
 
 impl Drop for StaticSnapshot {
     fn drop(&mut self) {
-        log::debug!("StaticSnapshot must be manually dropped");
+        if !self.should_drop {
+            log::debug!("StaticSnapshot must be manually dropped");
+        }
     }
 }
 
@@ -150,6 +154,7 @@ impl Clone for StaticSnapshot {
         Self {
             tree: self.clone_tree(),
             inner: self.inner,
+            should_drop: self.should_drop,
         }
     }
 }
