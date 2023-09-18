@@ -318,7 +318,7 @@ impl Merk {
             // TODO: concurrent commit
             if let Some(tree) = maybe_tree {
                 // TODO: configurable committer
-                let mut committer = MerkCommitter::new(tree.height(), 100);
+                let mut committer = MerkCommitter::new(tree.height(), 21);
                 tree.commit(&mut committer)?;
 
                 // update pointer to root node
