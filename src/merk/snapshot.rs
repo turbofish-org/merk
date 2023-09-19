@@ -1,4 +1,4 @@
-use std::{cell::Cell, mem::ManuallyDrop};
+use std::cell::Cell;
 
 use crate::{
     proofs::{query::QueryItem, Query},
@@ -7,22 +7,24 @@ use crate::{
 };
 
 pub struct Snapshot<'a> {
-    ss: rocksdb::Snapshot<'a>,
+    ss: Option<rocksdb::Snapshot<'a>>,
     tree: Cell<Option<Tree>>,
+    should_drop_ss: bool,
 }
 
 impl<'a> Snapshot<'a> {
     pub fn new(db: rocksdb::Snapshot<'a>, tree: Option<Tree>) -> Self {
         Snapshot {
-            ss: db,
+            ss: Some(db),
             tree: Cell::new(tree),
+            should_drop_ss: true,
         }
     }
 
-    pub fn staticize(self) -> StaticSnapshot {
-        let ss: RocksDBSnapshot = unsafe { std::mem::transmute(self.ss) };
+    pub fn staticize(mut self) -> StaticSnapshot {
+        let ss: RocksDBSnapshot = unsafe { std::mem::transmute(self.ss.take().unwrap()) };
         StaticSnapshot {
-            tree: self.tree,
+            tree: Cell::new(self.tree.take()),
             inner: ss.inner,
             should_drop: false,
         }
@@ -65,11 +67,11 @@ impl<'a> Snapshot<'a> {
     }
 
     pub fn raw_iter(&self) -> rocksdb::DBRawIterator {
-        self.ss.raw_iterator()
+        self.ss.as_ref().unwrap().raw_iterator()
     }
 
     fn source(&self) -> SnapshotSource {
-        SnapshotSource(&self.ss)
+        SnapshotSource(self.ss.as_ref().unwrap())
     }
 
     fn use_tree<T>(&self, f: impl FnOnce(Option<&Tree>) -> T) -> T {
@@ -84,6 +86,14 @@ impl<'a> Snapshot<'a> {
         let res = f(tree.as_mut());
         self.tree.set(tree);
         res
+    }
+}
+
+impl<'a> Drop for Snapshot<'a> {
+    fn drop(&mut self) {
+        if !self.should_drop_ss {
+            std::mem::forget(self.ss.take());
+        }
     }
 }
 
@@ -111,22 +121,23 @@ struct RocksDBSnapshot<'a> {
 }
 
 impl StaticSnapshot {
-    pub unsafe fn with_db<'a>(&self, db: &'a rocksdb::DB) -> ManuallyDrop<Snapshot<'a>> {
+    pub unsafe fn with_db<'a>(&self, db: &'a rocksdb::DB) -> Snapshot<'a> {
         let db_ss = RocksDBSnapshot {
             _db: db,
             inner: self.inner,
         };
         let db_ss: rocksdb::Snapshot<'a> = std::mem::transmute(db_ss);
 
-        ManuallyDrop::new(Snapshot {
-            ss: db_ss,
+        Snapshot {
+            ss: Some(db_ss),
             tree: self.clone_tree(),
-        })
+            should_drop_ss: false,
+        }
     }
 
     pub unsafe fn drop<'a>(mut self, db: &'a rocksdb::DB) {
         let mut ss = self.with_db(db);
-        ManuallyDrop::drop(&mut ss);
+        ss.should_drop_ss = true;
         self.should_drop = true;
     }
 
