@@ -112,7 +112,7 @@ impl<'a> Fetch for SnapshotSource<'a> {
 pub struct StaticSnapshot {
     tree: Cell<Option<Tree>>,
     inner: *const (),
-    should_drop: bool,
+    pub should_drop: bool,
 }
 
 struct RocksDBSnapshot<'a> {
