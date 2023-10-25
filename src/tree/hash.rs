@@ -37,13 +37,13 @@ pub fn kv_hash<D: Digest>(key: &[u8], value: &[u8]) -> Result<Hash, TryFromIntEr
         })
 }
 
-/// Hashes a node based on the hash of its key/value pair, the hash of its left
-/// child (if any), and the hash of its right child (if any).
+/// Hashes a node based on the hash of its left child (if any), its key/value
+/// pair, and the hash of its right child (if any).
 pub fn node_hash<D: Digest>(kv: &Hash, left: &Hash, right: &Hash) -> Hash {
     let mut hasher = D::new();
     hasher.update([1]);
-    hasher.update(kv);
     hasher.update(left);
+    hasher.update(kv);
     hasher.update(right);
 
     let res = hasher.finalize();
