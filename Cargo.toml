@@ -31,10 +31,6 @@ optional = true
 version = "1.5.0"
 optional = true
 
-[dependencies.failure]
-version = "0.1.8"
-optional = true
-
 [dependencies.ed]
 version = "0.3.0"
 optional = true
@@ -56,5 +52,5 @@ optional = true
 
 [features]
 default = ["full", "verify"]
-full = ["rand", "rocksdb", "time", "hex", "colored", "num_cpus", "byteorder", "failure", "ed"]
-verify = ["ed", "failure"]
+full = ["rand", "rocksdb", "time", "hex", "colored", "num_cpus", "byteorder", "ed"]
+verify = ["ed"]
