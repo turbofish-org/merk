@@ -169,3 +169,25 @@ impl Clone for StaticSnapshot {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::mem::transmute;
+
+    use super::RocksDBSnapshot;
+    use crate::test_utils::TempMerk;
+
+    #[test]
+    fn rocksdb_snapshot_struct_format() {
+        assert_eq!(std::mem::size_of::<rocksdb::Snapshot>(), 16);
+
+        let merk = TempMerk::new().unwrap();
+        let exptected_db_ptr = merk.db() as *const _;
+
+        let ss = merk.db().snapshot();
+        let ss: RocksDBSnapshot = unsafe { transmute(ss) };
+        let db_ptr = ss._db as *const _;
+
+        assert_eq!(exptected_db_ptr, db_ptr);
+    }
+}
