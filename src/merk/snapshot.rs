@@ -120,6 +120,9 @@ struct RocksDBSnapshot<'a> {
     inner: *const (),
 }
 
+unsafe impl<'a> Send for StaticSnapshot {}
+unsafe impl<'a> Sync for StaticSnapshot {}
+
 impl StaticSnapshot {
     pub unsafe fn with_db<'a>(&self, db: &'a rocksdb::DB) -> Snapshot<'a> {
         let db_ss = RocksDBSnapshot {
