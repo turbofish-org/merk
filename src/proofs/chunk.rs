@@ -415,9 +415,8 @@ mod tests {
         let batch = make_batch_seq(0..31);
         merk.apply(batch.as_slice(), &[]).unwrap();
 
-        let root_node = merk.tree.take();
+        let root_node = merk.tree.read().unwrap();
         let root_key = root_node.as_ref().unwrap().key().to_vec();
-        merk.tree.set(root_node);
 
         // whole tree as 1 leaf
         let mut iter = merk.db.raw_iterator();
