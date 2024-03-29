@@ -120,6 +120,9 @@ struct RocksDBSnapshot<'a> {
     inner: *const (),
 }
 
+// We need this because we have a raw pointer to a RocksDB snapshot, but we
+// know that our usage of it is thread-safe:
+// https://github.com/facebook/rocksdb/blob/main/include/rocksdb/snapshot.h#L15-L16
 unsafe impl<'a> Send for StaticSnapshot {}
 unsafe impl<'a> Sync for StaticSnapshot {}
 
