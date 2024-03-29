@@ -27,10 +27,6 @@ optional = true
 version = "1.16.0"
 optional = true
 
-[dependencies.byteorder]
-version = "1.5.0"
-optional = true
-
 [dependencies.ed]
 version = "0.3.0"
 optional = true
@@ -52,5 +48,5 @@ optional = true
 
 [features]
 default = ["full", "verify"]
-full = ["rand", "rocksdb", "time", "hex", "colored", "num_cpus", "byteorder", "ed"]
+full = ["rand", "rocksdb", "time", "hex", "colored", "num_cpus", "ed"]
 verify = ["ed"]
