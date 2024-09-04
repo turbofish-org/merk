@@ -11,14 +11,6 @@ thiserror= "1.0.58"
 sha2 = "0.10.8"
 log = "0.4.21"
 
-[dependencies.time]
-version = "0.3.0,<0.3.25"
-optional = true
-
-[dependencies.hex]
-version = "0.4.3"
-optional = true
-
 [dependencies.colored]
 version = "2.1.0"
 optional = true
@@ -48,5 +40,5 @@ optional = true
 
 [features]
 default = ["full", "verify"]
-full = ["rand", "rocksdb", "time", "hex", "colored", "num_cpus", "ed"]
+full = ["rand", "rocksdb", "colored", "num_cpus", "ed"]
 verify = ["ed"]
