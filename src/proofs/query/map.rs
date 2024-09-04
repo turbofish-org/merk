@@ -83,7 +83,7 @@ impl Map {
     /// of keys. If during iteration we encounter a gap in the data (e.g. the
     /// proof did not include all nodes within the range), the iterator will
     /// yield an error.
-    pub fn range<'a>(&'a self, bounds: impl RangeBounds<&'a [u8]>) -> Range {
+    pub fn range<'a>(&self, bounds: impl RangeBounds<&'a [u8]>) -> Range {
         let start_bound = bound_to_inner(bounds.start_bound());
         let end_bound = bound_to_inner(bounds.end_bound());
         let outer_bounds = (
