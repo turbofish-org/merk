@@ -1,13 +1,13 @@
 [package]
 name = "merk"
-description = "Merkle key/value store"
+description = "High-performance Merkle key/value store"
 version = "2.0.0"
-authors = ["Matt Bell <mappum@gmail.com>"]
+authors = ["Turbofish <team@turbofish.org>"]
 edition = "2018"
-license = "MIT"
+license = "Apache-2.0"
 
 [dependencies]
-thiserror= "1.0.31"
+thiserror = "1.0.31"
 sha2 = "0.10.2"
 log = "0.4.17"
 
@@ -56,5 +56,15 @@ optional = true
 
 [features]
 default = ["full", "verify"]
-full = ["rand", "rocksdb", "time", "hex", "colored", "num_cpus", "byteorder", "failure", "ed"]
+full = [
+    "rand",
+    "rocksdb",
+    "time",
+    "hex",
+    "colored",
+    "num_cpus",
+    "byteorder",
+    "failure",
+    "ed",
+]
 verify = ["ed", "failure"]
