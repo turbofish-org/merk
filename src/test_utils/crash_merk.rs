@@ -12,8 +12,8 @@ pub struct CrashMerk {
 }
 
 impl CrashMerk {
-    /// Opens a `CrashMerk` at the given file path, creating a new one if it does
-    /// not exist.
+    /// Opens a `CrashMerk` at the given file path, creating a new one if it
+    /// does not exist.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<CrashMerk> {
         let merk = Merk::open(&path)?;
         let inner = Some(ManuallyDrop::new(merk));

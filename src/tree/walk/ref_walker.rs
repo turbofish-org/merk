@@ -3,8 +3,10 @@ use super::Fetch;
 use crate::error::Result;
 
 /// Allows read-only traversal of a `Tree`, fetching from the given source when
-/// traversing to a pruned node. The fetched nodes are then retained in memory
-/// until they (possibly) get pruned on the next commit.
+/// traversing to a pruned node.
+///
+/// The fetched nodes are in memory until they (possibly) get pruned on the next
+/// commit.
 ///
 /// Only finalized trees may be walked (trees which have had `commit` called
 /// since the last update).

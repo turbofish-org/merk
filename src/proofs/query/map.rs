@@ -48,10 +48,11 @@ impl MapBuilder {
     }
 }
 
-/// `Map` stores data extracted from a proof (which has already been verified
-/// against a known root hash), and allows a consumer to access the data by
-/// looking up individual keys using the `get` method, or iterating over ranges
-/// using the `range` method.
+/// `Map` stores data extracted from a proof.
+///
+/// The data (which has already been verified against a known root hash) can be
+/// accessed by a consumer by looking up individual keys using the `get` method,
+/// or iterating over ranges using the `range` method.
 #[derive(Clone, Debug)]
 pub struct Map {
     entries: BTreeMap<Vec<u8>, (bool, Vec<u8>)>,
@@ -83,7 +84,7 @@ impl Map {
     /// of keys. If during iteration we encounter a gap in the data (e.g. the
     /// proof did not include all nodes within the range), the iterator will
     /// yield an error.
-    pub fn range<'a>(&'a self, bounds: impl RangeBounds<&'a [u8]>) -> Range {
+    pub fn range<'a>(&self, bounds: impl RangeBounds<&'a [u8]>) -> Range {
         let start_bound = bound_to_inner(bounds.start_bound());
         let end_bound = bound_to_inner(bounds.end_bound());
         let outer_bounds = (
@@ -160,15 +161,18 @@ fn bounds_to_vec<'a, R: RangeBounds<&'a [u8]>>(bounds: R) -> (Bound<Vec<u8>>, Bo
     )
 }
 
-/// An iterator over (key, value) entries as extracted from a verified proof. If
-/// during iteration we encounter a gap in the data (e.g. the proof did not
+/// An iterator over (key, value) entries as extracted from a verified proof.
+///
+/// If during iteration we encounter a gap in the data (e.g. the proof did not
 /// include all nodes within the range), the iterator will yield an error.
 pub struct Range<'a> {
     map: &'a Map,
     bounds: (Bound<Vec<u8>>, Bound<Vec<u8>>),
     done: bool,
-    iter: Peekable<btree_map::Range<'a, Vec<u8>, (bool, Vec<u8>)>>,
+    iter: Peekable<InnerRange<'a>>,
 }
+
+type InnerRange<'a> = btree_map::Range<'a, Vec<u8>, (bool, Vec<u8>)>;
 
 impl<'a> Range<'a> {
     fn yield_entry_if_contiguous(

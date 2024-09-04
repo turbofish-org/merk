@@ -170,7 +170,8 @@ impl<'a> LayerIter<'a> {
         iter
     }
 
-    /// Builds up the stack by traversing through left children to the desired depth.
+    /// Builds up the stack by traversing through left children to the desired
+    /// depth.
     fn traverse_to_start(&mut self, tree: &'a Tree, remaining_depth: usize) {
         self.stack.push(tree);
 

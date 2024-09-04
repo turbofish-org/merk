@@ -9,7 +9,7 @@ use crate::error::{Error, Result};
 use crate::tree::{Fetch, Hash, Link, RefWalker};
 use std::cmp::{max, min, Ordering};
 use std::collections::BTreeSet;
-use std::ops::{Range, RangeInclusive};
+use std::ops::RangeInclusive;
 
 pub use map::*;
 
@@ -52,7 +52,7 @@ impl Query {
     /// If a range including the range already exists in the query, this will
     /// have no effect. If the query already includes a range that overlaps with
     /// the range, the ranges will be joined together.
-    pub fn insert_range(&mut self, range: Range<Vec<u8>>) {
+    pub fn insert_range(&mut self, range: std::ops::Range<Vec<u8>>) {
         let range = QueryItem::Range(range);
         self.insert_item(range);
     }
@@ -111,7 +111,7 @@ impl IntoIterator for Query {
 #[derive(Clone, Debug)]
 pub enum QueryItem {
     Key(Vec<u8>),
-    Range(Range<Vec<u8>>),
+    Range(std::ops::Range<Vec<u8>>),
     RangeInclusive(RangeInclusive<Vec<u8>>),
 }
 
@@ -144,7 +144,7 @@ impl QueryItem {
         if end.1 {
             QueryItem::RangeInclusive(RangeInclusive::new(start, end.0.to_vec()))
         } else {
-            QueryItem::Range(Range {
+            QueryItem::Range(std::ops::Range {
                 start,
                 end: end.0.to_vec(),
             })

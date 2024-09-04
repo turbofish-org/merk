@@ -2,6 +2,7 @@ use super::super::{Link, Tree};
 use crate::error::{Error, Result};
 
 /// A source of data to be used by the tree when encountering a pruned node.
+///
 /// This typcially means fetching the tree node from a backing store by its key,
 /// but could also implement an in-memory cache for example.
 pub trait Fetch {
