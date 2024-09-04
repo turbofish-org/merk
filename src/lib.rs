@@ -12,7 +12,8 @@ mod error;
 /// The top-level store API.
 #[cfg(feature = "full")]
 mod merk;
-/// Provides a container type that allows temporarily taking ownership of a value.
+/// Provides a container type that allows temporarily taking ownership of a
+/// value.
 // TODO: move this into its own crate
 pub mod owner;
 /// Algorithms for generating and verifying Merkle proofs.

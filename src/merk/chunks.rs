@@ -51,8 +51,8 @@ impl<'a> ChunkProducer<'a> {
     }
 
     /// Gets the chunk with the given index. Errors if the index is out of
-    /// bounds or the tree is empty - the number of chunks can be checked by calling
-    /// `producer.len()`.
+    /// bounds or the tree is empty - the number of chunks can be checked by
+    /// calling `producer.len()`.
     pub fn chunk(&mut self, index: usize) -> Result<Vec<u8>> {
         if index >= self.len() {
             return Err(Error::IndexOutOfBounds("Chunk index out-of-bounds".into()));

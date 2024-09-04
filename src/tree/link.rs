@@ -154,8 +154,8 @@ impl Link {
         right_height as i8 - left_height as i8
     }
 
-    /// Consumes the link and converts to variant `Link::Reference`. Panics if the
-    /// link is of variant `Link::Modified` or `Link::Uncommitted`.
+    /// Consumes the link and converts to variant `Link::Reference`. Panics if
+    /// the link is of variant `Link::Modified` or `Link::Uncommitted`.
     #[inline]
     pub fn into_reference(self) -> Self {
         match self {
