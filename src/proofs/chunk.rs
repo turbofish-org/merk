@@ -11,8 +11,10 @@ use crate::error::{Error, Result};
 use crate::tree::{Fetch, RefWalker};
 
 /// The minimum number of layers the trunk will be guaranteed to have before
-/// splitting into multiple chunks. If the tree's height is less than double
-/// this value, the trunk should be verified as a leaf chunk.
+/// splitting into multiple chunks.
+///
+/// If the tree's height is less than double this value, the trunk should be
+/// verified as a leaf chunk.
 pub const MIN_TRUNK_HEIGHT: usize = 5;
 
 impl<'a, S> RefWalker<'a, S>

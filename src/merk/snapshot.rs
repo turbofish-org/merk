@@ -52,7 +52,7 @@ impl<'a> Snapshot<'a> {
         I: IntoIterator<Item = Q>,
     {
         self.use_tree_mut(move |maybe_tree| {
-            super::prove_unchecked(maybe_tree, self.source(), query.into_iter())
+            super::prove_unchecked(maybe_tree, self.source(), query)
         })
     }
 
@@ -123,10 +123,16 @@ struct RocksDBSnapshot<'a> {
 // We need this because we have a raw pointer to a RocksDB snapshot, but we
 // know that our usage of it is thread-safe:
 // https://github.com/facebook/rocksdb/blob/main/include/rocksdb/snapshot.h#L15-L16
-unsafe impl<'a> Send for StaticSnapshot {}
-unsafe impl<'a> Sync for StaticSnapshot {}
+unsafe impl Send for StaticSnapshot {}
+unsafe impl Sync for StaticSnapshot {}
 
 impl StaticSnapshot {
+    /// Creates a new static snapshot from a RocksDB snapshot.
+    ///
+    /// # Safety
+    /// This function is unsafe because the `StaticSnapshot` will hold a raw
+    /// pointer to the RocksDB snapshot, and it is the caller's responsibility
+    /// to ensure that the snapshot outlives the `StaticSnapshot`.
     pub unsafe fn with_db<'a>(&self, db: &'a rocksdb::DB) -> Snapshot<'a> {
         let db_ss = RocksDBSnapshot {
             _db: db,
@@ -141,7 +147,13 @@ impl StaticSnapshot {
         }
     }
 
-    pub unsafe fn drop<'a>(mut self, db: &'a rocksdb::DB) {
+    /// Drops the snapshot without cleaning up the underlying RocksDB snapshot.
+    ///
+    /// # Safety
+    /// This function is unsafe because it allows to drop the snapshot without
+    /// cleaning up the underlying RocksDB snapshot. Ensure that the snapshot
+    /// is manually freed when this function is called.
+    pub unsafe fn drop(mut self, db: &rocksdb::DB) {
         let mut ss = self.with_db(db);
         ss.should_drop_ss = true;
         self.should_drop = true;

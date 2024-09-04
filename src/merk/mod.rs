@@ -124,7 +124,7 @@ impl Merk {
     /// proofs can be checked against). If the tree is empty, returns the null
     /// hash (zero-filled).
     pub fn root_hash(&self) -> Hash {
-        self.use_tree(|maybe_tree| root_hash(maybe_tree))
+        self.use_tree(root_hash)
     }
 
     /// Applies a batch of operations (puts and deletes) to the tree.
@@ -298,9 +298,7 @@ impl Merk {
         Q: Into<QueryItem>,
         I: IntoIterator<Item = Q>,
     {
-        self.use_tree_mut(move |maybe_tree| {
-            prove_unchecked(maybe_tree, self.source(), query.into_iter())
-        })
+        self.use_tree_mut(move |maybe_tree| prove_unchecked(maybe_tree, self.source(), query))
     }
 
     pub fn flush(&self) -> Result<()> {

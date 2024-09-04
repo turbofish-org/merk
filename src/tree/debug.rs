@@ -60,7 +60,7 @@ impl Debug for Tree {
         fn traverse_pruned(
             f: &mut Formatter,
             link: &Link,
-            stack: &mut Vec<(Vec<u8>, Vec<u8>)>,
+            stack: &mut [(Vec<u8>, Vec<u8>)],
             left: bool,
         ) {
             let depth = stack.len();

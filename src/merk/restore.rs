@@ -14,7 +14,7 @@ use crate::{
 };
 use rocksdb::WriteBatch;
 use std::iter::Peekable;
-use std::{path::Path, u8};
+use std::path::Path;
 
 /// A `Restorer` handles decoding, verifying, and storing chunk proofs to
 /// replicate an entire Merk tree. It expects the chunks to be processed in
