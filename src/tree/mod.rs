@@ -418,8 +418,8 @@ impl Tree {
 
             let maybe_child = link.tree();
             match maybe_child {
-                None => return Ok(GetResult::Pruned), /* value is pruned, caller will have to
-                                                        * fetch from disk */
+                None => return Ok(GetResult::Pruned), /* value is pruned, caller will have to */
+                // fetch from disk
                 Some(child) => cursor = child, // traverse to child
             }
         }
