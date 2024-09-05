@@ -2,7 +2,6 @@ mod crash_merk;
 mod temp_merk;
 
 use crate::tree::{Batch, BatchEntry, NoopCommit, Op, PanicSource, Tree, Walker};
-use byteorder::{BigEndian, WriteBytesExt};
 use rand::prelude::*;
 use std::convert::TryInto;
 use std::ops::Range;
@@ -63,10 +62,7 @@ pub fn apply_to_memonly(maybe_tree: Option<Tree>, batch: &Batch) -> Option<Tree>
 }
 
 pub fn seq_key(n: u64) -> Vec<u8> {
-    let mut key = vec![0; 0];
-    key.write_u64::<BigEndian>(n)
-        .expect("writing to key failed");
-    key
+    n.to_be_bytes().to_vec()
 }
 
 pub fn put_entry_value() -> Vec<u8> {

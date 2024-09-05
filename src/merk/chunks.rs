@@ -9,8 +9,10 @@ use ed::Encode;
 use rocksdb::DBRawIterator;
 
 /// A `ChunkProducer` allows the creation of chunk proofs, used for trustlessly
-/// replicating entire Merk trees. Chunks can be generated on the fly in a
-/// random order, or iterated in order for slightly better performance.
+/// replicating entire Merk trees.
+///
+/// Chunks can be generated on the fly in a random order, or iterated in order
+/// for slightly better performance.
 pub struct ChunkProducer<'a> {
     trunk: Vec<Op>,
     chunk_boundaries: Vec<Vec<u8>>,
@@ -51,8 +53,8 @@ impl<'a> ChunkProducer<'a> {
     }
 
     /// Gets the chunk with the given index. Errors if the index is out of
-    /// bounds or the tree is empty - the number of chunks can be checked by calling
-    /// `producer.len()`.
+    /// bounds or the tree is empty - the number of chunks can be checked by
+    /// calling `producer.len()`.
     pub fn chunk(&mut self, index: usize) -> Result<Vec<u8>> {
         if index >= self.len() {
             return Err(Error::IndexOutOfBounds("Chunk index out-of-bounds".into()));

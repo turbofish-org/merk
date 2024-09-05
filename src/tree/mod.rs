@@ -376,8 +376,8 @@ impl Tree {
     }
 
     /// Fetches the child on the given side using the given data source, and
-    /// places it in the child slot (upgrading the link from `Link::Reference` to
-    /// `Link::Loaded`).
+    /// places it in the child slot (upgrading the link from `Link::Reference`
+    /// to `Link::Loaded`).
     #[inline]
     pub fn load<S: Fetch>(&mut self, left: bool, source: &S) -> Result<()> {
         // TODO: return Err instead of panic?
@@ -418,8 +418,9 @@ impl Tree {
 
             let maybe_child = link.tree();
             match maybe_child {
-                None => return Ok(GetResult::Pruned), // value is pruned, caller will have to fetch from disk
-                Some(child) => cursor = child,        // traverse to child
+                None => return Ok(GetResult::Pruned), /* value is pruned, caller will have to */
+                // fetch from disk
+                Some(child) => cursor = child, // traverse to child
             }
         }
     }

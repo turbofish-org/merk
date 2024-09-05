@@ -7,32 +7,16 @@ edition = "2018"
 license = "Apache-2.0"
 
 [dependencies]
-thiserror = "1.0.31"
-sha2 = "0.10.2"
-log = "0.4.17"
-
-[dependencies.time]
-version = "0.3.11"
-optional = true
-
-[dependencies.hex]
-version = "0.4.3"
-optional = true
+thiserror= "1.0.58"
+sha2 = "0.10.8"
+log = "0.4.21"
 
 [dependencies.colored]
-version = "2.0.0"
+version = "2.1.0"
 optional = true
 
 [dependencies.num_cpus]
-version = "1.13.1"
-optional = true
-
-[dependencies.byteorder]
-version = "1.4.3"
-optional = true
-
-[dependencies.failure]
-version = "0.1.8"
+version = "1.16.0"
 optional = true
 
 [dependencies.ed]
@@ -45,12 +29,12 @@ features = ["small_rng"]
 optional = true
 
 [dependencies.rocksdb]
-version = "0.21.0"
+version = "0.22.0"
 default-features = false
 optional = true
 
 [dependencies.jemallocator]
-version = "0.5.0"
+version = "0.5.4"
 features = ["disable_initial_exec_tls"]
 optional = true
 
@@ -59,12 +43,8 @@ default = ["full", "verify"]
 full = [
     "rand",
     "rocksdb",
-    "time",
-    "hex",
     "colored",
     "num_cpus",
-    "byteorder",
-    "failure",
     "ed",
 ]
-verify = ["ed", "failure"]
+verify = ["ed"]
