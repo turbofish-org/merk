@@ -1,3 +1,14 @@
+//! A high-performance Merkle key/value store.
+//!
+//! Merk is a crypto key/value store - more specifically, it's a Merkle AVL tree
+//! built on top of RocksDB (Facebook's fork of LevelDB).
+//!
+//! Its priorities are performance and reliability. While Merk was designed to
+//! be the state database for blockchains, it can also be used anywhere an
+//! auditable key/value store is needed.
+
+#![warn(missing_docs)]
+#![warn(clippy::missing_docs_in_private_items)]
 #![feature(trivial_bounds)]
 
 #[global_allocator]

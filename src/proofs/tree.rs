@@ -6,7 +6,9 @@ use crate::tree::{kv_hash, node_hash, Hash, Hasher, NULL_HASH};
 /// be up-to-date.
 #[derive(Debug)]
 pub struct Child {
+    /// The child node.
     pub tree: Box<Tree>,
+    /// The hash of the child node.
     pub hash: Hash,
 }
 
@@ -14,9 +16,13 @@ pub struct Child {
 /// when verifying Merkle proofs.
 #[derive(Debug)]
 pub struct Tree {
+    /// The node at the root of this tree.
     pub node: Node,
+    /// The left child of this tree.
     pub left: Option<Child>,
+    /// The right child of this tree.
     pub right: Option<Child>,
+    /// The height of this tree.
     pub height: usize,
 }
 

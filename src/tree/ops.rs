@@ -6,7 +6,9 @@ use Op::*;
 
 /// An operation to be applied to a key in the store.
 pub enum Op {
+    /// Inserts or updates the key/value entry to the given value.
     Put(Vec<u8>),
+    /// Deletes the key/value entry.
     Delete,
 }
 
