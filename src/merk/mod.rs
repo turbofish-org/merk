@@ -11,7 +11,7 @@ use rocksdb::DB;
 use rocksdb::{checkpoint::Checkpoint, ColumnFamilyDescriptor, WriteBatch};
 
 use crate::error::{Error, Result};
-use crate::proofs::{encode_into, query::QueryItem, Query};
+use crate::proofs::{encode_into, query::QueryItem};
 use crate::tree::{Batch, Commit, Fetch, GetResult, Hash, Op, RefWalker, Tree, Walker, NULL_HASH};
 
 pub use self::snapshot::Snapshot;
@@ -272,33 +272,12 @@ impl Merk {
     ///
     /// The proof returned is in an encoded format which can be verified with
     /// `merk::verify`.
-    ///
-    /// This will fail if the keys in `query` are not sorted and unique. This
-    /// check adds some overhead, so if you are sure your batch is sorted and
-    /// unique you can use the unsafe `prove_unchecked` for a small performance
-    /// gain.
-    pub fn prove(&self, query: Query) -> Result<Vec<u8>> {
-        self.prove_unchecked(query)
-    }
-
-    /// Creates a Merkle proof for the list of queried keys. For each key in the
-    /// query, if the key is found in the store then the value will be proven to
-    /// be in the tree. For each key in the query that does not exist in the
-    /// tree, its absence will be proven by including boundary keys.
-    ///
-    /// The proof returned is in an encoded format which can be verified with
-    /// `merk::verify`.
-    ///
-    /// This is unsafe because the keys in `query` must be sorted and unique -
-    /// if they are not, there will be undefined behavior. For a safe version of
-    /// this method which checks to ensure the batch is sorted and unique, see
-    /// `prove`.
-    pub fn prove_unchecked<Q, I>(&self, query: I) -> Result<Vec<u8>>
+    pub fn prove<Q, I>(&self, query: I) -> Result<Vec<u8>>
     where
         Q: Into<QueryItem>,
         I: IntoIterator<Item = Q>,
     {
-        self.use_tree_mut(move |maybe_tree| prove_unchecked(maybe_tree, self.source(), query))
+        self.use_tree_mut(move |maybe_tree| prove(maybe_tree, self.source(), query))
     }
 
     pub fn flush(&self) -> Result<()> {
@@ -480,7 +459,7 @@ fn root_hash(maybe_tree: Option<&Tree>) -> Hash {
     maybe_tree.map_or(NULL_HASH, |tree| tree.hash())
 }
 
-fn prove_unchecked<Q, I, F>(maybe_tree: Option<&mut Tree>, source: F, query: I) -> Result<Vec<u8>>
+fn prove<Q, I, F>(maybe_tree: Option<&mut Tree>, source: F, query: I) -> Result<Vec<u8>>
 where
     Q: Into<QueryItem>,
     I: IntoIterator<Item = Q>,

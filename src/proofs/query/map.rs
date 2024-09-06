@@ -110,10 +110,16 @@ impl Map {
         }
     }
 
+    /// Joins two `Map`s together, combining the data in both.
+    ///
+    /// If the maps contain contiguous iteration ranges, the contiguous ranges
+    /// will be joined. If the maps have differing values for the same key, this
+    /// will panic (this should never happen if the queries came from the same
+    /// root and the proofs were verified).
     pub fn join(self, other: Map) -> Map {
         // TODO: join at the partial tree level, joining with only Map data means
-        // data from different joins which happen to be contiguous will be marked
-        // as non-contiguous
+        // data from different joins which happen to be contiguous (without explicitly
+        // querying based on next/prev) will be marked as non-contiguous
         let mut entries = self.entries.clone();
         entries.extend(other.entries);
         for (key, (contiguous, val)) in entries.iter_mut() {
@@ -129,6 +135,13 @@ impl Map {
         }
     }
 
+    /// Returns `true` if the [Map] can verify that there is no unproven data
+    /// between `key` and the node to its right (or the global tree edge).
+    ///
+    /// For example, if the underlying tree contains the key `[a, b, c, d]` and
+    /// the map contains the keys `[a, b, d]`, then `contiguous_right(a)` will
+    /// return `true`, `contiguous_right(b)` and `contiguous_right(c)` will
+    /// return `false`, and `contiguous_right(d)` will return `true`.
     fn contiguous_right(&self, key: &[u8]) -> bool {
         self.entries
             .range((Bound::Excluded(key.to_vec()), Bound::Unbounded))
@@ -146,6 +159,7 @@ fn bound_to_inner<T>(bound: Bound<T>) -> Option<T> {
     }
 }
 
+/// Converts the inner key value of a `Bound` from a byte slice to a `Vec<u8>`.
 fn bound_to_vec(bound: Bound<&&[u8]>) -> Bound<Vec<u8>> {
     match bound {
         Bound::Unbounded => Bound::Unbounded,
@@ -154,6 +168,8 @@ fn bound_to_vec(bound: Bound<&&[u8]>) -> Bound<Vec<u8>> {
     }
 }
 
+/// Converts the inner key values of a [RangeBounds] from byte slices to
+/// `Vec<u8>`.
 fn bounds_to_vec<'a, R: RangeBounds<&'a [u8]>>(bounds: R) -> (Bound<Vec<u8>>, Bound<Vec<u8>>) {
     (
         bound_to_vec(bounds.start_bound()),
