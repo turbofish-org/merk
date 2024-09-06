@@ -168,7 +168,7 @@ fn prove_1m_1_rand_rocksdb_noprune(b: &mut Bencher) {
         for (key, _) in batch {
             keys.push(merk::proofs::query::QueryItem::Key(key));
         }
-        merk.prove_unchecked(keys).expect("prove failed");
+        merk.prove(keys).expect("prove failed");
         i = (i + 1) % (initial_size / batch_size);
 
         merk.commit(std::collections::LinkedList::new(), &[])
