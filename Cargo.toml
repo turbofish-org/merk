@@ -1,10 +1,10 @@
 [package]
 name = "merk"
-description = "Merkle key/value store"
+description = "High-performance Merkle key/value store"
 version = "2.0.0"
-authors = ["Matt Bell <mappum@gmail.com>"]
+authors = ["Turbofish <team@turbofish.org>"]
 edition = "2018"
-license = "MIT"
+license = "Apache-2.0"
 
 [dependencies]
 thiserror= "1.0.58"
@@ -40,5 +40,11 @@ optional = true
 
 [features]
 default = ["full", "verify"]
-full = ["rand", "rocksdb", "colored", "num_cpus", "ed"]
+full = [
+    "rand",
+    "rocksdb",
+    "colored",
+    "num_cpus",
+    "ed",
+]
 verify = ["ed"]
