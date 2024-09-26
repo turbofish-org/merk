@@ -1,6 +1,6 @@
 use super::super::{Link, Tree};
 use super::Fetch;
-use crate::error::Result;
+use crate::error::{Error::ModifiedLinkTraversal, Result};
 
 /// Allows read-only traversal of a `Tree`, fetching from the given source when
 /// traversing to a pruned node.
@@ -24,7 +24,6 @@ where
 {
     /// Creates a `RefWalker` with the given tree and source.
     pub fn new(tree: &'a mut Tree, source: S) -> Self {
-        // TODO: check if tree has modified links, panic if so
         RefWalker { tree, source }
     }
 
@@ -43,12 +42,10 @@ where
         };
 
         match link {
-            Link::Reference { .. } => {
-                self.tree.load(left, &self.source)?;
-            }
-            Link::Modified { .. } => panic!("Cannot traverse Link::Modified"),
-            Link::Uncommitted { .. } | Link::Loaded { .. } => {}
-        }
+            Link::Reference { .. } => self.tree.load(left, &self.source),
+            Link::Modified { .. } => Err(ModifiedLinkTraversal),
+            Link::Uncommitted { .. } | Link::Loaded { .. } => Ok(()),
+        }?;
 
         let child = self.tree.child_mut(left).unwrap();
         Ok(Some(RefWalker::new(child, self.source.clone())))
