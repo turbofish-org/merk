@@ -268,12 +268,11 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
 
 #[cfg(test)]
 mod tests {
-    use std::usize;
-
     use super::super::tree::Tree;
     use super::*;
     use crate::test_utils::*;
     use crate::tree::{NoopCommit, PanicSource, Tree as BaseTree};
+    use ed::Encode;
 
     #[derive(Default)]
     struct NodeCounts {
@@ -466,5 +465,21 @@ mod tests {
         assert_eq!(counts.kv, 15);
         assert_eq!(counts.hash, 0);
         assert_eq!(counts.kvhash, 0);
+    }
+
+    #[test]
+    fn test_verify_height_stack_overflow() {
+        let height = 5_000u32;
+        let push_op = |i: u32| Op::Push(Node::KV(i.to_be_bytes().to_vec(), vec![]));
+        let mut ops = Vec::with_capacity((height * 2) as usize);
+        ops.push(push_op(0));
+        for i in 1..height {
+            ops.push(push_op(i));
+            ops.push(Op::Parent)
+        }
+        assert!(ops.encoding_length().unwrap() < 50_000);
+        println!("Len: {}", ops.encoding_length().unwrap());
+        let (_, result_height) = verify_trunk(ops.into_iter().map(Ok)).unwrap();
+        assert_eq!(height, result_height as u32);
     }
 }
