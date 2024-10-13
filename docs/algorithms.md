@@ -29,7 +29,7 @@ node_hash = H(kv_hash, left_child_hash, right_child_hash)
 
 Note that the `left_child_hash` and/or `right_child_hash` values may be null since it is possible for the node to have no children or only one child.
 
-In our implementation, the hash function used is Blake2b (chosen for its performance characteristics) but this choice is trivially swappable.
+In our implementation, the hash function used is SHA512/256 (SHA512 with output truncated to 256 bits) but this choice is trivially swappable.
 
 #### Database Representation
 
