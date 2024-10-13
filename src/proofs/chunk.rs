@@ -197,17 +197,20 @@ pub(crate) fn verify_leaf<I: Iterator<Item = Result<Op>>>(
 #[cfg(feature = "full")]
 pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(ProofTree, usize)> {
     fn verify_height_proof(tree: &ProofTree) -> Result<usize> {
-        Ok(match tree.child(true) {
-            Some(child) => {
-                if let Node::Hash(_) = child.tree.node {
-                    return Err(Error::UnexpectedNode(
-                        "Expected height proof to only contain KV and KVHash nodes".into(),
-                    ));
-                }
-                verify_height_proof(&child.tree)? + 1
+        let mut height = 1;
+        let mut cursor = tree;
+        while let Some(child) = cursor.child(true) {
+            if let Node::Hash(_) = child.tree.node {
+                return Err(Error::UnexpectedNode(
+                    "Expected height proof to only contain KV and KVHash
+        nodes"
+                        .into(),
+                ));
             }
-            None => 1,
-        })
+            height += 1;
+            cursor = &child.tree;
+        }
+        Ok(height)
     }
 
     fn verify_completeness(tree: &ProofTree, remaining_depth: usize, leftmost: bool) -> Result<()> {
@@ -253,6 +256,11 @@ pub(crate) fn verify_trunk<I: Iterator<Item = Result<Op>>>(ops: I) -> Result<(Pr
     })?;
 
     let height = verify_height_proof(&tree)?;
+    if height > 64 {
+        // This is a sanity check to prevent stack overflows in `verify_completeness`,
+        // but any tree above 64 is probably an error (~3.7e19 nodes).
+        return Err(Error::Tree("Tree is too large".into()));
+    }
     let trunk_height = height / 2;
 
     if trunk_height < MIN_TRUNK_HEIGHT {
