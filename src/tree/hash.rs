@@ -14,9 +14,6 @@ pub const NULL_HASH: Hash = [0; HASH_LENGTH];
 pub type Hash = [u8; HASH_LENGTH];
 
 /// Hashes a key/value pair.
-///
-/// **NOTE:** This will fail if the key is longer than 255 bytes, or the value
-/// is longer than 65,535 bytes.
 pub fn kv_hash<D: Digest>(key: &[u8], value: &[u8]) -> Result<Hash, TryFromIntError> {
     let mut hasher = D::new();
     hasher.update([0]);
