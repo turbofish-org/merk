@@ -116,8 +116,8 @@ impl Tree {
         }
     }
 
-    /// Attaches the child to the `Tree`'s given side. Panics if there is
-    /// already a child attached to this side.
+    /// Attaches the child to the `Tree`'s given side. Returns an error if
+    /// there is already a child attached to this side.
     pub(crate) fn attach(&mut self, left: bool, child: Tree) -> Result<()> {
         if self.child(left).is_some() {
             return Err(Error::Attach(
