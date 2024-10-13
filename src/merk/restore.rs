@@ -173,8 +173,11 @@ impl Restorer {
             0
         };
 
-        // FIXME: this one shouldn't be an assert because it comes from a peer
-        assert_eq!(self.stated_length, chunks_remaining + 1);
+        if self.stated_length != chunks_remaining + 1 {
+            return Err(Error::ChunkProcessing(
+                "Stated length does not match calculated number of chunks".into(),
+            ));
+        }
 
         // note that these writes don't happen atomically, which is fine here
         // because if anything fails during the restore process we will just
