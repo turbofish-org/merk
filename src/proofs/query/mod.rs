@@ -474,6 +474,7 @@ mod test {
     use super::*;
     use crate::test_utils::make_tree_seq;
     use crate::tree::{NoopCommit, PanicSource, RefWalker, Tree};
+    use ed::Encode;
 
     fn make_3_node_tree() -> Result<Tree> {
         let mut tree = Tree::new(vec![5], vec![5])?
@@ -1476,5 +1477,19 @@ mod test {
         }
 
         let _result = verify_query(bytes.as_slice(), &query, [42; 32]).expect("verify failed");
+    }
+
+    #[test]
+    #[should_panic(expected = "Tried to attach to Hash node")]
+    fn hash_attach() {
+        let mut target = make_3_node_tree().expect("tree construction failed");
+
+        let mut proof = Vec::new();
+        proof.push(Op::Push(Node::KV(vec![42], vec![42])));
+        proof.push(Op::Push(Node::Hash(target.hash())));
+        proof.push(Op::Parent);
+
+        let map = verify(&proof.encode().unwrap(), target.hash()).unwrap();
+        assert_eq!(map.get(&[42]).unwrap().unwrap(), &[42])
     }
 }
