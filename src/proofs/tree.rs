@@ -125,6 +125,10 @@ impl Tree {
             ));
         }
 
+        if let Node::Hash(_) = self.node {
+            return Err(Error::Attach("Tried to attach to Hash node".into()));
+        }
+
         self.height = self.height.max(child.height + 1);
 
         let hash = child.hash()?;
