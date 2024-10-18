@@ -476,6 +476,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Tree is too large")]
     fn test_verify_height_stack_overflow() {
         let height = 5_000u32;
         let push_op = |i: u32| Op::Push(Node::KV(i.to_be_bytes().to_vec(), vec![]));
