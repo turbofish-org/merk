@@ -350,6 +350,16 @@ pub fn verify(bytes: &[u8], expected_hash: Hash) -> Result<Map> {
     Ok(map_builder.build())
 }
 
+pub fn execute_proof(bytes: &[u8]) -> Result<(Hash,Map)> {
+    let ops = Decoder::new(bytes);
+    let mut map_builder = MapBuilder::new();
+
+    let root = execute(ops, true, |node| map_builder.insert(node))?;
+
+    Ok((root.hash(), map_builder.build()))
+}
+
+
 /// Verifies the encoded proof with the given query and expected hash.
 ///
 /// Every key in `keys` is checked to either have a key/value pair in the proof,
