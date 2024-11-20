@@ -30,6 +30,12 @@ pub enum Error {
     KeyNotFound(String),
     #[error("Proof is missing data for query")]
     MissingData,
+    #[error("Expected link")]
+    MissingLink,
+    #[error("Expected Some(Link::Reference)")]
+    MissingLinkReference,
+    #[error("Cannot traverse Link::Modified")]
+    ModifiedLinkTraversal,
     #[error("Path Error: {0}")]
     Path(String),
     #[error("Proof Error: {0}")]
