@@ -1,7 +1,7 @@
 //! Provides `Restorer`, which can create a replica of a Merk instance by
 //! receiving chunk proofs.
 
-use super::Merk;
+use super::{Merk, FORMAT_VERSION};
 use crate::{
     merk::MerkSource,
     proofs::{
@@ -184,6 +184,7 @@ impl Restorer {
         // scrap the whole restore and start over
         self.write_chunk(trunk)?;
         self.merk.set_root_key(root_key)?;
+        self.merk.set_format_version(FORMAT_VERSION)?;
 
         Ok(chunks_remaining)
     }

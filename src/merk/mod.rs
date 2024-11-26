@@ -466,6 +466,13 @@ impl Merk {
         self.write(batch)
     }
 
+    pub(crate) fn set_format_version(&mut self, version: u64) -> Result<()> {
+        let internal_cf = self.db.cf_handle(INTERNAL_CF_NAME).unwrap();
+        let mut batch = WriteBatch::default();
+        batch.put_cf(internal_cf, FORMAT_VERSION_KEY, version.to_be_bytes());
+        self.write(batch)
+    }
+
     pub(crate) fn fetch_node(&self, key: &[u8]) -> Result<Option<Tree>> {
         self.source().fetch_by_key(key)
     }
