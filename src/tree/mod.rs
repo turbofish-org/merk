@@ -38,7 +38,7 @@ pub struct TreeInner {
 /// Trees' inner fields are stored on the heap so that nodes can recursively
 /// link to each other, and so we can detach nodes from their parents, then
 /// reattach without allocating or freeing heap memory.
-#[derive(Clone, PartialEq, Eq, Encode, Decode)]
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct Tree {
     inner: Box<TreeInner>,
 }
